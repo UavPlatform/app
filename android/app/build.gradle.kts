@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.fuwaki.app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -38,6 +38,10 @@ kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
+}
+
+dependencies {
+    implementation("com.amap.api:location:6.1.0")
 }
 
 flutter {
