@@ -15,7 +15,6 @@ class JwtDecoder {
     }
   }
 
-  /// 后端 claims: { "userId": Long, "username": String, "role": Integer }
   static String? getUserId(Map<String, dynamic> claims) {
     final v = claims['userId'];
     if (v == null) return null;
@@ -24,5 +23,9 @@ class JwtDecoder {
 
   static String? getUserName(Map<String, dynamic> claims) {
     return claims['username']?.toString();
+  }
+
+  static int getRole(Map<String, dynamic> claims) {
+    return (claims['role'] as num?)?.toInt() ?? 0;
   }
 }

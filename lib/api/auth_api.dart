@@ -1,9 +1,9 @@
 import 'http_client.dart';
-import '../../models/auth/login_request.dart';
-import '../../models/auth/login_response.dart';
-import '../../models/auth/register_request.dart';
-import '../../models/auth/register_response.dart';
-import '../../models/result_model.dart';
+import '../models/login_request.dart';
+import '../models/login_response.dart';
+import '../models/register_request.dart';
+import '../models/register_response.dart';
+import '../models/result_model.dart';
 
 class AuthApi {
   final HttpClient _client;

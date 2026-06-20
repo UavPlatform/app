@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class AmapLocationResult {
@@ -51,7 +52,8 @@ class LocationService {
       if (map['errorCode'] != null) return null;
 
       return AmapLocationResult.fromMap(map);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('LocationService: 定位失败 - $e');
       return null;
     }
   }

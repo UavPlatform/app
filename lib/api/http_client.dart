@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import '../../config/api_config.dart';
-import '../../services/token_storage.dart';
+import '../config/api_config.dart';
+import '../services/token_storage.dart';
 
 class HttpClient {
   final TokenStorage _tokenStorage;
@@ -9,20 +9,40 @@ class HttpClient {
 
   Future<String?>? _refreshFuture;
 
+  /// 无人机未绑定时回调
+  static void Function()? onDroneRequired;
+
   HttpClient(this._tokenStorage) {
     dio = Dio(BaseOptions(
-      baseUrl: ApiConfig.baseUrl,
+      baseUrl: _tokenStorage.getServerUrl() ?? '',
       connectTimeout: ApiConfig.connectTimeout,
       receiveTimeout: ApiConfig.receiveTimeout,
       headers: {'Content-Type': 'application/json'},
     ));
 
     dio.interceptors.add(_authInterceptor());
+    dio.interceptors.add(_droneCheckInterceptor());
     dio.interceptors.add(_refreshInterceptor());
     dio.interceptors.add(LogInterceptor(
       requestBody: true,
       responseBody: true,
     ));
+  }
+
+  void updateBaseUrl(String url) {
+    dio.options.baseUrl = url;
+  }
+
+  InterceptorsWrapper _droneCheckInterceptor() {
+    return InterceptorsWrapper(
+      onError: (error, handler) {
+        final msg = error.response?.data?.toString() ?? '';
+        if (msg.contains('请先绑定至少一台无人机')) {
+          onDroneRequired?.call();
+        }
+        handler.next(error);
+      },
+    );
   }
 
   InterceptorsWrapper _authInterceptor() {
@@ -37,6 +57,8 @@ class HttpClient {
     );
   }
 
+  static const _retryKey = '_tokenRetried';
+
   InterceptorsWrapper _refreshInterceptor() {
     return InterceptorsWrapper(
       onError: (error, handler) async {
@@ -44,21 +66,28 @@ class HttpClient {
           return handler.next(error);
         }
 
-        _refreshFuture ??= _refreshAccessToken();
-        final newToken = await _refreshFuture;
-        _refreshFuture = null;
-
-        if (newToken == null) {
+        if (error.requestOptions.extra[_retryKey] == true) {
           return handler.next(error);
         }
 
-        final opts = error.requestOptions;
-        opts.headers['Authorization'] = 'Bearer $newToken';
+        _refreshFuture ??= _refreshAccessToken();
         try {
-          final retryResponse = await dio.fetch(opts);
-          handler.resolve(retryResponse);
-        } catch (e) {
-          handler.next(error);
+          final newToken = await _refreshFuture;
+          if (newToken == null) {
+            return handler.next(error);
+          }
+
+          final opts = error.requestOptions;
+          opts.headers['Authorization'] = 'Bearer $newToken';
+          opts.extra[_retryKey] = true;
+          try {
+            final retryResponse = await dio.fetch(opts);
+            handler.resolve(retryResponse);
+          } catch (e) {
+            handler.next(error);
+          }
+        } finally {
+          _refreshFuture = null;
         }
       },
     );
@@ -70,7 +99,7 @@ class HttpClient {
 
     try {
       final response = await Dio(BaseOptions(
-        baseUrl: ApiConfig.baseUrl,
+        baseUrl: _tokenStorage.getServerUrl() ?? '',
         connectTimeout: ApiConfig.connectTimeout,
         receiveTimeout: ApiConfig.receiveTimeout,
       )).post(

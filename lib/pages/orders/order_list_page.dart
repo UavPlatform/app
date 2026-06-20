@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
-import '../../services/mock_data_service.dart';
-import '../../models/order_model.dart';
+import '../../models/task_vo.dart';
+import '../../providers/task_provider.dart';
 
-class OrderListPage extends StatefulWidget {
+class OrderListPage extends ConsumerStatefulWidget {
   const OrderListPage({super.key});
 
   @override
-  State<OrderListPage> createState() => _OrderListPageState();
+  ConsumerState<OrderListPage> createState() => _OrderListPageState();
 }
 
-class _OrderListPageState extends State<OrderListPage> with SingleTickerProviderStateMixin {
+class _OrderListPageState extends ConsumerState<OrderListPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final List<String> _tabs = ['全部', '待接单', '进行中', '已完成'];
-  final List<OrderStatus?> _statusFilters = [null, OrderStatus.pending, OrderStatus.inProgress, OrderStatus.completed];
+  final _tabs = ['全部', '空闲中', '执行中', '已完成'];
+  final _statusFilters = [null, 'IDLE', 'IN_PROGRESS', 'COMPLETED'];
 
   @override
   void initState() {
@@ -30,74 +32,55 @@ class _OrderListPageState extends State<OrderListPage> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    final allOrders = MockDataService.orders;
+    final state = ref.watch(taskListProvider);
+    final tasks = state.tasks;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('我的订单'),
+        title: const Text('我的任务'),
         bottom: TabBar(
           controller: _tabController,
-          tabs: _tabs.map((tab) => Tab(text: tab)).toList(),
+          tabs: _tabs.map((t) => Tab(text: t)).toList(),
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.onSurfaceVariant,
           indicatorColor: AppColors.primary,
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: _statusFilters.map((status) {
-          final filteredOrders = status == null
-              ? allOrders
-              : allOrders.where((o) => o.status == status).toList();
-
-          if (filteredOrders.isEmpty) {
-            return _buildEmptyState();
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: filteredOrders.length,
-            itemBuilder: (context, index) {
-              return _buildOrderCard(context, filteredOrders[index]);
-            },
-          );
-        }).toList(),
+      floatingActionButton: FloatingActionButton.small(
+        onPressed: () => ref.read(taskListProvider.notifier).loadTasks(),
+        child: const Icon(Icons.refresh),
       ),
+      body: state.loading
+          ? const Center(child: CircularProgressIndicator())
+          : TabBarView(
+              controller: _tabController,
+              children: _statusFilters.map((status) {
+                final filtered = status == null
+                    ? tasks
+                    : tasks.where((t) => t.taskStatus == status).toList();
+                if (filtered.isEmpty) return _buildEmpty();
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filtered.length,
+                  itemBuilder: (_, i) => _buildCard(context, filtered[i]),
+                );
+              }).toList(),
+            ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmpty() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            size: 80,
-            color: AppColors.outline.withOpacity(0.5),
-          ),
+          Icon(Icons.receipt_long_outlined, size: 80,
+              color: AppColors.outline.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
-          const Text(
-            '暂无相关订单',
-            style: TextStyle(
-              fontSize: 16,
-              color: AppColors.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '快去发布您的第一个任务吧',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.outline,
-            ),
-          ),
+          const Text('暂无任务', style: TextStyle(fontSize: 16, color: AppColors.onSurfaceVariant)),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () => context.push('/publish'),
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(200, 48),
-            ),
             child: const Text('去发布任务'),
           ),
         ],
@@ -105,11 +88,11 @@ class _OrderListPageState extends State<OrderListPage> with SingleTickerProvider
     );
   }
 
-  Widget _buildOrderCard(BuildContext context, Order order) {
+  Widget _buildCard(BuildContext context, TaskVo task) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        onTap: () => context.push('/order/${order.id}'),
+        onTap: () => context.push('/order/${task.taskNum}'),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -118,71 +101,109 @@ class _OrderListPageState extends State<OrderListPage> with SingleTickerProvider
             children: [
               Row(
                 children: [
-                  _buildStatusTag(order.status),
+                  _statusTag(task.taskStatus),
                   const Spacer(),
-                  Text(
-                    order.serviceTypeName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
+                  Text(task.taskType == 'AERIAL_PHOTO' ? '航拍' : task.taskType,
+                      style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant)),
                 ],
               ),
               const SizedBox(height: 12),
-              Text(
-                order.title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+              Text(task.taskName,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              if (task.riderName != null && task.riderName!.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.person, size: 14, color: AppColors.primary),
+                    const SizedBox(width: 4),
+                    Text('飞手: ${task.riderName!}',
+                        style: const TextStyle(fontSize: 13, color: AppColors.primary)),
+                  ],
                 ),
-              ),
+              ],
+              if (task.description != null) ...[
+                const SizedBox(height: 8),
+                Text(task.description!, maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant)),
+              ],
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Icon(Icons.location_on, size: 16, color: AppColors.onSurfaceVariant),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      order.location,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
               Row(
                 children: [
                   const Icon(Icons.access_time, size: 16, color: AppColors.onSurfaceVariant),
                   const SizedBox(width: 4),
-                  Text(
-                    '${order.taskDate.month}-${order.taskDate.day} ${order.taskDate.hour}:${order.taskDate.minute.toString().padLeft(2, '0')}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
+                  Text(task.createTime ?? '',
+                      style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant)),
+                  const Spacer(),
+                  if (task.totalAmount != null)
+                    Text('¥${task.totalAmount!.toStringAsFixed(0)}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary)),
                 ],
               ),
               const Divider(height: 24),
               Row(
                 children: [
-                  Text(
-                    order.priceText,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
+                  if (task.taskStatus == 'IDLE')
+                    TextButton.icon(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('确认删除'),
+                            content: const Text('删除后无法恢复'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+                              TextButton(
+                                onPressed: () => Navigator.of(ctx).pop(true),
+                                child: const Text('删除', style: TextStyle(color: AppColors.error)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true && context.mounted) {
+                          final ok = await ref.read(taskListProvider.notifier).deleteTask(task.id);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(ok ? '已删除' : '删除失败')),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                      label: const Text('删除', style: TextStyle(color: AppColors.error)),
                     ),
-                  ),
+                  if (task.isWaitingConfirm)
+                    TextButton.icon(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('确认完成'),
+                            content: Text('确认「${task.taskName}」已经完成了吗？'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+                              FilledButton(
+                                onPressed: () => Navigator.of(ctx).pop(true),
+                                style: FilledButton.styleFrom(backgroundColor: AppColors.success),
+                                child: const Text('确认完成'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true && context.mounted) {
+                          final ok = await ref.read(taskListProvider.notifier).confirmTask(task.taskNum);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(ok ? '确认完成成功' : '确认失败')),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.check_circle_outline, size: 18, color: AppColors.success),
+                      label: const Text('确认完成', style: TextStyle(color: AppColors.success)),
+                    ),
                   const Spacer(),
                   TextButton(
-                    onPressed: () => context.push('/order/${order.id}'),
+                    onPressed: () => context.push('/order/${task.taskNum}'),
                     child: const Text('查看详情'),
                   ),
                 ],
@@ -194,47 +215,26 @@ class _OrderListPageState extends State<OrderListPage> with SingleTickerProvider
     );
   }
 
-  Widget _buildStatusTag(OrderStatus status) {
-    Color bgColor;
-    Color textColor;
-    String text;
+  Widget _statusTag(String status) {
+    Color bg, text;
+    String label;
     switch (status) {
-      case OrderStatus.pending:
-        bgColor = AppColors.statusPending;
-        textColor = AppColors.statusPendingText;
-        text = '待接单';
+      case 'IDLE':
+        bg = AppColors.statusPending; text = AppColors.statusPendingText; label = '空闲中';
         break;
-      case OrderStatus.inProgress:
-        bgColor = AppColors.statusInProgress;
-        textColor = AppColors.statusInProgressText;
-        text = '进行中';
+      case 'IN_PROGRESS':
+        bg = AppColors.statusInProgress; text = AppColors.statusInProgressText; label = '执行中';
         break;
-      case OrderStatus.reviewing:
-        bgColor = AppColors.statusInProgress;
-        textColor = AppColors.statusInProgressText;
-        text = '待验收';
+      case 'COMPLETED':
+        bg = AppColors.statusCompleted; text = AppColors.statusCompletedText; label = '已完成';
         break;
-      case OrderStatus.completed:
-        bgColor = AppColors.statusCompleted;
-        textColor = AppColors.statusCompletedText;
-        text = '已完成';
-        break;
-      case OrderStatus.cancelled:
-        bgColor = AppColors.statusCancelled;
-        textColor = AppColors.statusCancelledText;
-        text = '已取消';
-        break;
+      default:
+        bg = AppColors.statusCancelled; text = AppColors.statusCancelledText; label = status;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 12, color: textColor),
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+      child: Text(label, style: TextStyle(fontSize: 12, color: text)),
     );
   }
 }

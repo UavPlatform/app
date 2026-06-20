@@ -1,4 +1,4 @@
-import '../result_model.dart';
+import 'result_model.dart';
 
 class RegisterResponse {
   final int id;

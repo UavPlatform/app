@@ -1,4 +1,4 @@
-import '../result_model.dart';
+import 'result_model.dart';
 
 class LoginResponse {
   final String token;

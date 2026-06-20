@@ -1,45 +1,157 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../services/mock_data_service.dart';
 import '../../models/service_type_model.dart';
+import '../../models/create_task_request.dart';
+import '../../providers/task_provider.dart';
+import '../../providers/location_provider.dart';
 
-class PublishPage extends StatefulWidget {
+class PublishPage extends ConsumerStatefulWidget {
   const PublishPage({super.key});
 
   @override
-  State<PublishPage> createState() => _PublishPageState();
+  ConsumerState<PublishPage> createState() => _PublishPageState();
 }
 
-class _PublishPageState extends State<PublishPage> {
+class _PublishPageState extends ConsumerState<PublishPage> {
   int _currentStep = 0;
   ServiceType? _selectedService;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   final _locationController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _budgetMinController = TextEditingController();
-  final _budgetMaxController = TextEditingController();
+  final _priceController = TextEditingController();
+  double? _pickedLat;
+  double? _pickedLng;
+  String? _waypointsStr;
+  bool _submitting = false;
 
   @override
   void dispose() {
     _locationController.dispose();
     _descriptionController.dispose();
-    _budgetMinController.dispose();
-    _budgetMaxController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
   void _nextStep() {
+    // 步骤0→1：必须选服务类型
     if (_currentStep == 0 && _selectedService == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请选择服务类型')),
-      );
+      _showError('请选择服务类型');
+      return;
+    }
+    // 步骤1→2：必填项校验
+    if (_currentStep == 1) {
+      if (_waypointsStr == null || _waypointsStr!.isEmpty) {
+        _showError('请点击地图选择航点');
+        return;
+      }
+      if (_selectedDate == null || _selectedTime == null) {
+        _showError('请选择任务时间');
+        return;
+      }
+      if (_descriptionController.text.isEmpty) {
+        _showError('请输入任务描述');
+        return;
+      }
+      if (_priceController.text.isEmpty) {
+        _showError('请输入酬劳金额');
+        return;
+      }
+    }
+    // 步骤2→3：提交
+    if (_currentStep == 2) {
+      _submitTask();
       return;
     }
     if (_currentStep < 3) {
       setState(() => _currentStep++);
     }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _submitTask() async {
+    if (_priceController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入酬劳金额')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+
+    final request = CreateTaskRequest(
+      taskName: _selectedService!.name,
+      type: _serviceIdToTaskType(_selectedService!.id),
+      description: _descriptionController.text.isNotEmpty
+          ? _descriptionController.text
+          : _selectedService!.description,
+      waypoints: _buildWaypoints(),
+      reward: double.tryParse(_priceController.text),
+      taskTime: _selectedDate != null && _selectedTime != null
+          ? '${_selectedDate!.toIso8601String().split('T')[0]} ${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}:00'
+          : null,
+    );
+
+    final success = await ref.read(taskProvider.notifier).createTask(request);
+
+    if (!mounted) return;
+    setState(() => _submitting = false);
+
+    if (success) {
+      setState(() => _currentStep = 3);
+    } else {
+      final error = ref.read(taskProvider).error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error ?? '创建失败')),
+      );
+    }
+  }
+
+  String _serviceIdToTaskType(String id) {
+    switch (id) {
+      case 'aerial_photo':
+        return 'AERIAL_PHOTO';
+      case 'survey':
+        return 'SURVEY';
+      case 'logistics':
+        return 'TRANSPORT';
+      case 'monitoring':
+        return 'MONITORING';
+      default:
+        return 'AERIAL_PHOTO';
+    }
+  }
+
+  List<WaypointRequest> _buildWaypoints() {
+    if (_waypointsStr != null) {
+      final parts = _waypointsStr!.split(';');
+      return List.generate(parts.length, (i) {
+        final coords = parts[i].split(',');
+        return WaypointRequest(
+          orderIndex: i,
+          longitude: double.tryParse(coords[1]) ?? 112.9193,
+          latitude: double.tryParse(coords[0]) ?? 27.8981,
+          altitude: 100,
+        );
+      });
+    }
+    // 兜底：用定位坐标
+    final loc = ref.read(locationProvider);
+    return [
+      WaypointRequest(
+        orderIndex: 0,
+        longitude: loc.longitude ?? 112.9193,
+        latitude: loc.latitude ?? 27.8981,
+        altitude: 100,
+      ),
+    ];
   }
 
   void _prevStep() {
@@ -62,10 +174,7 @@ class _PublishPageState extends State<PublishPage> {
       ),
       body: Column(
         children: [
-          // 步骤指示器
           _buildStepIndicator(),
-
-          // 内容区
           Expanded(
             child: IndexedStack(
               index: _currentStep,
@@ -77,15 +186,38 @@ class _PublishPageState extends State<PublishPage> {
               ],
             ),
           ),
-
-          // 底部按钮
           if (_currentStep < 3)
             Padding(
               padding: const EdgeInsets.all(16),
-              child: ElevatedButton(
-                onPressed: _nextStep,
-                child: Text(_currentStep == 2 ? '提交任务' : '下一步'),
-              ),
+              child: _currentStep == 2
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _prevStep,
+                            child: const Text('上一步'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            onPressed: _submitting ? null : _nextStep,
+                            child: _submitting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Text('提交任务'),
+                          ),
+                        ),
+                      ],
+                    )
+                  : ElevatedButton(
+                      onPressed: _nextStep,
+                      child: const Text('下一步'),
+                    ),
             ),
         ],
       ),
@@ -111,7 +243,6 @@ class _PublishPageState extends State<PublishPage> {
 
   Widget _buildStepDot(int step, String label) {
     final isActive = _currentStep >= step;
-    final isCurrent = _currentStep == step;
     return Column(
       children: [
         Container(
@@ -120,9 +251,6 @@ class _PublishPageState extends State<PublishPage> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: isActive ? AppColors.primary : AppColors.outline,
-            border: isCurrent
-                ? Border.all(color: AppColors.primary, width: 2)
-                : null,
           ),
           child: isActive
               ? const Icon(Icons.check, size: 14, color: Colors.white)
@@ -149,7 +277,6 @@ class _PublishPageState extends State<PublishPage> {
     );
   }
 
-  // 步骤1：选择服务类型
   Widget _buildStep1() {
     final serviceTypes = MockDataService.serviceTypes;
     return ListView(
@@ -170,9 +297,7 @@ class _PublishPageState extends State<PublishPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        onTap: () {
-          setState(() => _selectedService = type);
-        },
+        onTap: () => setState(() => _selectedService = type),
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -204,21 +329,9 @@ class _PublishPageState extends State<PublishPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      type.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    Text(type.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                     const SizedBox(height: 4),
-                    Text(
-                      type.description,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
+                    Text(type.description, style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant)),
                   ],
                 ),
               ),
@@ -231,18 +344,12 @@ class _PublishPageState extends State<PublishPage> {
     );
   }
 
-  // 步骤2：填写详情
   Widget _buildStep2() {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          '填写任务详情',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        const Text('填写任务详情', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 24),
-
-        // 服务类型（只读）
         if (_selectedService != null) ...[
           const Text('服务类型', style: TextStyle(fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
@@ -262,8 +369,6 @@ class _PublishPageState extends State<PublishPage> {
           ),
           const SizedBox(height: 20),
         ],
-
-        // 任务时间
         const Text('任务时间 *', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         Row(
@@ -277,9 +382,7 @@ class _PublishPageState extends State<PublishPage> {
                     firstDate: DateTime.now(),
                     lastDate: DateTime.now().add(const Duration(days: 90)),
                   );
-                  if (date != null) {
-                    setState(() => _selectedDate = date);
-                  }
+                  if (date != null) setState(() => _selectedDate = date);
                 },
                 child: Container(
                   padding: const EdgeInsets.all(14),
@@ -291,11 +394,9 @@ class _PublishPageState extends State<PublishPage> {
                     children: [
                       const Icon(Icons.calendar_today, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        _selectedDate != null
-                            ? '${_selectedDate!.month}-${_selectedDate!.day}'
-                            : '请选择日期',
-                      ),
+                      Text(_selectedDate != null
+                          ? '${_selectedDate!.month}-${_selectedDate!.day}'
+                          : '请选择日期'),
                     ],
                   ),
                 ),
@@ -309,9 +410,7 @@ class _PublishPageState extends State<PublishPage> {
                     context: context,
                     initialTime: TimeOfDay.now(),
                   );
-                  if (time != null) {
-                    setState(() => _selectedTime = time);
-                  }
+                  if (time != null) setState(() => _selectedTime = time);
                 },
                 child: Container(
                   padding: const EdgeInsets.all(14),
@@ -323,11 +422,9 @@ class _PublishPageState extends State<PublishPage> {
                     children: [
                       const Icon(Icons.access_time, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        _selectedTime != null
-                            ? '${_selectedTime!.hour}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
-                            : '请选择时间',
-                      ),
+                      Text(_selectedTime != null
+                          ? '${_selectedTime!.hour}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
+                          : '请选择时间'),
                     ],
                   ),
                 ),
@@ -336,105 +433,82 @@ class _PublishPageState extends State<PublishPage> {
           ],
         ),
         const SizedBox(height: 20),
-
-        // 任务地点
-        const Text('任务地点 *', style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('航点设置 *', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
-        TextField(
-          controller: _locationController,
-          decoration: const InputDecoration(
-            hintText: '请选择地点',
-            prefixIcon: Icon(Icons.location_on),
+        InkWell(
+          onTap: () async {
+            final result = await context.push<String>('/publish/map');
+            if (result != null && mounted) {
+              setState(() => _waypointsStr = result);
+              final parts = result.split(';');
+              if (parts.isNotEmpty) {
+                final first = parts.first.split(',');
+                if (first.length == 2) {
+                  _pickedLat = double.tryParse(first[0]);
+                  _pickedLng = double.tryParse(first[1]);
+                }
+              }
+            }
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.outline),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.map_outlined, color: AppColors.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _waypointsStr != null
+                        ? '已选 ${_waypointsStr!.split(";").length} 个航点'
+                        : '点击打开地图选择航点',
+                    style: TextStyle(
+                      color: _waypointsStr != null
+                          ? AppColors.onSurface
+                          : AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: AppColors.outline),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 20),
-
-        // 任务描述
         const Text('任务描述 *', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         TextField(
           controller: _descriptionController,
           maxLines: 4,
           maxLength: 500,
-          decoration: const InputDecoration(
-            hintText: '请详细描述您的需求...',
-          ),
+          decoration: const InputDecoration(hintText: '请详细描述您的需求...'),
         ),
         const SizedBox(height: 20),
-
-        // 预算范围
-        const Text('预算范围（选填）', style: TextStyle(fontWeight: FontWeight.w500)),
+        const Text('酬劳 *', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _budgetMinController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  hintText: '最低 ¥',
-                  prefixText: '¥ ',
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text('~'),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _budgetMaxController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  hintText: '最高 ¥',
-                  prefixText: '¥ ',
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        // 快捷预算标签
-        Wrap(
-          spacing: 8,
-          children: [
-            _buildBudgetChip('¥200以下'),
-            _buildBudgetChip('¥200-500'),
-            _buildBudgetChip('¥500-1000'),
-            _buildBudgetChip('¥1000以上'),
-          ],
+        TextField(
+          controller: _priceController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(hintText: '请输入金额', prefixText: '¥ '),
         ),
       ],
     );
   }
 
-  Widget _buildBudgetChip(String label) {
-    return ActionChip(
-      label: Text(label),
-      onPressed: () {
-        // 解析并填入预算
-        final text = label.replaceAll('¥', '').replaceAll('以下', '').replaceAll('以上', '');
-        if (text.contains('-')) {
-          final parts = text.split('-');
-          _budgetMinController.text = parts[0];
-          _budgetMaxController.text = parts[1];
-        }
-      },
-    );
-  }
-
-  // 步骤3：确认信息
   Widget _buildStep3() {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          '确认订单信息',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
+        const Text('确认订单信息', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 24),
-
-        // 订单信息卡片
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -444,43 +518,17 @@ class _PublishPageState extends State<PublishPage> {
           child: Column(
             children: [
               _buildConfirmRow('服务类型', _selectedService?.name ?? ''),
-              _buildConfirmRow(
-                '任务时间',
-                _selectedDate != null
-                    ? '${_selectedDate!.month}-${_selectedDate!.day} ${_selectedTime?.hour}:${_selectedTime?.minute.toString().padLeft(2, '0')}'
-                    : '',
-              ),
-              _buildConfirmRow('任务地点', _locationController.text),
+              _buildConfirmRow('任务时间', _selectedDate != null
+                  ? '${_selectedDate!.month}-${_selectedDate!.day} ${_selectedTime?.hour}:${_selectedTime?.minute.toString().padLeft(2, '0')}'
+                  : ''),
+              _buildConfirmRow('航点数量',
+                _waypointsStr != null ? '${_waypointsStr!.split(";").length}个' : '1个'),
               _buildConfirmRow('任务描述', _descriptionController.text),
-              _buildConfirmRow(
-                '预算范围',
-                _budgetMinController.text.isNotEmpty
-                    ? '¥${_budgetMinController.text}-${_budgetMaxController.text}'
-                    : '面议',
-              ),
+              _buildConfirmRow('酬劳', '¥${_priceController.text}'),
             ],
           ),
         ),
         const SizedBox(height: 20),
-
-        // 服务条款
-        Row(
-          children: [
-            Checkbox(
-              value: true,
-              onChanged: (value) {},
-              activeColor: AppColors.primary,
-            ),
-            const Text('同意'),
-            GestureDetector(
-              onTap: () {},
-              child: const Text(
-                '《服务条款》',
-                style: TextStyle(color: AppColors.primary),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -493,26 +541,14 @@ class _PublishPageState extends State<PublishPage> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.onSurfaceVariant,
-              ),
-            ),
+            child: Text(label, style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant)),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
         ],
       ),
     );
   }
 
-  // 步骤4：提交成功
   Widget _buildStep4() {
     return Center(
       child: Column(
@@ -521,36 +557,13 @@ class _PublishPageState extends State<PublishPage> {
           Container(
             width: 80,
             height: 80,
-            decoration: const BoxDecoration(
-              color: AppColors.success,
-              shape: BoxShape.circle,
-            ),
+            decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle),
             child: const Icon(Icons.check, size: 48, color: Colors.white),
           ),
           const SizedBox(height: 24),
-          const Text(
-            '任务发布成功！',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          const Text('任务发布成功！', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          const Text(
-            '请等待飞手接单',
-            style: TextStyle(
-              fontSize: 16,
-              color: AppColors.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '预计15分钟内会有飞手响应',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.outline,
-            ),
-          ),
+          const Text('请等待飞手接单', style: TextStyle(fontSize: 16, color: AppColors.onSurfaceVariant)),
           const SizedBox(height: 40),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 48),
@@ -564,20 +577,6 @@ class _PublishPageState extends State<PublishPage> {
                 OutlinedButton(
                   onPressed: () => context.go('/home'),
                   child: const Text('返回首页'),
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () {
-                    setState(() => _currentStep = 0);
-                    _selectedService = null;
-                    _selectedDate = null;
-                    _selectedTime = null;
-                    _locationController.clear();
-                    _descriptionController.clear();
-                    _budgetMinController.clear();
-                    _budgetMaxController.clear();
-                  },
-                  child: const Text('继续发布任务'),
                 ),
               ],
             ),
