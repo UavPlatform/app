@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
-import '../../services/mock_data_service.dart';
+import '../../providers/auth_provider.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final user = MockDataService.currentUser;
-    final orders = MockDataService.orders;
-    final pendingCount = orders.where((o) => o.status.name == 'pending').length;
-    final inProgressCount = orders.where((o) => o.status.name == 'inProgress').length;
-    final reviewingCount = orders.where((o) => o.status.name == 'reviewing').length;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final user = authState.user;
+    final userName = user?.userName ?? '用户';
+    final userId = user?.userId ?? '暂无';
+    final userInitial = userName.isNotEmpty ? userName[0].toUpperCase() : 'U';
 
     return Scaffold(
       body: ListView(
@@ -29,41 +30,21 @@ class ProfilePage extends StatelessWidget {
             ),
             child: Column(
               children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 36,
-                      backgroundColor: Colors.white,
-                      child: Text(
-                        user.nickname[0],
-                        style: const TextStyle(
-                          fontSize: 28,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: Colors.white,
+                  child: Text(
+                    userInitial,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
                     ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.edit,
-                          size: 14,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  user.nickname,
+                  userName,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -72,20 +53,10 @@ class ProfilePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  user.phone,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white70,
-                  ),
+                  'ID: $userId',
+                  style: const TextStyle(fontSize: 14, color: Colors.white70),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildStatItem('${orders.length}', '订单'),
-                    _buildStatItem('2', '评价'),
-                  ],
-                ),
               ],
             ),
           ),
@@ -103,38 +74,20 @@ class ProfilePage extends StatelessWidget {
               children: [
                 const Text(
                   '我的订单',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     _buildOrderQuickEntry(
-                      context,
-                      icon: Icons.payment,
-                      label: '待付款',
-                      count: 0,
+                      context, icon: Icons.pending_actions, label: '待接单', count: 0,
                     ),
                     _buildOrderQuickEntry(
-                      context,
-                      icon: Icons.pending_actions,
-                      label: '待接单',
-                      count: pendingCount,
+                      context, icon: Icons.directions_run, label: '进行中', count: 0,
                     ),
                     _buildOrderQuickEntry(
-                      context,
-                      icon: Icons.directions_run,
-                      label: '进行中',
-                      count: inProgressCount,
-                    ),
-                    _buildOrderQuickEntry(
-                      context,
-                      icon: Icons.check_circle_outline,
-                      label: '已完成',
-                      count: reviewingCount,
+                      context, icon: Icons.check_circle_outline, label: '已完成', count: 0,
                     ),
                   ],
                 ),
@@ -156,7 +109,12 @@ class ProfilePage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextButton(
-              onPressed: () => context.go('/login'),
+              onPressed: () async {
+                await ref.read(authProvider.notifier).logout();
+                if (context.mounted) {
+                  context.go('/login');
+                }
+              },
               child: const Text(
                 '退出登录',
                 style: TextStyle(color: AppColors.error),
@@ -166,29 +124,6 @@ class ProfilePage extends StatelessWidget {
           const SizedBox(height: 32),
         ],
       ),
-    );
-  }
-
-  Widget _buildStatItem(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.white70,
-          ),
-        ),
-      ],
     );
   }
 
@@ -203,10 +138,7 @@ class ProfilePage extends StatelessWidget {
             child: Icon(icon, size: 28, color: AppColors.primary),
           ),
           const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12),
-          ),
+          Text(label, style: const TextStyle(fontSize: 12)),
         ],
       ),
     );

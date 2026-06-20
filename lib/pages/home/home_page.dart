@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../services/mock_data_service.dart';
 import '../../models/order_model.dart';
+import '../../providers/location_provider.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final location = ref.watch(locationProvider);
     final serviceTypes = MockDataService.serviceTypes;
     final pilots = MockDataService.pilots;
     final orders = MockDataService.orders;
@@ -18,13 +21,20 @@ class HomePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            const Icon(Icons.location_on, color: AppColors.primary, size: 20),
-            const SizedBox(width: 4),
-            const Text('北京市', style: TextStyle(fontSize: 16)),
-            const Icon(Icons.arrow_drop_down, size: 20),
-          ],
+        title: GestureDetector(
+          onTap: () => ref.read(locationProvider.notifier).refresh(),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.location_on, color: AppColors.primary, size: 20),
+              const SizedBox(width: 4),
+              Text(
+                location.loading ? '定位中...' : location.city,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const Icon(Icons.arrow_drop_down, size: 20),
+            ],
+          ),
         ),
         actions: [
           IconButton(
@@ -333,7 +343,7 @@ class HomePage extends StatelessWidget {
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 4,
-                  children: pilot.serviceTypes.take(2).map((type) => Container(
+                  children: pilot.serviceTypes.take(2).map<Widget>((type) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.primaryLight,
