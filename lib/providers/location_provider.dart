@@ -1,22 +1,32 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/location_service.dart';
-import '../api/task/task_api.dart';
-import 'auth_provider.dart';
-
-final taskApiProvider = Provider<TaskApi>(
-  (ref) => TaskApi(ref.watch(httpClientProvider)),
-);
+import '../api/task_api.dart';
+import 'task_provider.dart';
 
 class LocationState {
   final String city;
   final bool loading;
+  final double? latitude;
+  final double? longitude;
 
-  const LocationState({this.city = '定位中...', this.loading = true});
+  const LocationState({
+    this.city = '定位中...',
+    this.loading = true,
+    this.latitude,
+    this.longitude,
+  });
 
-  LocationState copyWith({String? city, bool? loading}) {
+  LocationState copyWith({
+    String? city,
+    bool? loading,
+    double? latitude,
+    double? longitude,
+  }) {
     return LocationState(
       city: city ?? this.city,
       loading: loading ?? this.loading,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 }
@@ -55,6 +65,8 @@ class LocationNotifier extends StateNotifier<LocationState> {
     state = state.copyWith(
       city: result?.displayCity ?? '未知城市',
       loading: false,
+      latitude: result?.latitude,
+      longitude: result?.longitude,
     );
     _running = false;
   }

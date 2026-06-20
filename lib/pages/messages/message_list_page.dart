@@ -1,147 +1,92 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
-import '../../services/mock_data_service.dart';
-import '../../models/message_model.dart';
+import '../../providers/chat_provider.dart';
 
-class MessageListPage extends StatelessWidget {
+class MessageListPage extends ConsumerWidget {
   const MessageListPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final messages = MockDataService.messages;
-    final systemMessages = messages.where((m) => m.type == MessageType.system).toList();
-    final chatMessages = messages.where((m) => m.type == MessageType.chat).toList();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(sessionListProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('消息中心'),
+      appBar: AppBar(title: const Text('消息')),
+      floatingActionButton: FloatingActionButton.small(
+        onPressed: () => ref.read(sessionListProvider.notifier).load(),
+        child: const Icon(Icons.refresh),
       ),
-      body: ListView(
-        children: [
-          // 系统通知入口
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: _buildQuickEntry(
-              icon: Icons.notifications_outlined,
-              label: '系统通知',
-              count: systemMessages.where((m) => !m.isRead).length,
+      body: state.loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              children: [
+                _buildSystemNotice(context),
+                if (state.sessions.isEmpty)
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.5,
+                    child: const Center(
+                      child: Text('暂无会话',
+                          style: TextStyle(color: AppColors.onSurfaceVariant)),
+                    ),
+                  )
+                else
+                  ...state.sessions.map((s) {
+                    final title = s.otherUserName ?? s.name;
+                    return Column(
+                      children: [
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: AppColors.primaryLight,
+                            child: Text(title[0].toUpperCase(),
+                                style: const TextStyle(color: AppColors.primary)),
+                          ),
+                          title: Text(title,
+                              style: const TextStyle(fontWeight: FontWeight.w500)),
+                          subtitle: Text(
+                            s.lastMessage ?? s.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 13, color: AppColors.onSurfaceVariant),
+                          ),
+                          trailing: const Icon(Icons.chevron_right,
+                              color: AppColors.outline),
+                          onTap: () => context.push(
+                              '/chat/${s.id}?name=${Uri.encodeComponent(title)}'),
+                        ),
+                        const Divider(height: 1, indent: 72),
+                      ],
+                    );
+                  }),
+              ],
             ),
-          ),
-          const Divider(),
-
-          // 消息列表
-          ...messages.map((message) => _buildMessageTile(context, message)),
-        ],
-      ),
     );
   }
 
-  Widget _buildQuickEntry({required IconData icon, required String label, required int count}) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.primaryLight,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Badge(
-              isLabelVisible: count > 0,
-              label: Text('$count', style: const TextStyle(fontSize: 10)),
-              child: Icon(icon, size: 32, color: AppColors.primary),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMessageTile(BuildContext context, Message message) {
+  Widget _buildSystemNotice(BuildContext context) {
     return Column(
       children: [
         ListTile(
-          leading: CircleAvatar(
-            backgroundColor: message.type == MessageType.system
-                ? AppColors.primaryLight
-                : AppColors.surfaceVariant,
-            child: Icon(
-              message.type == MessageType.system
-                  ? Icons.notifications
-                  : Icons.person,
-              color: message.type == MessageType.system
-                  ? AppColors.primary
-                  : AppColors.onSurfaceVariant,
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.statusPending.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(20),
             ),
+            child: const Icon(Icons.campaign_outlined,
+                color: AppColors.warning, size: 22),
           ),
-          title: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  message.senderName,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: message.isRead ? FontWeight.normal : FontWeight.bold,
-                  ),
-                ),
-              ),
-              Text(
-                _formatTime(message.createdAt),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              message.content,
-              style: TextStyle(
-                fontSize: 14,
-                color: message.isRead
-                    ? AppColors.onSurfaceVariant
-                    : AppColors.onSurface,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          trailing: !message.isRead
-              ? Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: AppColors.error,
-                    shape: BoxShape.circle,
-                  ),
-                )
-              : null,
+          title: const Text('系统通知',
+              style: TextStyle(fontWeight: FontWeight.w500)),
+          subtitle: const Text('查看系统消息和订单动态',
+              style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant)),
+          trailing: const Icon(Icons.chevron_right, color: AppColors.outline),
           onTap: () {},
         ),
-        const Divider(height: 1, indent: 72),
+        const Divider(height: 1, indent: 16),
       ],
     );
-  }
-
-  String _formatTime(DateTime time) {
-    final now = DateTime.now();
-    final diff = now.difference(time);
-
-    if (diff.inMinutes < 60) {
-      return '${diff.inMinutes}分钟前';
-    } else if (diff.inHours < 24) {
-      return '${diff.inHours}小时前';
-    } else if (diff.inDays < 7) {
-      return '${diff.inDays}天前';
-    } else {
-      return '${time.month}-${time.day}';
-    }
   }
 }
