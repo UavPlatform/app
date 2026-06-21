@@ -13,24 +13,23 @@ class HttpClient {
   static void Function()? onDroneRequired;
 
   HttpClient(this._tokenStorage) {
-    dio = Dio(BaseOptions(
-      baseUrl: _tokenStorage.getServerUrl() ?? '',
-      connectTimeout: ApiConfig.connectTimeout,
-      receiveTimeout: ApiConfig.receiveTimeout,
-      headers: {'Content-Type': 'application/json'},
-    ));
+    dio = Dio(
+      BaseOptions(
+        baseUrl: _tokenStorage.getServerUrl() ?? '',
+        connectTimeout: ApiConfig.connectTimeout,
+        receiveTimeout: ApiConfig.receiveTimeout,
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
 
     dio.interceptors.add(_authInterceptor());
     dio.interceptors.add(_droneCheckInterceptor());
     dio.interceptors.add(_refreshInterceptor());
-    dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-    ));
+    dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
   }
 
   void updateBaseUrl(String url) {
-    dio.options.baseUrl = url;
+    dio.options.baseUrl = TokenStorage.normalizeHttpServerUrl(url) ?? '';
   }
 
   InterceptorsWrapper _droneCheckInterceptor() {
@@ -98,14 +97,17 @@ class HttpClient {
     if (refreshToken == null) return null;
 
     try {
-      final response = await Dio(BaseOptions(
-        baseUrl: _tokenStorage.getServerUrl() ?? '',
-        connectTimeout: ApiConfig.connectTimeout,
-        receiveTimeout: ApiConfig.receiveTimeout,
-      )).post(
-        '/user/refresh',
-        options: Options(headers: {'Refresh-Token': refreshToken}),
-      );
+      final response =
+          await Dio(
+            BaseOptions(
+              baseUrl: _tokenStorage.getServerUrl() ?? '',
+              connectTimeout: ApiConfig.connectTimeout,
+              receiveTimeout: ApiConfig.receiveTimeout,
+            ),
+          ).post(
+            '/user/refresh',
+            options: Options(headers: {'Refresh-Token': refreshToken}),
+          );
 
       final data = response.data;
       if (data['success'] == true && data['data'] != null) {

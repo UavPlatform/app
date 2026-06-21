@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
-import '../../api/http_client.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/token_storage.dart';
 
@@ -24,7 +23,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _serverController.text = ref.read(tokenStorageProvider).getServerUrl() ?? '';
+    _serverController.text =
+        TokenStorage.normalizeHttpServerUrl(
+          ref.read(tokenStorageProvider).getServerUrl(),
+        ) ??
+        '';
   }
 
   @override
@@ -37,24 +40,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _login() async {
     if (_userNameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入用户名')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入用户名')));
       return;
     }
     if (_passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入密码')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入密码')));
       return;
     }
 
     setState(() => _loading = true);
 
-    await ref.read(authProvider.notifier).login(
-          _userNameController.text,
-          _passwordController.text,
-        );
+    await ref
+        .read(authProvider.notifier)
+        .login(_userNameController.text, _passwordController.text);
 
     if (!mounted) return;
     setState(() => _loading = false);
@@ -64,9 +66,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       final isPilot = authState.user?.isPilot ?? false;
       context.go(isPilot ? '/pilot/tasks' : '/home');
     } else if (authState.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(authState.error!)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(authState.error!)));
     }
   }
 
@@ -105,7 +107,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               const SizedBox(height: 8),
               const Text(
                 '无人机飞手接单平台',
-                style: TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 40),
               TextField(
@@ -144,11 +149,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   children: [
                     Icon(
                       _showServer ? Icons.expand_less : Icons.expand_more,
-                      size: 16, color: AppColors.onSurfaceVariant,
+                      size: 16,
+                      color: AppColors.onSurfaceVariant,
                     ),
                     const SizedBox(width: 4),
-                    const Text('服务器设置',
-                        style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                    const Text(
+                      '服务器设置',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -162,7 +173,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     prefixIcon: Icon(Icons.dns_outlined, size: 20),
                   ),
                   onChanged: (v) {
-                    final url = v.trim();
+                    final url = TokenStorage.normalizeHttpServerUrl(v) ?? '';
                     ref.read(tokenStorageProvider).saveServerUrl(url);
                     ref.read(httpClientProvider).updateBaseUrl(url);
                   },
@@ -189,7 +200,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 children: [
                   const Text(
                     '还没有账号？',
-                    style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.onSurfaceVariant,
+                    ),
                   ),
                   GestureDetector(
                     onTap: () => context.push('/register'),

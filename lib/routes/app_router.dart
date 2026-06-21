@@ -78,7 +78,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/chat/:sessionId',
         builder: (context, state) => ChatDetailPage(
           sessionId: int.parse(state.pathParameters['sessionId']!),
-          sessionName: state.uri.queryParameters['name'],
+          sessionName: state.uri.queryParameters['otherUserName'] ??
+              state.uri.queryParameters['name'],
         ),
       ),
       GoRoute(

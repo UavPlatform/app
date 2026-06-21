@@ -9,10 +9,28 @@ class TokenStorage {
 
   TokenStorage(this._prefs);
 
-  String? getServerUrl() => _prefs.getString(_serverUrlKey);
+  String? getServerUrl() {
+    final url = _prefs.getString(_serverUrlKey);
+    return normalizeHttpServerUrl(url);
+  }
 
   Future<void> saveServerUrl(String url) =>
-      _prefs.setString(_serverUrlKey, url);
+      _prefs.setString(_serverUrlKey, normalizeHttpServerUrl(url) ?? '');
+
+  static String? normalizeHttpServerUrl(String? url) {
+    final trimmed = url?.trim();
+    if (trimmed == null || trimmed.isEmpty) return trimmed;
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return trimmed;
+
+    if (uri.scheme == 'ws' || uri.scheme == 'wss') {
+      return uri
+          .replace(scheme: uri.scheme == 'wss' ? 'https' : 'http')
+          .toString();
+    }
+    return trimmed;
+  }
 
   Future<void> saveTokens({
     required String token,

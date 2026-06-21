@@ -123,6 +123,7 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
 
   Widget _buildCard(BuildContext context, TaskVo task) {
     final isActive = task.isInProgress;
+    final creatingSession = ref.watch(sessionListProvider).creatingSession;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -198,9 +199,15 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => _onChat(context, task),
-                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                  label: const Text('联系用户'),
+                  onPressed: creatingSession ? null : () => _onChat(context, task),
+                  icon: creatingSession
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.chat_bubble_outline, size: 18),
+                  label: Text(creatingSession ? '正在连接' : '联系用户'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: const BorderSide(color: AppColors.primary),
@@ -290,28 +297,22 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
   }
 
   Future<void> _onChat(BuildContext context, TaskVo task) async {
-    try {
-      final result = await ref.read(chatApiProvider).createSession(
-        name: '${task.taskTypeName} - ${task.taskName}',
-        type: 0,
-        userIds: [task.userId],
+    final fallbackName = '${task.taskTypeName} - ${task.taskName}';
+    final session = await ref.read(sessionListProvider.notifier).createDirectSession(
+          name: fallbackName,
+          userId: task.userId,
+        );
+    if (!context.mounted) return;
+
+    if (session == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ref.read(sessionListProvider).error ?? '创建会话失败')),
       );
-      if (result.success && result.data != null && context.mounted) {
-        ref.read(sessionListProvider.notifier).load();
-        final chatName = result.data!.otherUserName ?? '${task.taskTypeName} - ${task.taskName}';
-        context.push('/chat/${result.data!.id}?name=${Uri.encodeComponent(chatName)}');
-      } else if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message ?? '创建会话失败')),
-        );
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('创建会话失败')),
-        );
-      }
+      return;
     }
+
+    final chatName = session.otherUserName ?? fallbackName;
+    context.push('/chat/${session.id}?otherUserName=${Uri.encodeComponent(chatName)}');
   }
 
   Future<void> _onComplete(BuildContext context, TaskVo task) async {

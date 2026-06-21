@@ -1,5 +1,6 @@
 class MessageVo {
   final String msgId;
+  final int sessionId;
   final int msgType;
   final int fromUserId;
   final int? toUserId;
@@ -9,6 +10,7 @@ class MessageVo {
 
   MessageVo({
     required this.msgId,
+    required this.sessionId,
     required this.msgType,
     required this.fromUserId,
     this.toUserId,
@@ -21,6 +23,7 @@ class MessageVo {
     final payload = json['payload'] as Map<String, dynamic>?;
     return MessageVo(
       msgId: json['msgId'] as String? ?? '',
+      sessionId: (json['sessionId'] as num?)?.toInt() ?? 0,
       msgType: _parseMsgType(json['msgType']),
       fromUserId: (json['fromUserId'] as num?)?.toInt() ?? 0,
       toUserId: (json['toUserId'] as num?)?.toInt(),
