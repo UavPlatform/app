@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
-import '../../services/mock_data_service.dart';
 import '../../models/service_type_model.dart';
 import '../../models/create_task_request.dart';
 import '../../providers/task_provider.dart';
@@ -277,8 +276,15 @@ class _PublishPageState extends ConsumerState<PublishPage> {
     );
   }
 
+  // 服务类型本地常量，对应后端 TaskType 枚举
+  static final _serviceTypes = [
+    ServiceType(id: 'aerial_photo', name: '航拍摄影', icon: Icons.videocam, description: '活动跟拍/婚礼航拍/宣传片'),
+    ServiceType(id: 'survey', name: '测绘建模', icon: Icons.map, description: '地形测绘/3D建模'),
+    ServiceType(id: 'logistics', name: '物流吊运', icon: Icons.local_shipping, description: '物资吊运/设备转运'),
+    ServiceType(id: 'monitoring', name: '环境监测', icon: Icons.eco, description: '空气质量/水质监测'),
+  ];
+
   Widget _buildStep1() {
-    final serviceTypes = MockDataService.serviceTypes;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -287,7 +293,7 @@ class _PublishPageState extends ConsumerState<PublishPage> {
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 24),
-        ...serviceTypes.map((type) => _buildServiceTypeCard(type)),
+        ..._serviceTypes.map((type) => _buildServiceTypeCard(type)),
       ],
     );
   }

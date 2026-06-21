@@ -1,6 +1,7 @@
 import 'http_client.dart';
 import '../models/result_model.dart';
 import '../models/task_vo.dart';
+import '../models/rider_stats_vo.dart';
 
 class RiderApi {
   final HttpClient _client;
@@ -65,5 +66,32 @@ class RiderApi {
       code: data['code'] as int?,
       message: data['message'] as String?,
     );
+  }
+
+  /// 飞手统计
+  Future<Result<RiderStatsVo>> getRiderStats() async {
+    final response = await _client.dio.get('/rider/stats');
+    final data = response.data as Map<String, dynamic>;
+    if (data['success'] == true && data['data'] != null) {
+      return Result(
+        success: true,
+        code: 200,
+        data: RiderStatsVo.fromJson(data['data'] as Map<String, dynamic>),
+      );
+    }
+    return Result(success: false, code: data['code'], message: data['message'] as String?);
+  }
+
+  /// 推荐飞手列表
+  Future<Result<List<RiderStatsVo>>> getRecommendedRiders() async {
+    final response = await _client.dio.get('/rider/recommended');
+    final data = response.data as Map<String, dynamic>;
+    if (data['success'] == true) {
+      final list = (data['data'] as List<dynamic>)
+          .map((e) => RiderStatsVo.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return Result(success: true, code: 200, data: list);
+    }
+    return Result(success: false, code: data['code'], message: data['message'] as String?);
   }
 }

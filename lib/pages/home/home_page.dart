@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
-import '../../services/mock_data_service.dart';
 import '../../models/task_vo.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/task_provider.dart';
+import '../../providers/rider_provider.dart';
+import '../../providers/chat_provider.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -13,10 +14,10 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = ref.watch(locationProvider);
-    final serviceTypes = MockDataService.serviceTypes;
-    final pilots = MockDataService.pilots;
     final taskState = ref.watch(taskListProvider);
     final tasks = taskState.tasks;
+    final recommendedRiders = ref.watch(recommendedRidersProvider);
+    final unreadCount = ref.watch(totalUnreadCountProvider);
 
     final inProgressTasks = tasks.where((t) => t.isInProgress).toList();
     final idleTasks = tasks.where((t) => t.isIdle).toList();
@@ -45,8 +46,19 @@ class HomePage extends ConsumerWidget {
           ),
           IconButton(
             icon: Badge(
-              isLabelVisible: true,
-              label: const Text('3', style: TextStyle(fontSize: 10)),
+              isLabelVisible: unreadCount.when(
+                data: (count) => count > 0,
+                loading: () => false,
+                error: (_, __) => false,
+              ),
+              label: Text(
+                unreadCount.when(
+                  data: (count) => count > 99 ? '99+' : '$count',
+                  loading: () => '',
+                  error: (_, __) => '',
+                ),
+                style: const TextStyle(fontSize: 10),
+              ),
               child: const Icon(Icons.notifications_outlined),
             ),
             onPressed: () {},
@@ -58,7 +70,7 @@ class HomePage extends ConsumerWidget {
         children: [
           _buildSectionTitle('服务分类', null),
           const SizedBox(height: 12),
-          _buildServiceGrid(context, serviceTypes),
+          _buildServiceGrid(context),
           const SizedBox(height: 24),
 
           _buildSectionTitle('进行中的任务', '查看全部'),
@@ -71,7 +83,17 @@ class HomePage extends ConsumerWidget {
 
           _buildSectionTitle('热门飞手推荐', '更多'),
           const SizedBox(height: 12),
-          _buildPilotList(pilots),
+          if (recommendedRiders.loading)
+            const SizedBox(
+              height: 180,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (recommendedRiders.error != null)
+            _buildEmptyCard('加载推荐飞手失败')
+          else if (recommendedRiders.riders.isEmpty)
+            _buildEmptyCard('暂无推荐飞手')
+          else
+            _buildPilotList(recommendedRiders.riders),
           const SizedBox(height: 24),
 
           _buildSectionTitle('最新任务广场', null),
@@ -101,7 +123,15 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildServiceGrid(BuildContext context, List serviceTypes) {
+  Widget _buildServiceGrid(BuildContext context) {
+    // 服务类型为本地常量，对应后端 TaskType 枚举
+    const serviceTypes = [
+      _ServiceItem(Icons.videocam, '航拍摄影'),
+      _ServiceItem(Icons.map, '测绘建模'),
+      _ServiceItem(Icons.local_shipping, '物流吊运'),
+      _ServiceItem(Icons.eco, '环境监测'),
+    ];
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -127,7 +157,7 @@ class HomePage extends ConsumerWidget {
                 child: Icon(type.icon, color: AppColors.primary, size: 28),
               ),
               const SizedBox(height: 8),
-              Text(type.name, style: const TextStyle(fontSize: 12), textAlign: TextAlign.center),
+              Text(type.label, style: const TextStyle(fontSize: 12), textAlign: TextAlign.center),
             ],
           ),
         );
@@ -244,15 +274,16 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildPilotList(List pilots) {
+  Widget _buildPilotList(List riders) {
     return SizedBox(
       height: 180,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: pilots.length,
+        itemCount: riders.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
-          final pilot = pilots[index];
+          final rider = riders[index];
+          final name = rider.riderName ?? '飞手';
           return Container(
             width: 140,
             decoration: BoxDecoration(
@@ -268,32 +299,24 @@ class HomePage extends ConsumerWidget {
                 CircleAvatar(
                   radius: 32,
                   backgroundColor: AppColors.primaryLight,
-                  child: Text(pilot.nickname[0],
+                  child: Text(name[0],
                       style: const TextStyle(fontSize: 24, color: AppColors.primary, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 8),
-                Text(pilot.nickname, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 4),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.star, size: 14, color: Colors.amber),
+                    const Icon(Icons.check_circle, size: 14, color: AppColors.primary),
                     const SizedBox(width: 2),
-                    Text('${pilot.rating}', style: const TextStyle(fontSize: 12)),
-                    const SizedBox(width: 4),
-                    Text('${pilot.completedOrders}单',
+                    Text('${rider.totalCompleted}单',
                         style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 4,
-                  children: pilot.serviceTypes.take(2).map<Widget>((type) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(4)),
-                    child: Text(type, style: const TextStyle(fontSize: 10, color: AppColors.primary)),
-                  )).toList(),
-                ),
+                const SizedBox(height: 4),
+                Text('今日接单 ${rider.todayOrders}',
+                    style: const TextStyle(fontSize: 10, color: AppColors.onSurfaceVariant)),
               ],
             ),
           );
@@ -347,4 +370,11 @@ class HomePage extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// 服务分类本地常量
+class _ServiceItem {
+  final IconData icon;
+  final String label;
+  const _ServiceItem(this.icon, this.label);
 }

@@ -58,16 +58,26 @@ class ChatApi {
   }
 
   Future<Result<void>> sendMessage({
-    required int fromUserId,
     required int sessionId,
     required String content,
   }) async {
     final response = await _client.dio.post('/chat/Message/send', data: {
-      'fromUserId': fromUserId,
       'sessionId': sessionId,
       'content': content,
     });
     final data = response.data as Map<String, dynamic>;
     return Result(success: data['success'] == true, code: data['code'], message: data['message'] as String?);
+  }
+
+  /// 获取每个会话的未读消息数
+  Future<Result<Map<int, int>>> getUnreadCount() async {
+    final response = await _client.dio.get('/chat/Message/unread/count');
+    final data = response.data as Map<String, dynamic>;
+    if (data['success'] == true && data['data'] != null) {
+      final raw = data['data'] as Map<String, dynamic>;
+      final map = raw.map((k, v) => MapEntry(int.parse(k), (v as num).toInt()));
+      return Result(success: true, code: 200, data: map);
+    }
+    return Result(success: false, code: data['code'], message: data['message'] as String?);
   }
 }

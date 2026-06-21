@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/rider_api.dart';
 import '../models/task_vo.dart';
+import '../models/rider_stats_vo.dart';
 import 'auth_provider.dart';
 
 final riderApiProvider = Provider<RiderApi>(
@@ -267,3 +268,97 @@ TaskVo? riderTaskLookup(WidgetRef ref, String taskNum) {
   }
   return null;
 }
+
+// ============================================================
+// 飞手统计（当前骑手）
+// ============================================================
+
+class RiderStatsState {
+  final RiderStatsVo? stats;
+  final bool loading;
+  final String? error;
+
+  const RiderStatsState({this.stats, this.loading = true, this.error});
+
+  RiderStatsState copyWith({RiderStatsVo? stats, bool? loading, String? error}) {
+    return RiderStatsState(
+      stats: stats ?? this.stats,
+      loading: loading ?? this.loading,
+      error: error,
+    );
+  }
+}
+
+class RiderStatsNotifier extends StateNotifier<RiderStatsState> {
+  final RiderApi _api;
+
+  RiderStatsNotifier(this._api) : super(const RiderStatsState()) {
+    load();
+  }
+
+  Future<void> load() async {
+    state = state.copyWith(loading: true, error: null);
+    try {
+      final result = await _api.getRiderStats();
+      if (result.success && result.data != null) {
+        state = state.copyWith(loading: false, stats: result.data);
+      } else {
+        state = state.copyWith(loading: false, error: result.message ?? '加载失败');
+      }
+    } catch (_) {
+      state = state.copyWith(loading: false, error: '加载失败');
+    }
+  }
+}
+
+final riderStatsProvider =
+    StateNotifierProvider<RiderStatsNotifier, RiderStatsState>(
+  (ref) => RiderStatsNotifier(ref.watch(riderApiProvider)),
+);
+
+// ============================================================
+// 推荐飞手列表（首页用）
+// ============================================================
+
+class RecommendedRidersState {
+  final List<RiderStatsVo> riders;
+  final bool loading;
+  final String? error;
+
+  const RecommendedRidersState({this.riders = const [], this.loading = true, this.error});
+
+  RecommendedRidersState copyWith({List<RiderStatsVo>? riders, bool? loading, String? error}) {
+    return RecommendedRidersState(
+      riders: riders ?? this.riders,
+      loading: loading ?? this.loading,
+      error: error,
+    );
+  }
+}
+
+class RecommendedRidersNotifier extends StateNotifier<RecommendedRidersState> {
+  final RiderApi _api;
+
+  RecommendedRidersNotifier(this._api) : super(const RecommendedRidersState()) {
+    load();
+  }
+
+  Future<void> load() async {
+    state = state.copyWith(loading: true, error: null);
+    try {
+      final result = await _api.getRecommendedRiders();
+      if (result.success && result.data != null) {
+        state = state.copyWith(loading: false, riders: result.data!);
+      } else {
+        state = state.copyWith(loading: false, error: result.message ?? '加载失败');
+      }
+    } catch (_) {
+      state = state.copyWith(loading: false, error: '加载失败');
+    }
+  }
+}
+
+final recommendedRidersProvider =
+    StateNotifierProvider<RecommendedRidersNotifier, RecommendedRidersState>(
+  (ref) => RecommendedRidersNotifier(ref.watch(riderApiProvider)),
+);
