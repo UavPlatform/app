@@ -21,8 +21,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ),
     _OnboardingData(
       icon: Icons.people,
-      title: '专业飞手接单',
-      description: '认证飞手快速响应，专业技能保障服务质量',
+      title: '专业团队服务',
+      description: '认证服务商快速响应，专业技能保障服务质量',
     ),
     _OnboardingData(
       icon: Icons.location_on,

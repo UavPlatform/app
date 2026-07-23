@@ -36,4 +36,12 @@ class AppColors {
   static const Color statusCompletedText = Color(0xFF546E7A);
   static const Color statusCancelled = Color(0xFFFFEBEE);
   static const Color statusCancelledText = Color(0xFFC62828);
+
+  // 别名
+  static const Color textSecondary = onSurfaceVariant;
+  static const Color textHint = outline;
+  static const Color badge = error;
+  static const Color tagBlue = primary;
+  static const Color tagBlueBg = primaryLight;
+  static const Color danger = error;
 }
