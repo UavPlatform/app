@@ -3,16 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 class TokenStorage {
   static const _tokenKey = 'jwt_token';
   static const _refreshTokenKey = 'jwt_refresh_token';
-  static const _serverUrlKey = 'server_url';
 
   final SharedPreferences _prefs;
 
   TokenStorage(this._prefs);
-
-  String? getServerUrl() => _prefs.getString(_serverUrlKey);
-
-  Future<void> saveServerUrl(String url) =>
-      _prefs.setString(_serverUrlKey, url);
 
   Future<void> saveTokens({
     required String token,

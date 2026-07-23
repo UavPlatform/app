@@ -9,40 +9,20 @@ class HttpClient {
 
   Future<String?>? _refreshFuture;
 
-  /// 无人机未绑定时回调
-  static void Function()? onDroneRequired;
-
   HttpClient(this._tokenStorage) {
     dio = Dio(BaseOptions(
-      baseUrl: _tokenStorage.getServerUrl() ?? '',
+      baseUrl: ApiConfig.baseUrl,
       connectTimeout: ApiConfig.connectTimeout,
       receiveTimeout: ApiConfig.receiveTimeout,
       headers: {'Content-Type': 'application/json'},
     ));
 
     dio.interceptors.add(_authInterceptor());
-    dio.interceptors.add(_droneCheckInterceptor());
     dio.interceptors.add(_refreshInterceptor());
     dio.interceptors.add(LogInterceptor(
       requestBody: true,
       responseBody: true,
     ));
-  }
-
-  void updateBaseUrl(String url) {
-    dio.options.baseUrl = url;
-  }
-
-  InterceptorsWrapper _droneCheckInterceptor() {
-    return InterceptorsWrapper(
-      onError: (error, handler) {
-        final msg = error.response?.data?.toString() ?? '';
-        if (msg.contains('请先绑定至少一台无人机')) {
-          onDroneRequired?.call();
-        }
-        handler.next(error);
-      },
-    );
   }
 
   InterceptorsWrapper _authInterceptor() {
@@ -99,7 +79,7 @@ class HttpClient {
 
     try {
       final response = await Dio(BaseOptions(
-        baseUrl: _tokenStorage.getServerUrl() ?? '',
+        baseUrl: ApiConfig.baseUrl,
         connectTimeout: ApiConfig.connectTimeout,
         receiveTimeout: ApiConfig.receiveTimeout,
       )).post(

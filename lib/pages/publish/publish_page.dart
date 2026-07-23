@@ -8,6 +8,7 @@ import '../../models/service_type_model.dart';
 import '../../models/create_task_request.dart';
 import '../../providers/task_provider.dart';
 import '../../providers/location_provider.dart';
+import '../../widgets/time_picker.dart';
 
 class PublishPage extends ConsumerStatefulWidget {
   const PublishPage({super.key});
@@ -30,6 +31,15 @@ class _PublishPageState extends ConsumerState<PublishPage> {
   bool _submitting = false;
 
   @override
+  void initState() {
+    super.initState();
+    final types = MockDataService.serviceTypes;
+    if (types.isNotEmpty) {
+      _selectedService = types.first;
+    }
+  }
+
+  @override
   void dispose() {
     _locationController.dispose();
     _descriptionController.dispose();
@@ -38,13 +48,7 @@ class _PublishPageState extends ConsumerState<PublishPage> {
   }
 
   void _nextStep() {
-    // 步骤0→1：必须选服务类型
-    if (_currentStep == 0 && _selectedService == null) {
-      _showError('请选择服务类型');
-      return;
-    }
-    // 步骤1→2：必填项校验
-    if (_currentStep == 1) {
+    if (_currentStep == 0) {
       if (_waypointsStr == null || _waypointsStr!.isEmpty) {
         _showError('请点击地图选择航点');
         return;
@@ -62,12 +66,11 @@ class _PublishPageState extends ConsumerState<PublishPage> {
         return;
       }
     }
-    // 步骤2→3：提交
-    if (_currentStep == 2) {
+    if (_currentStep == 1) {
       _submitTask();
       return;
     }
-    if (_currentStep < 3) {
+    if (_currentStep < 2) {
       setState(() => _currentStep++);
     }
   }
@@ -86,12 +89,15 @@ class _PublishPageState extends ConsumerState<PublishPage> {
 
     setState(() => _submitting = true);
 
+    final serviceName = _selectedService?.name ?? '物流吊运';
+    final serviceDesc = _selectedService?.description ?? '物资吊运/设备转运';
+
     final request = CreateTaskRequest(
-      taskName: _selectedService!.name,
-      type: _serviceIdToTaskType(_selectedService!.id),
+      taskName: serviceName,
+      type: 'TRANSPORT',
       description: _descriptionController.text.isNotEmpty
           ? _descriptionController.text
-          : _selectedService!.description,
+          : serviceDesc,
       waypoints: _buildWaypoints(),
       reward: double.tryParse(_priceController.text),
       taskTime: _selectedDate != null && _selectedTime != null
@@ -105,27 +111,12 @@ class _PublishPageState extends ConsumerState<PublishPage> {
     setState(() => _submitting = false);
 
     if (success) {
-      setState(() => _currentStep = 3);
+      setState(() => _currentStep = 2);
     } else {
       final error = ref.read(taskProvider).error;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error ?? '创建失败')),
       );
-    }
-  }
-
-  String _serviceIdToTaskType(String id) {
-    switch (id) {
-      case 'aerial_photo':
-        return 'AERIAL_PHOTO';
-      case 'survey':
-        return 'SURVEY';
-      case 'logistics':
-        return 'TRANSPORT';
-      case 'monitoring':
-        return 'MONITORING';
-      default:
-        return 'AERIAL_PHOTO';
     }
   }
 
@@ -142,7 +133,6 @@ class _PublishPageState extends ConsumerState<PublishPage> {
         );
       });
     }
-    // 兜底：用定位坐标
     final loc = ref.read(locationProvider);
     return [
       WaypointRequest(
@@ -166,7 +156,7 @@ class _PublishPageState extends ConsumerState<PublishPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('发布任务'),
+        title: const Text('发布物流吊运任务'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: _prevStep,
@@ -179,17 +169,16 @@ class _PublishPageState extends ConsumerState<PublishPage> {
             child: IndexedStack(
               index: _currentStep,
               children: [
-                _buildStep1(),
-                _buildStep2(),
-                _buildStep3(),
-                _buildStep4(),
+                _buildStepDetail(),
+                _buildStepConfirm(),
+                _buildStepDone(),
               ],
             ),
           ),
-          if (_currentStep < 3)
+          if (_currentStep < 2)
             Padding(
               padding: const EdgeInsets.all(16),
-              child: _currentStep == 2
+              child: _currentStep == 1
                   ? Row(
                       children: [
                         Expanded(
@@ -225,18 +214,17 @@ class _PublishPageState extends ConsumerState<PublishPage> {
   }
 
   Widget _buildStepIndicator() {
+    const steps = ['任务详情', '确认信息', '发布完成'];
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
       child: Row(
-        children: [
-          _buildStepDot(0, '服务'),
-          _buildStepLine(0),
-          _buildStepDot(1, '详情'),
-          _buildStepLine(1),
-          _buildStepDot(2, '确认'),
-          _buildStepLine(2),
-          _buildStepDot(3, '完成'),
-        ],
+        children: List.generate(steps.length * 2 - 1, (i) {
+          if (i.isEven) {
+            final step = i ~/ 2;
+            return _buildStepDot(step, steps[step]);
+          }
+          return _buildStepLine(i ~/ 2);
+        }),
       ),
     );
   }
@@ -277,74 +265,7 @@ class _PublishPageState extends ConsumerState<PublishPage> {
     );
   }
 
-  Widget _buildStep1() {
-    final serviceTypes = MockDataService.serviceTypes;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text(
-          '选择您需要的服务类型',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 24),
-        ...serviceTypes.map((type) => _buildServiceTypeCard(type)),
-      ],
-    );
-  }
-
-  Widget _buildServiceTypeCard(ServiceType type) {
-    final isSelected = _selectedService?.id == type.id;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () => setState(() => _selectedService = type),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryLight : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected ? AppColors.primary : AppColors.outline,
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  type.icon,
-                  color: isSelected ? Colors.white : AppColors.primary,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(type.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 4),
-                    Text(type.description, style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              if (isSelected)
-                const Icon(Icons.check_circle, color: AppColors.primary),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStep2() {
+  Widget _buildStepDetail() {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -378,9 +299,16 @@ class _PublishPageState extends ConsumerState<PublishPage> {
                 onTap: () async {
                   final date = await showDatePicker(
                     context: context,
+                    locale: const Locale('zh'),
                     initialDate: DateTime.now().add(const Duration(days: 1)),
                     firstDate: DateTime.now(),
                     lastDate: DateTime.now().add(const Duration(days: 90)),
+                    builder: (context, child) => Theme(
+                      data: Theme.of(context).copyWith(
+                        dialogTheme: const DialogThemeData(insetPadding: EdgeInsets.symmetric(horizontal: 24)),
+                      ),
+                      child: SizedBox(height: 360, child: child),
+                    ),
                   );
                   if (date != null) setState(() => _selectedDate = date);
                 },
@@ -406,9 +334,9 @@ class _PublishPageState extends ConsumerState<PublishPage> {
             Expanded(
               child: InkWell(
                 onTap: () async {
-                  final time = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.now(),
+                  final time = await showScrollTimePicker(
+                    context,
+                    initial: _selectedTime ?? TimeOfDay.now(),
                   );
                   if (time != null) setState(() => _selectedTime = time);
                 },
@@ -503,7 +431,7 @@ class _PublishPageState extends ConsumerState<PublishPage> {
     );
   }
 
-  Widget _buildStep3() {
+  Widget _buildStepConfirm() {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -517,7 +445,7 @@ class _PublishPageState extends ConsumerState<PublishPage> {
           ),
           child: Column(
             children: [
-              _buildConfirmRow('服务类型', _selectedService?.name ?? ''),
+              _buildConfirmRow('服务类型', _selectedService?.name ?? '物流吊运'),
               _buildConfirmRow('任务时间', _selectedDate != null
                   ? '${_selectedDate!.month}-${_selectedDate!.day} ${_selectedTime?.hour}:${_selectedTime?.minute.toString().padLeft(2, '0')}'
                   : ''),
@@ -549,7 +477,7 @@ class _PublishPageState extends ConsumerState<PublishPage> {
     );
   }
 
-  Widget _buildStep4() {
+  Widget _buildStepDone() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

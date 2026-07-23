@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
-import '../../api/http_client.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/token_storage.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -16,22 +14,13 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _userNameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _serverController = TextEditingController();
   bool _obscurePassword = true;
   bool _loading = false;
-  bool _showServer = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _serverController.text = ref.read(tokenStorageProvider).getServerUrl() ?? '';
-  }
 
   @override
   void dispose() {
     _userNameController.dispose();
     _passwordController.dispose();
-    _serverController.dispose();
     super.dispose();
   }
 
@@ -104,7 +93,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
               const SizedBox(height: 8),
               const Text(
-                '无人机飞手接单平台',
+                '无人机派单平台',
                 style: TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
               ),
               const SizedBox(height: 40),
@@ -137,38 +126,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: () => setState(() => _showServer = !_showServer),
-                child: Row(
-                  children: [
-                    Icon(
-                      _showServer ? Icons.expand_less : Icons.expand_more,
-                      size: 16, color: AppColors.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    const Text('服务器设置',
-                        style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              if (_showServer) ...[
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _serverController,
-                  textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                    hintText: '请输入服务器地址，如 http://192.168.1.1:8080',
-                    prefixIcon: Icon(Icons.dns_outlined, size: 20),
-                  ),
-                  onChanged: (v) {
-                    final url = v.trim();
-                    ref.read(tokenStorageProvider).saveServerUrl(url);
-                    ref.read(httpClientProvider).updateBaseUrl(url);
-                  },
-                ),
-              ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -194,16 +152,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   GestureDetector(
                     onTap: () => context.push('/register'),
                     child: const Text(
-                      '用户注册',
+                      '立即注册',
                       style: TextStyle(fontSize: 13, color: AppColors.primary),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  GestureDetector(
-                    onTap: () => context.push('/rider/register'),
-                    child: const Text(
-                      '飞手注册',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF2E7D32)),
                     ),
                   ),
                 ],

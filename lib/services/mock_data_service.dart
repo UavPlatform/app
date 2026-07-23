@@ -5,6 +5,7 @@ import '../models/pilot_model.dart';
 import '../models/order_model.dart';
 import '../models/address_model.dart';
 import '../models/message_model.dart';
+import '../models/pilot_feed.dart';
 
 class MockDataService {
   // 当前用户
@@ -16,8 +17,7 @@ class MockDataService {
     createdAt: DateTime(2024, 1, 1),
   );
 
-  // 服务类型列表（4个）
-  static List<ServiceType> get serviceTypes => [
+  static final _allServiceTypes = [
     ServiceType(
       id: 'aerial_photo',
       name: '航拍摄影',
@@ -51,6 +51,9 @@ class MockDataService {
       priceUnit: '元/次',
     ),
   ];
+
+  static List<ServiceType> get serviceTypes =>
+      _allServiceTypes.where((t) => t.id == 'logistics').toList();
 
   // 飞手列表
   static List<PilotInfo> get pilots => [
@@ -273,6 +276,72 @@ class MockDataService {
       type: MessageType.system,
       isRead: true,
       createdAt: DateTime.now().subtract(const Duration(days: 1)),
+    ),
+  ];
+
+  // 飞手动态
+  static List<PilotFeed> get pilotFeeds => [
+    PilotFeed(
+      id: 'feed_001',
+      pilotId: 'pilot_001',
+      pilotName: '张师傅',
+      content: '今天湘潭天气绝了，湘江上空视角太震撼了！',
+      images: ['drone_1'],
+      likeCount: 234,
+      isLiked: true,
+      commentCount: 18,
+      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+    ),
+    PilotFeed(
+      id: 'feed_002',
+      pilotId: 'pilot_002',
+      pilotName: '李师傅',
+      content: '新到的M300 RTK首飞，测绘精度相当满意',
+      images: ['drone_2'],
+      likeCount: 187,
+      commentCount: 12,
+      createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+    ),
+    PilotFeed(
+      id: 'feed_003',
+      pilotId: 'pilot_004',
+      pilotName: '赵师傅',
+      content: '建材吊运，一钩到位。今天风大但机器很稳',
+      images: ['drone_3'],
+      likeCount: 156,
+      commentCount: 8,
+      createdAt: DateTime.now().subtract(const Duration(hours: 8)),
+    ),
+    PilotFeed(
+      id: 'feed_004',
+      pilotId: 'pilot_003',
+      pilotName: '王师傅',
+      content: '湘潭大学操场测绘完成，3D建模效果预览',
+      images: ['drone_4'],
+      likeCount: 312,
+      isLiked: true,
+      commentCount: 25,
+      createdAt: DateTime.now().subtract(const Duration(hours: 12)),
+    ),
+    PilotFeed(
+      id: 'feed_005',
+      pilotId: 'pilot_001',
+      pilotName: '张师傅',
+      content: '客户婚礼航拍花絮，新人的笑容太治愈了',
+      images: ['drone_5'],
+      likeCount: 198,
+      commentCount: 15,
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+    ),
+    PilotFeed(
+      id: 'feed_006',
+      pilotId: 'pilot_005',
+      pilotName: '刘师傅',
+      content: '新手报到！第一次接单湘江水质监测，请大家多指教',
+      images: ['drone_6'],
+      likeCount: 89,
+      commentCount: 32,
+      createdAt: DateTime.now().subtract(const Duration(days: 2)),
     ),
   ];
 }
