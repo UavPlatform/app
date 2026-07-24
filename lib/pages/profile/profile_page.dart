@@ -96,6 +96,7 @@ class ProfilePage extends ConsumerWidget {
           ),
 
           // 功能菜单
+          _buildMenuItem(context, icon: Icons.cloud_upload_outlined, title: '文件上传测试', onTap: () => context.push('/upload-test')),
           _buildMenuItem(context, icon: Icons.location_on_outlined, title: '地址管理', onTap: () => context.push('/addresses')),
           _buildMenuItem(context, icon: Icons.star_outline, title: '我的评价'),
           _buildMenuItem(context, icon: Icons.headset_mic_outlined, title: '联系客服'),
