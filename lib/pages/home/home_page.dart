@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/location_provider.dart';
+import '../../providers/rider_provider.dart';
+import '../../models/rider_vo.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -21,14 +23,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     _BannerData(tag: '热门', title: '认证飞手  严格审核  持证上岗', subtitle: 'DJI Matrice 300 RTK 工业级标配'),
     _BannerData(tag: '推荐', title: '任务进度实时追踪  消息即达', subtitle: '全程 GPS 可视化，延迟低于 200ms'),
     _BannerData(tag: '新上线', title: '飞翼通 · 专业无人机调度平台', subtitle: '安全高效，一键发布，全国覆盖'),
-  ];
-
-  static final _pilots = [
-    _Pilot(name: '张师傅', rating: 4.9, orders: 326, tags: ['航拍认证', 'M300专家']),
-    _Pilot(name: '李师傅', rating: 4.8, orders: 215, tags: ['环境监测师', '持证上岗']),
-    _Pilot(name: '王师傅', rating: 4.7, orders: 189, tags: ['测绘工程师']),
-    _Pilot(name: '赵师傅', rating: 4.6, orders: 156, tags: ['吊运专家', 'M300 RTK']),
-    _Pilot(name: '刘师傅', rating: 4.5, orders: 98, tags: ['新手飞手']),
   ];
 
   static final _feeds = [
@@ -122,9 +116,9 @@ class _HomePageState extends ConsumerState<HomePage> {
           const SizedBox(height: 12),
           _buildServiceGrid(),
           const SizedBox(height: 18),
-          _buildSectionHeader('热门飞手', '更多', () {}),
+          _buildSectionHeader('热门飞手', '更多', () => context.push('/riders')),
           const SizedBox(height: 8),
-          _buildPilotRow(),
+          _buildPilotRow(ref.watch(riderListProvider).riders),
           const SizedBox(height: 18),
           _buildSectionHeader('飞手动态', null, null),
           const SizedBox(height: 8),
@@ -226,40 +220,46 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   // ==================== 热门飞手 ====================
-  Widget _buildPilotRow() {
-    final sorted = List<_Pilot>.from(_pilots)..sort((a, b) => b.orders.compareTo(a.orders));
+  Widget _buildPilotRow(List<RiderVo> riders) {
+    if (riders.isEmpty) {
+      return const SizedBox(
+        height: 120,
+        child: Center(child: Text('暂无飞手数据', style: TextStyle(color: AppColors.textSecondary))),
+      );
+    }
+    final display = riders.length > 5 ? riders.sublist(0, 5) : riders;
     return SizedBox(
-      height: 154,
+      height: 120,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: sorted.length,
+        itemCount: display.length,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
-          final p = sorted[i];
+          final p = display[i];
           final medal = i == 0 ? '🥇' : i == 1 ? '🥈' : i == 2 ? '🥉' : null;
-          return Container(
-            width: 156, padding: const EdgeInsets.all(12),
-            decoration: _cardShadow(),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Stack(children: [
-                  Container(width: 40, height: 40, decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: AppColors.primaryLight), child: Center(child: Text(p.name[0], style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.primary)))),
-                  if (medal != null) Positioned(right: -6, top: -6, child: Text(medal, style: const TextStyle(fontSize: 18))),
+          return GestureDetector(
+            onTap: () => context.push('/rider/${p.riderId}'),
+            child: Container(
+              width: 140, padding: const EdgeInsets.all(12),
+              decoration: _cardShadow(),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Stack(children: [
+                    Container(width: 40, height: 40, decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: AppColors.primaryLight), child: Center(child: Text(p.riderName[0], style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.primary)))),
+                    if (medal != null) Positioned(right: -6, top: -6, child: Text(medal, style: const TextStyle(fontSize: 18))),
+                  ]),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(p.riderName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    Text('今日 ${p.todayOrders}单', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  ])),
                 ]),
-                const SizedBox(width: 8),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(p.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Row(children: [const Icon(Icons.star, size: 12, color: Color(0xFFFFA000)), const SizedBox(width: 2), Text('${p.rating}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF333333)))]),
-                ])),
+                const Spacer(),
+                Text('累计完成: ${p.totalCompleted}单', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF777777))),
               ]),
-              const SizedBox(height: 10),
-              if (p.tags.isNotEmpty)
-                Wrap(spacing: 4, children: p.tags.map((t) => Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3), decoration: BoxDecoration(color: AppColors.tagBlueBg, borderRadius: BorderRadius.circular(3)), child: Text(t, style: const TextStyle(fontSize: 10, color: AppColors.tagBlue, fontWeight: FontWeight.w600)))).toList()),
-              const Spacer(),
-              Text('服务单量: ${p.orders}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF777777))),
-            ]),
+            ),
           );
         },
       ),
@@ -329,7 +329,6 @@ class _HomePageState extends ConsumerState<HomePage> {
 
 class _BannerData { final String tag, title, subtitle; const _BannerData({required this.tag, required this.title, required this.subtitle}); }
 class _Svc { final IconData icon; final String label; final Color color; const _Svc(this.icon, this.label, this.color); }
-class _Pilot { final String name; final double rating; final int orders; final List<String> tags; const _Pilot({required this.name, required this.rating, required this.orders, required this.tags}); }
 class _Feed { final String name, time, text; final int likes, comments, colorIdx; final bool liked; const _Feed({required this.name, required this.time, required this.text, required this.likes, required this.comments, required this.colorIdx, this.liked = false}); }
 
 class _ContourPainter extends CustomPainter {
