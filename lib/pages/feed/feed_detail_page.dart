@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../models/pilot_feed.dart';
-import '../../services/mock_data_service.dart';
 
 class FeedDetailPage extends StatefulWidget {
   final PilotFeed feed;
@@ -279,17 +278,7 @@ class _FeedDetailPageState extends State<FeedDetailPage> {
   }
 
   void _startChat(BuildContext context) {
-    final pilot = MockDataService.pilots.cast<dynamic>().firstWhere(
-      (p) => p.nickname == widget.feed.pilotName,
-      orElse: () => null,
-    );
-    if (pilot != null) {
-      context.push('/chat/1?name=${Uri.encodeComponent(widget.feed.pilotName)}');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('飞手暂时不在线'), duration: Duration(seconds: 2)),
-      );
-    }
+    context.push('/chat/1?name=${Uri.encodeComponent(widget.feed.pilotName)}');
   }
 }
 

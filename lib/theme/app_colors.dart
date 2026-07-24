@@ -37,6 +37,18 @@ class AppColors {
   static const Color statusCancelled = Color(0xFFFFEBEE);
   static const Color statusCancelledText = Color(0xFFC62828);
 
+  // ==================== 派生色 / 语义别名 ====================
+  static const Color bgWhite = Colors.white;
+  static const Color bgPage = Color(0xFFF5F6F8);
+  static const Color bgCard = Colors.white;
+  static const Color bgInput = Color(0xFFF3F4F7);
+  static const Color navBg = Colors.white;
+  static const Color navActive = primary;
+  static const Color navInactive = Color(0xFF999999);
+  static const Color textPrimary = onSurface;
+  static const Color divider = Color(0xFFEEEEEE);
+  static const Color border = Color(0xFFDDDDDD);
+
   // 别名
   static const Color textSecondary = onSurfaceVariant;
   static const Color textHint = outline;

@@ -98,7 +98,11 @@ class HttpClient {
         );
         return newToken;
       }
-    } catch (_) {}
-    return null;
+      // refresh 返回了非成功响应（如 token 也过期了）
+      return null;
+    } catch (e) {
+      // refresh 请求本身失败（网络不通 / 接口不存在等）
+      return null;
+    }
   }
 }

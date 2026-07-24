@@ -17,6 +17,8 @@ import '../pages/profile/address_edit_page.dart';
 import '../pages/publish/publish_page.dart';
 import '../pages/publish/map_picker_page.dart';
 import '../pages/chat/chat_detail_page.dart';
+import '../pages/riders/rider_list_page.dart';
+import '../pages/riders/rider_detail_page.dart';
 import '../widgets/app_bottom_nav.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -82,6 +84,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => AppTransitionPage(
           key: state.pageKey,
           child: OrderDetailPage(taskNum: state.pathParameters['taskNum']!),
+        ),
+      ),
+      GoRoute(
+        path: '/riders',
+        pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const RiderListPage()),
+      ),
+      GoRoute(
+        path: '/rider/:riderId',
+        pageBuilder: (context, state) => AppTransitionPage(
+          key: state.pageKey,
+          child: RiderDetailPage(riderId: int.parse(state.pathParameters['riderId']!)),
         ),
       ),
       GoRoute(

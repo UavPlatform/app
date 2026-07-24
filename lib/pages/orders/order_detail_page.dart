@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../models/task_vo.dart';
 import '../../providers/task_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class OrderDetailPage extends ConsumerWidget {
   final String taskNum;
@@ -20,11 +21,30 @@ class OrderDetailPage extends ConsumerWidget {
 
     final task = state.task;
     if (task == null) {
+      final hasError = state.error != null;
+      final isAuthErr = hasError && (state.error!.contains('401') || state.error!.contains('登录'));
       return Scaffold(
         appBar: AppBar(title: const Text('任务详情')),
         body: Center(
-          child: Text(state.error ?? '未找到任务',
-              style: const TextStyle(color: AppColors.onSurfaceVariant)),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(state.error ?? '未找到任务',
+                style: const TextStyle(color: AppColors.onSurfaceVariant)),
+            const SizedBox(height: 12),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              ElevatedButton(
+                onPressed: () => ref.read(taskDetailProvider(taskNum).notifier).loadDetail(taskNum),
+                child: const Text('重试'),
+              ),
+              if (isAuthErr) ...[
+                const SizedBox(width: 12),
+                OutlinedButton(
+                  onPressed: () => ref.read(authProvider.notifier).logout(),
+                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+                  child: const Text('重新登录'),
+                ),
+              ],
+            ]),
+          ]),
         ),
       );
     }
