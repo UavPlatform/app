@@ -3,31 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../models/task_vo.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/task_provider.dart';
-import '../../providers/rider_provider.dart';
 
 class OrderDetailPage extends ConsumerWidget {
   final String taskNum;
 
   const OrderDetailPage({super.key, required this.taskNum});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isPilot = ref.watch(authProvider).user?.isPilot ?? false;
-
-    if (isPilot) {
-      return _PilotDetailView(taskNum: taskNum);
-    } else {
-      return _UserDetailView(taskNum: taskNum);
-    }
-  }
-}
-
-/// 用户端任务详情（调用 /task/detail）
-class _UserDetailView extends ConsumerWidget {
-  final String taskNum;
-  const _UserDetailView({required this.taskNum});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -48,49 +29,23 @@ class _UserDetailView extends ConsumerWidget {
       );
     }
 
-    return _buildScaffold(context, ref, task, isPilot: false);
+    return _buildScaffold(context, ref, task);
   }
-}
 
-/// 飞手端任务详情（从已加载的列表中查找）
-class _PilotDetailView extends ConsumerWidget {
-  final String taskNum;
-  const _PilotDetailView({required this.taskNum});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final task = riderTaskLookup(ref, taskNum);
-
-    if (task == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('任务详情')),
-        body: const Center(
-          child: Text('未找到任务',
-              style: TextStyle(color: AppColors.onSurfaceVariant)),
-        ),
-      );
-    }
-
-    return _buildScaffold(context, ref, task, isPilot: true);
-  }
-}
-
-/// 共享的 Scaffold 构建
-Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
-    {required bool isPilot}) {
-  return Scaffold(
-    appBar: AppBar(
-      title: const Text('任务详情'),
-      actions: [
-        if (!isPilot && task.isIdle)
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppColors.error),
-            onPressed: () => _onDeleteUser(context, ref, task),
-          ),
-      ],
-    ),
-    body: ListView(
-      children: [
+  Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('任务详情'),
+        actions: [
+          if (task.isIdle)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: AppColors.error),
+              onPressed: () => _onDelete(context, ref, task),
+            ),
+        ],
+      ),
+      body: ListView(
+        children: [
           _buildStatusHeader(task),
           _buildSection('任务信息', [
             _infoRow('任务编号', task.taskNum),
@@ -146,363 +101,207 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
           const SizedBox(height: 80),
         ],
       ),
-    bottomNavigationBar: isPilot ? _buildPilotBottom(context, ref, task) : _buildUserBottom(context, ref, task),
-  );
-}
+      bottomNavigationBar: _buildBottom(context, ref, task),
+    );
+  }
 
-Widget _buildStatusHeader(TaskVo task) {
-  return Container(
-    padding: const EdgeInsets.all(24),
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(colors: [AppColors.primary, Color(0xFF42A5F5)]),
-    ),
-    child: Column(
+  Widget _buildStatusHeader(TaskVo task) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(colors: [AppColors.primary, Color(0xFF42A5F5)]),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _stepDot('空闲', true),
+              _stepLine(task.taskStatus != 'IDLE'),
+              _stepDot('执行中', task.isInProgress || task.isCompleted),
+              _stepLine(task.isCompleted),
+              _stepDot('完成', task.isCompleted),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '当前状态: ${task.taskStatusName}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepDot(String label, bool active) {
+    return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _stepDot('空闲', true),
-            _stepLine(task.taskStatus != 'IDLE'),
-            _stepDot('执行中', task.isInProgress || task.isCompleted),
-            _stepLine(task.isCompleted),
-            _stepDot('完成', task.isCompleted),
+        Container(
+          width: 20, height: 20,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active ? Colors.white : Colors.white38,
+          ),
+          child: active ? const Icon(Icons.check, size: 14, color: AppColors.primary) : null,
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: TextStyle(fontSize: 12, color: active ? Colors.white : Colors.white54)),
+      ],
+    );
+  }
+
+  Widget _stepLine(bool active) {
+    return Container(width: 40, height: 2, color: active ? Colors.white : Colors.white38);
+  }
+
+  Widget _buildSection(String title, List<Widget> children) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(label, style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant)),
+          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
+        ],
+      ),
+    );
+  }
+
+  Widget? _buildBottom(BuildContext context, WidgetRef ref, TaskVo task) {
+    if (task.isWaitingConfirm) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(13),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
           ],
         ),
-        const SizedBox(height: 16),
-        Text(
-          '当前状态: ${task.taskStatusName}',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _stepDot(String label, bool active) {
-  return Column(
-    children: [
-      Container(
-        width: 20, height: 20,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: active ? Colors.white : Colors.white38,
-        ),
-        child: active ? const Icon(Icons.check, size: 14, color: AppColors.primary) : null,
-      ),
-      const SizedBox(height: 4),
-      Text(label, style: TextStyle(fontSize: 12, color: active ? Colors.white : Colors.white54)),
-    ],
-  );
-}
-
-Widget _stepLine(bool active) {
-  return Container(width: 40, height: 2, color: active ? Colors.white : Colors.white38);
-}
-
-Widget _buildSection(String title, List<Widget> children) {
-  return Container(
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 16),
-        ...children,
-      ],
-    ),
-  );
-}
-
-Widget _infoRow(String label, String value) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 80,
-          child: Text(label, style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant)),
-        ),
-        Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
-      ],
-    ),
-  );
-}
-
-/// 用户端底部按钮
-Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
-  if (task.isWaitingConfirm) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        child: FilledButton(
-          onPressed: () => _onConfirmUser(context, ref, task),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.success,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          child: const Text('确认完成', style: TextStyle(fontSize: 16)),
-        ),
-      ),
-    );
-  }
-
-  if (task.isIdle) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () => _onDeleteUser(context, ref, task),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error,
-                side: const BorderSide(color: AppColors.error),
-              ),
-              child: const Text('删除任务'),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: () => _onConfirm(context, ref, task),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.success,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
+            child: const Text('确认完成', style: TextStyle(fontSize: 16)),
           ),
-        ],
-      ),
-    );
-  }
-
-  return null;
-}
-
-/// 飞手端底部按钮
-Widget? _buildPilotBottom(BuildContext context, WidgetRef ref, TaskVo task) {
-  if (task.isIdle) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        child: FilledButton(
-          onPressed: () => _onAccept(context, ref, task),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          child: const Text('立即接单', style: TextStyle(fontSize: 16)),
         ),
-      ),
-    );
-  }
-
-  if (task.isInProgress) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () => _onCancel(context, ref, task),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error,
-                side: const BorderSide(color: AppColors.error),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text('取消接单'),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton(
-              onPressed: () => _onComplete(context, ref, task),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.success,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text('完成任务'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  return null;
-}
-
-Future<void> _onAccept(BuildContext context, WidgetRef ref, TaskVo task) async {
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('确认接单'),
-      content: Text('确定要接「${task.taskName}」这个任务吗？'),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
-        FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('确定接单')),
-      ],
-    ),
-  );
-
-  if (confirm != true || !context.mounted) return;
-
-  final ok = await ref.read(taskSquareProvider.notifier).acceptTask(task.taskNum);
-  if (!context.mounted) return;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(ok ? '接单成功' : ref.read(taskSquareProvider).error ?? '接单失败')),
-  );
-  if (ok) WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/pilot/jobs'));
-}
-
-Future<void> _onCancel(BuildContext context, WidgetRef ref, TaskVo task) async {
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('确认取消'),
-      content: Text('确定要取消「${task.taskName}」的接单吗？'),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('再想想')),
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(true),
-          child: const Text('确定取消', style: TextStyle(color: AppColors.error)),
-        ),
-      ],
-    ),
-  );
-
-  if (confirm != true || !context.mounted) return;
-
-  final ok = await ref.read(myRiderTasksProvider.notifier).cancelTask(task.taskNum);
-  if (!context.mounted) return;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(ok ? '已取消接单' : ref.read(myRiderTasksProvider).error ?? '取消失败')),
-  );
-  if (ok) WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/pilot/tasks'));
-}
-
-Future<void> _onComplete(BuildContext context, WidgetRef ref, TaskVo task) async {
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('确认完成'),
-      content: Text('确定「${task.taskName}」已经完成了吗？'),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('再等等')),
-        FilledButton(
-          onPressed: () => Navigator.of(ctx).pop(true),
-          style: FilledButton.styleFrom(backgroundColor: AppColors.success),
-          child: const Text('确认完成'),
-        ),
-      ],
-    ),
-  );
-
-  if (confirm != true || !context.mounted) return;
-
-  final ok = await ref.read(myRiderTasksProvider.notifier).completeTask(task.taskNum);
-  if (!context.mounted) return;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(ok ? '任务已完成' : ref.read(myRiderTasksProvider).error ?? '操作失败')),
-  );
-  if (ok) WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/pilot/jobs'));
-}
-
-Future<void> _onConfirmUser(BuildContext context, WidgetRef ref, TaskVo task) async {
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('确认完成'),
-      content: Text('确认「${task.taskName}」已经完成了吗？\n确认后订单将完结。'),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
-        FilledButton(
-          onPressed: () => Navigator.of(ctx).pop(true),
-          style: FilledButton.styleFrom(backgroundColor: AppColors.success),
-          child: const Text('确认完成'),
-        ),
-      ],
-    ),
-  );
-
-  if (confirm != true || !context.mounted) return;
-
-  final ok = await ref.read(taskDetailProvider(task.taskNum).notifier).confirmTask(task.taskNum);
-  if (!context.mounted) return;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(ok ? '确认完成成功' : ref.read(taskDetailProvider(task.taskNum)).error ?? '确认失败')),
-  );
-}
-
-Future<void> _onDeleteUser(BuildContext context, WidgetRef ref, TaskVo task) async {
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('确认删除'),
-      content: const Text('删除后无法恢复'),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(true),
-          child: const Text('删除', style: TextStyle(color: AppColors.error)),
-        ),
-      ],
-    ),
-  );
-
-  if (confirm == true && context.mounted) {
-    final ok = await ref.read(taskDetailProvider(task.taskNum).notifier).deleteTask(task.id);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? '已删除' : '删除失败')),
       );
-      if (ok) WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/orders'));
+    }
+
+    if (task.isIdle) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(13),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => _onDelete(context, ref, task),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                  side: const BorderSide(color: AppColors.error),
+                ),
+                child: const Text('删除任务'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return null;
+  }
+
+  Future<void> _onConfirm(BuildContext context, WidgetRef ref, TaskVo task) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认完成'),
+        content: Text('确认「${task.taskName}」已经完成了吗？\n确认后订单将完结。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.success),
+            child: const Text('确认完成'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !context.mounted) return;
+
+    final ok = await ref.read(taskDetailProvider(task.taskNum).notifier).confirmTask(task.taskNum);
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '确认完成成功' : ref.read(taskDetailProvider(task.taskNum)).error ?? '确认失败')),
+    );
+  }
+
+  Future<void> _onDelete(BuildContext context, WidgetRef ref, TaskVo task) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('删除后无法恢复'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('删除', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      final ok = await ref.read(taskDetailProvider(task.taskNum).notifier).deleteTask(task.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ok ? '已删除' : '删除失败')),
+        );
+        if (ok) WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/orders'));
+      }
     }
   }
 }

@@ -2,15 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../config/api_config.dart';
 import '../models/message_vo.dart';
-import 'token_storage.dart';
 
 enum ChatWebSocketStatus { disconnected, connecting, connected, failed }
 
 class ChatWebSocketService {
-  ChatWebSocketService(this._tokenStorage);
-
-  final TokenStorage _tokenStorage;
+  ChatWebSocketService();
   final _messagesController = StreamController<MessageVo>.broadcast();
   final _statusController = StreamController<ChatWebSocketStatus>.broadcast(
     sync: true,
@@ -69,12 +67,7 @@ class ChatWebSocketService {
   }
 
   String _resolveChatWebSocketUrl(int userId) {
-    final serverUrl = _tokenStorage.getServerUrl();
-    if (serverUrl == null || serverUrl.isEmpty) {
-      throw StateError('未配置服务器地址');
-    }
-
-    final uri = Uri.parse(serverUrl);
+    final uri = Uri.parse(ApiConfig.baseUrl);
     final wsScheme = uri.scheme == 'https' ? 'wss' : 'ws';
     final basePath = uri.path.endsWith('/')
         ? uri.path.substring(0, uri.path.length - 1)

@@ -12,7 +12,7 @@ final chatApiProvider = Provider<ChatApi>(
 );
 
 final chatWebSocketServiceProvider = Provider<ChatWebSocketService>((ref) {
-  final service = ChatWebSocketService(ref.watch(tokenStorageProvider));
+  final service = ChatWebSocketService();
   ref.onDispose(service.dispose);
   return service;
 });
