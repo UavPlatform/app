@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/rider_provider.dart';
+import '../../providers/feed_provider.dart';
 import '../../models/rider_vo.dart';
+import '../../models/feed_vo.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -25,14 +27,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     _BannerData(tag: '新上线', title: '飞翼通 · 专业无人机调度平台', subtitle: '安全高效，一键发布，全国覆盖'),
   ];
 
-  static final _feeds = [
-    _Feed(name: '张师傅', time: '2小时前', text: '今天湘潭天气绝了，湘江上空视角太震撼了！', likes: 234, comments: 18, liked: true, colorIdx: 0),
-    _Feed(name: '李师傅', time: '5小时前', text: '新到的M300 RTK首飞，测绘精度相当满意', likes: 187, comments: 12, colorIdx: 1),
-    _Feed(name: '赵师傅', time: '8小时前', text: '建材吊运，一钩到位。今天风大但机器很稳', likes: 156, comments: 8, colorIdx: 2),
-    _Feed(name: '王师傅', time: '12小时前', text: '湘潭大学操场测绘完成，3D建模效果预览', likes: 312, comments: 25, liked: true, colorIdx: 3),
-    _Feed(name: '张师傅', time: '1天前', text: '客户婚礼航拍花絮，新人的笑容太治愈了', likes: 198, comments: 15, colorIdx: 4),
-    _Feed(name: '刘师傅', time: '2天前', text: '新手报到！第一次接单湘江水质监测，请多指教', likes: 89, comments: 32, colorIdx: 5),
-  ];
   static const _feedColors = [Color(0xFF5B7FA8), Color(0xFF6B8E6B), Color(0xFF8B7355), Color(0xFF7B6B8A), Color(0xFF4A8090), Color(0xFF8A7060)];
 
   @override
@@ -120,7 +114,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           const SizedBox(height: 8),
           _buildPilotRow(ref.watch(riderListProvider).riders),
           const SizedBox(height: 18),
-          _buildSectionHeader('飞手动态', null, null),
+          _buildSectionHeader('动态', null, null),
           const SizedBox(height: 8),
           _buildFeedWaterfall(),
         ],
@@ -268,11 +262,10 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   // ==================== 飞手动态 waterfall ====================
   Widget _buildFeedWaterfall() {
-    final left = <_Feed>[];
-    final right = <_Feed>[];
-    for (int i = 0; i < _feeds.length; i++) {
-      (i.isEven ? left : right).add(_feeds[i]);
-    }
+    final feeds = ref.watch(feedListProvider).feeds;
+    if (feeds.isEmpty) return const SizedBox(height: 120, child: Center(child: Text('暂无动态', style: TextStyle(color: AppColors.textHint))));
+    final left = <FeedVo>[], right = <FeedVo>[];
+    for (int i = 0; i < feeds.length; i++) { (i.isEven ? left : right).add(feeds[i]); }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -283,53 +276,65 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildFeedCard(_Feed f) {
+  Widget _buildFeedCard(FeedVo f) {
     final colW = (MediaQuery.of(context).size.width - 36) / 2;
-    final ratio = 0.6 + (f.colorIdx % 7) * 0.15;
-    final imgH = colW * ratio;
-    final color = _feedColors[f.colorIdx % _feedColors.length];
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: _cardShadow(),
-      clipBehavior: Clip.antiAlias,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(padding: const EdgeInsets.fromLTRB(10, 10, 10, 6), child: Row(children: [
-          Container(width: 24, height: 24, decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primaryLight), child: Center(child: Text(f.name[0], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary)))),
-          const SizedBox(width: 6),
-          Expanded(child: Text(f.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-          Text(f.time, style: const TextStyle(fontSize: 10, color: AppColors.textHint)),
-        ])),
-        Stack(children: [
-          Container(height: imgH, width: double.infinity, decoration: BoxDecoration(color: color), child: Center(child: Icon(Icons.image, size: imgH * 0.25, color: Colors.white.withAlpha(50)))),
-          Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withAlpha(80)], stops: const [0.55, 1.0])))),
-          Positioned(left: 8, bottom: 6, right: 8, child: Row(children: [
-            const Icon(Icons.location_on, size: 10, color: Colors.white70),
-            const SizedBox(width: 2),
-            Text('距您 ${(0.5 + f.colorIdx % 5 * 0.6).toStringAsFixed(1)}km', style: const TextStyle(color: Colors.white70, fontSize: 9)),
-            const Spacer(),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1), decoration: BoxDecoration(color: Colors.white.withAlpha(45), borderRadius: BorderRadius.circular(3)), child: const Text('进行中', style: TextStyle(color: Colors.white, fontSize: 8))),
-          ])),
+    final hasImg = f.media.isNotEmpty && f.media.first.url.isNotEmpty;
+    final imgH = colW * (0.6 + (f.id % 7) * 0.15);
+    final color = _feedColors[f.id % _feedColors.length];
+
+    return GestureDetector(
+      onTap: () => context.push('/feed/${f.id}'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10), decoration: _cardShadow(), clipBehavior: Clip.antiAlias,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+            child: GestureDetector(
+              onTap: () {
+                if (f.isRider) {
+                  context.push('/rider/${f.userId}');
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无权访问该用户主页')));
+                }
+              },
+              child: Row(children: [
+                Container(width: 24, height: 24, decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primaryLight), child: Center(child: Text(f.userName.isNotEmpty ? f.userName[0] : '?', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary)))),
+                const SizedBox(width: 6), Expanded(child: Text(f.userName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))), Text(f.timeAgo, style: const TextStyle(fontSize: 10, color: AppColors.textHint)),
+              ]),
+            ),
+          ),
+          if (hasImg)
+            Stack(children: [
+              Container(height: imgH, width: double.infinity, decoration: BoxDecoration(color: color), child: Image.network(f.media.first.url, fit: BoxFit.fitWidth, errorBuilder: (_, __, ___) => Icon(Icons.image, size: imgH * 0.25, color: Colors.white.withAlpha(50)))),
+              Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withAlpha(80)], stops: const [0.55, 1.0])))),
+              Positioned(left: 8, bottom: 6, right: 8, child: Row(children: [
+                const Icon(Icons.location_on, size: 10, color: Colors.white70),
+                const SizedBox(width: 2),
+                Expanded(child: Text(f.userName, style: const TextStyle(color: Colors.white70, fontSize: 9), overflow: TextOverflow.ellipsis)),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1), decoration: BoxDecoration(color: Colors.white.withAlpha(45), borderRadius: BorderRadius.circular(3)), child: Text('${f.media.length}图', style: const TextStyle(color: Colors.white, fontSize: 8))),
+              ])),
+            ]),
+          Padding(padding: EdgeInsets.fromLTRB(10, hasImg ? 8 : 2, 10, 2), child: Text(f.content, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, height: 1.45), maxLines: hasImg ? 3 : 2, overflow: TextOverflow.ellipsis)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 2, 10, 10),
+            child: Row(children: [
+              Icon(f.liked ? Icons.favorite : Icons.favorite_border, size: 15, color: f.liked ? AppColors.danger : AppColors.textHint),
+              const SizedBox(width: 2),
+              Text('${f.likeCount}', style: TextStyle(fontSize: 11, color: f.liked ? AppColors.danger : AppColors.textHint)),
+              const SizedBox(width: 14),
+              const Icon(Icons.chat_bubble_outline, size: 13, color: AppColors.textHint),
+              const SizedBox(width: 2),
+              Text('${f.commentCount}', style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
+            ]),
+          ),
         ]),
-        Padding(padding: const EdgeInsets.fromLTRB(10, 8, 10, 2), child: Text(f.text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, height: 1.45), maxLines: 3, overflow: TextOverflow.ellipsis)),
-        Padding(padding: const EdgeInsets.fromLTRB(10, 2, 10, 10), child: Row(children: [
-          Icon(f.liked ? Icons.favorite : Icons.favorite_border, size: 15, color: f.liked ? AppColors.danger : AppColors.textHint),
-          const SizedBox(width: 2),
-          Text('${f.likes}', style: TextStyle(fontSize: 11, color: f.liked ? AppColors.danger : AppColors.textHint)),
-          const SizedBox(width: 14),
-          const Icon(Icons.chat_bubble_outline, size: 13, color: AppColors.textHint),
-          const SizedBox(width: 2),
-          Text('${f.comments}', style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
-          const Spacer(),
-          const Icon(Icons.bookmark_border, size: 15, color: AppColors.textHint),
-        ])),
-      ]),
+      ),
     );
   }
 }
 
 class _BannerData { final String tag, title, subtitle; const _BannerData({required this.tag, required this.title, required this.subtitle}); }
 class _Svc { final IconData icon; final String label; final Color color; const _Svc(this.icon, this.label, this.color); }
-class _Feed { final String name, time, text; final int likes, comments, colorIdx; final bool liked; const _Feed({required this.name, required this.time, required this.text, required this.likes, required this.comments, required this.colorIdx, this.liked = false}); }
 
 class _ContourPainter extends CustomPainter {
   @override

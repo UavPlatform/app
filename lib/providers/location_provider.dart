@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/location_service.dart';
 import '../api/task_api.dart';
@@ -48,11 +49,14 @@ class LocationNotifier extends StateNotifier<LocationState> {
     if (_amapKey == null) {
       try {
         final r = await _taskApi.getAmapConfig();
+        debugPrint('[Location] getAmapConfig success=${r.success} key=${r.data?.key}');
         if (r.success && r.data != null) {
           _amapKey = r.data!.key;
           await _service.setApiKey(_amapKey!);
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Location] getAmapConfig failed: $e');
+      }
     }
 
     if (_amapKey == null) {

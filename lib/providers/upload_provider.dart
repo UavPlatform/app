@@ -39,7 +39,7 @@ class UploadNotifier extends StateNotifier<UploadState> {
   final UploadApi _api;
 
   UploadNotifier(this._api) : super(const UploadState()) {
-    loadFiles();
+    Future.microtask(() => loadFiles());
   }
 
   Future<void> loadFiles() async {
