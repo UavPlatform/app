@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'result_model.dart';
+import 'price_detail.dart';
 
 class WaypointVo {
   final int id;
@@ -41,6 +44,11 @@ class TaskVo {
   final double? totalAmount;
   final double? totalDistance;
   final String? orderStatus;
+  final double? weight;
+  final double? referencePrice;
+  final String? priceDetail;
+  final String? plannedTime;
+  final bool? needManualQuote;
   final String? createTime;
   final String? updateTime;
   final List<WaypointVo>? waypoints;
@@ -60,6 +68,11 @@ class TaskVo {
     this.totalAmount,
     this.totalDistance,
     this.orderStatus,
+    this.weight,
+    this.referencePrice,
+    this.priceDetail,
+    this.plannedTime,
+    this.needManualQuote,
     this.createTime,
     this.updateTime,
     this.waypoints,
@@ -81,12 +94,31 @@ class TaskVo {
       totalAmount: (json['totalAmount'] as num?)?.toDouble(),
       totalDistance: (json['totalDistance'] as num?)?.toDouble(),
       orderStatus: json['orderStatus'] as String?,
+      weight: (json['weight'] as num?)?.toDouble(),
+      referencePrice: (json['referencePrice'] as num?)?.toDouble(),
+      priceDetail: json['priceDetail'] as String?,
+      plannedTime: json['plannedTime'] as String?,
+      needManualQuote: json['needManualQuote'] as bool?,
       createTime: json['createTime'] as String?,
       updateTime: json['updateTime'] as String?,
       waypoints: (json['waypoints'] as List<dynamic>?)
           ?.map((e) => WaypointVo.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
+  }
+
+  /// 计费明细 items（解析 priceDetail JSON，失败则返回空列表）
+  List<PriceDetailItem> get priceDetailItems {
+    if (priceDetail == null || priceDetail!.isEmpty) return const [];
+    try {
+      final map = jsonDecode(priceDetail!) as Map<String, dynamic>;
+      final list = (map['items'] as List<dynamic>?) ?? const [];
+      return list
+          .map((e) => PriceDetailItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   String get taskTypeName {

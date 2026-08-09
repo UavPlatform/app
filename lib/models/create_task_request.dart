@@ -25,6 +25,7 @@ class CreateTaskRequest {
   final String description;
   final List<WaypointRequest> waypoints;
   final double? reward;
+  final double? weight;
   final String? taskTime;
 
   CreateTaskRequest({
@@ -33,6 +34,7 @@ class CreateTaskRequest {
     required this.description,
     required this.waypoints,
     this.reward,
+    this.weight,
     this.taskTime,
   });
 
@@ -42,6 +44,7 @@ class CreateTaskRequest {
         'description': description,
         'waypoints': waypoints.map((w) => w.toJson()).toList(),
         if (reward != null) 'reward': reward,
+        if (weight != null) 'weight': weight,
         if (taskTime != null) 'taskTime': taskTime,
       };
 }

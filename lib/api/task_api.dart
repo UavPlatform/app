@@ -2,6 +2,8 @@ import 'http_client.dart';
 import '../models/amap_config.dart';
 import '../models/result_model.dart';
 import '../models/create_task_request.dart';
+import '../models/price_detail.dart';
+import '../models/publish_config.dart';
 import '../models/task_vo.dart';
 
 class TaskApi {
@@ -36,6 +38,21 @@ class TaskApi {
       queryParameters: {'taskNum': taskNum},
     );
     return TaskVo.parseResult(response.data);
+  }
+
+  /// 发布前预览参考价（与创建任务同口径）
+  Future<Result<PriceDetail>> estimatePrice(PriceEstimateRequest request) async {
+    final response = await _client.dio.post(
+      '/task/price/estimate',
+      data: request.toJson(),
+    );
+    return PriceDetail.parseResult(response.data);
+  }
+
+  /// 发布页配置（重量计费类型、协商价下限）
+  Future<Result<PublishConfig>> getPublishConfig() async {
+    final response = await _client.dio.get('/task/publish/config');
+    return PublishConfig.parseResult(response.data);
   }
 
   Future<Result<void>> deleteTask(int taskId) async {

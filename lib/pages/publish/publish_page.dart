@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,8 +7,11 @@ import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../models/service_type_model.dart';
 import '../../models/create_task_request.dart';
+import '../../models/price_detail.dart';
+import '../../models/publish_config.dart';
 import '../../providers/task_provider.dart';
 import '../../providers/location_provider.dart';
+import '../../services/task_draft_service.dart';
 import '../../widgets/scroll_pickers.dart';
 
 class PublishPage extends ConsumerStatefulWidget {
@@ -24,9 +29,14 @@ class _PublishPageState extends ConsumerState<PublishPage> {
   TimeOfDay? _selectedTime;
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
+  final _weightController = TextEditingController();
   String? _waypointsStr;
   bool _submitting = false;
-  bool _autoCalcPrice = false;
+  bool _showWeightField = false;
+  PriceDetail? _estimate;
+  Timer? _estimateDebounce;
+  final _draftService = TaskDraftService();
+  Timer? _draftDebounce;
 
   static final _serviceTypes = [
     ServiceType(id: 'aerial_photo', name: '航拍摄影', icon: Icons.videocam, description: '活动跟拍/婚礼航拍/宣传片'),
@@ -47,13 +57,126 @@ class _PublishPageState extends ConsumerState<PublishPage> {
     } else {
       _selectedService = _serviceTypes.first;
     }
+    _loadPublishConfig();
+    _refreshEstimate();
+    _loadDraft();
   }
 
   @override
   void dispose() {
+    _estimateDebounce?.cancel();
+    // 离开页面时兜底保存一次草稿（防抖 pending 的状态）
+    if (_draftDebounce?.isActive ?? false) {
+      _draftDebounce!.cancel();
+      _saveDraft();
+    }
     _descriptionController.dispose();
     _priceController.dispose();
+    _weightController.dispose();
     super.dispose();
+  }
+
+  // ==================== 草稿 ====================
+
+  /// 恢复上次未提交的草稿（存在且非空时提示，可一键放弃）
+  Future<void> _loadDraft() async {
+    final draft = await _draftService.load();
+    if (!mounted || draft == null || draft.isEmpty) return;
+
+    setState(() {
+      if (draft.serviceTypeName != null && draft.serviceTypeName!.isNotEmpty) {
+        _selectedService = _serviceTypes.cast<ServiceType?>().firstWhere(
+          (t) => t!.name == draft.serviceTypeName,
+          orElse: () => _selectedService,
+        );
+      }
+      if (draft.date != null) _selectedDate = DateTime.tryParse(draft.date!);
+      if (draft.time != null) {
+        final parts = draft.time!.split(':');
+        if (parts.length == 2) {
+          _selectedTime = TimeOfDay(hour: int.tryParse(parts[0]) ?? 0, minute: int.tryParse(parts[1]) ?? 0);
+        }
+      }
+      _waypointsStr = draft.waypointsStr;
+      _descriptionController.text = draft.description ?? '';
+      _weightController.text = draft.weight ?? '';
+      _priceController.text = draft.price ?? '';
+    });
+    // 按恢复后的服务类型重算重量字段是否显示
+    await _loadPublishConfig();
+    _refreshEstimate();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: const Text('已恢复上次未提交的草稿'),
+      action: SnackBarAction(label: '放弃', onPressed: _clearDraft),
+    ));
+  }
+
+  /// 表单变化后防抖保存草稿
+  void _scheduleDraftSave() {
+    _draftDebounce?.cancel();
+    _draftDebounce = Timer(const Duration(milliseconds: 500), _saveDraft);
+  }
+
+  Future<void> _saveDraft() async {
+    await _draftService.save(TaskDraft(
+      serviceTypeName: _selectedService?.name,
+      date: _selectedDate != null ? _selectedDate!.toIso8601String().split('T')[0] : null,
+      time: _selectedTime != null
+          ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}'
+          : null,
+      waypointsStr: _waypointsStr,
+      description: _descriptionController.text,
+      weight: _weightController.text,
+      price: _priceController.text,
+    ));
+  }
+
+  /// 放弃草稿：清除存储并清空表单
+  void _clearDraft() {
+    _draftService.clear();
+    if (!mounted) return;
+    setState(() {
+      _selectedDate = null;
+      _selectedTime = null;
+      _waypointsStr = null;
+      _descriptionController.clear();
+      _weightController.clear();
+      _priceController.clear();
+    });
+  }
+
+  /// 拉取发布配置：决定是否显示重量输入（WEIGHT_TYPES 配置化）
+  Future<void> _loadPublishConfig() async {
+    final result = await ref.read(taskApiProvider).getPublishConfig();
+    if (!mounted || !result.success || result.data == null) return;
+    final config = result.data!;
+    setState(() {
+      _showWeightField = config.isWeightType(_typeId(_selectedService!.id));
+    });
+  }
+
+  /// 刷新参考价（waypoints/重量/时间任一变化后调用）
+  Future<void> _refreshEstimate() async {
+    final result = await ref.read(taskApiProvider).estimatePrice(PriceEstimateRequest(
+      taskType: _typeId(_selectedService!.id),
+      waypoints: _buildWaypoints(),
+      weight: _weightController.text.isEmpty ? null : double.tryParse(_weightController.text),
+      taskTime: _selectedDate != null && _selectedTime != null
+          ? '${_selectedDate!.toIso8601String().split('T')[0]} ${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}:00'
+          : null,
+    ));
+    if (!mounted || !result.success) return;
+    setState(() => _estimate = result.data);
+  }
+
+  void _onWeightChanged(String _) {
+    _estimateDebounce?.cancel();
+    _estimateDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) _refreshEstimate();
+    });
+    _scheduleDraftSave();
   }
 
   void _nextStep() {
@@ -61,7 +184,6 @@ class _PublishPageState extends ConsumerState<PublishPage> {
       if (_waypointsStr == null || _waypointsStr!.isEmpty) { _showError('请点击地图选择航点'); return; }
       if (_selectedDate == null || _selectedTime == null) { _showError('请选择任务时间'); return; }
       if (_descriptionController.text.isEmpty) { _showError('请输入任务描述'); return; }
-      if (!_autoCalcPrice && _priceController.text.isEmpty) { _showError('请输入酬劳金额'); return; }
     }
     if (_currentStep == 1) { _submitTask(); return; }
     if (_currentStep < 2) setState(() => _currentStep++);
@@ -78,7 +200,11 @@ class _PublishPageState extends ConsumerState<PublishPage> {
       type: _typeId(_selectedService!.id),
       description: _descriptionController.text.isNotEmpty ? _descriptionController.text : _selectedService!.description,
       waypoints: _buildWaypoints(),
-      reward: _autoCalcPrice ? null : double.tryParse(_priceController.text),
+      // 协商价：留空 = 按平台参考价
+      reward: _priceController.text.isEmpty ? null : double.tryParse(_priceController.text),
+      weight: _showWeightField && _weightController.text.isNotEmpty
+          ? double.tryParse(_weightController.text)
+          : null,
       taskTime: _selectedDate != null && _selectedTime != null
           ? '${_selectedDate!.toIso8601String().split('T')[0]} ${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}:00'
           : null,
@@ -86,7 +212,11 @@ class _PublishPageState extends ConsumerState<PublishPage> {
     final ok = await ref.read(taskProvider.notifier).createTask(request);
     if (!mounted) return;
     setState(() => _submitting = false);
-    if (ok) { setState(() => _currentStep = 2); } else {
+    if (ok) {
+      // 发布成功，清除草稿
+      _draftService.clear();
+      setState(() => _currentStep = 2);
+    } else {
       _showError(ref.read(taskProvider).error ?? '创建失败');
     }
   }
@@ -187,12 +317,12 @@ class _PublishPageState extends ConsumerState<PublishPage> {
             Expanded(child: _timeTile(Icons.calendar_today_outlined, _selectedDate != null ? '${_selectedDate!.month}月${_selectedDate!.day}日' : '选择日期', onTap: () async {
               final now = DateTime.now();
               final d = await showScrollDatePicker(context, initial: _selectedDate ?? now.add(const Duration(days: 1)), firstDate: now, lastDate: now.add(const Duration(days: 90)));
-              if (d != null) setState(() => _selectedDate = d);
+              if (d != null) { setState(() => _selectedDate = d); _refreshEstimate(); _scheduleDraftSave(); }
             })),
             const SizedBox(width: 12),
             Expanded(child: _timeTile(Icons.access_time, _selectedTime != null ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}' : '选择时间', onTap: () async {
               final t = await showScrollTimePicker(context, initial: _selectedTime ?? TimeOfDay.now());
-              if (t != null) setState(() => _selectedTime = t);
+              if (t != null) { setState(() => _selectedTime = t); _refreshEstimate(); _scheduleDraftSave(); }
             })),
           ]),
         ]),
@@ -205,7 +335,7 @@ class _PublishPageState extends ConsumerState<PublishPage> {
           InkWell(
             onTap: () async {
               final r = await context.push<String>('/publish/map');
-              if (r != null && mounted) setState(() => _waypointsStr = r);
+              if (r != null && mounted) { setState(() => _waypointsStr = r); _refreshEstimate(); _scheduleDraftSave(); }
             },
             borderRadius: BorderRadius.circular(10),
             child: Container(
@@ -222,12 +352,36 @@ class _PublishPageState extends ConsumerState<PublishPage> {
               ]),
             ),
           ),
-          if (_waypointsStr != null) ...[
+          if (_estimate?.distanceKm != null) ...[
             const SizedBox(height: 6),
-            Text('预计航线总距离：${(_waypointsStr!.split(";").length * 1.2).toStringAsFixed(1)} km', style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
+            Text('预计航线总距离：${_estimate!.distanceKm!.toStringAsFixed(2)} km', style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
           ],
         ]),
         const SizedBox(height: 10),
+
+        // Weight card（仅按重量计费的类型显示，WEIGHT_TYPES 配置化）
+        if (_showWeightField) ...[
+          _card(children: [
+            const Text('货物重量', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _weightController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+              onChanged: _onWeightChanged,
+              decoration: const InputDecoration(hintText: '请输入货物重量', suffixText: 'kg'),
+            ),
+            if (_weightController.text.isNotEmpty && _estimate?.needManualQuote == true) ...[
+              const SizedBox(height: 8),
+              Row(children: [
+                Icon(Icons.warning_amber_rounded, size: 14, color: AppColors.warning),
+                const SizedBox(width: 4),
+                const Expanded(child: Text('超重任务，平台将人工与您协商报价', style: TextStyle(fontSize: 12, color: AppColors.warning))),
+              ]),
+            ],
+          ]),
+          const SizedBox(height: 10),
+        ],
 
         // Description card
         _card(children: [
@@ -235,27 +389,30 @@ class _PublishPageState extends ConsumerState<PublishPage> {
           const SizedBox(height: 10),
           TextField(
             controller: _descriptionController, maxLines: 4, maxLength: 500,
+            onChanged: (_) => _scheduleDraftSave(),
             decoration: const InputDecoration(hintText: '请详细描述您的需求...', counterStyle: TextStyle(fontSize: 11)),
           ),
         ]),
         const SizedBox(height: 10),
 
-        // Price card
+        // Price card（协商价，留空 = 按平台参考价）
         _card(children: [
           const Text('酬劳', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
-          if (!_autoCalcPrice)
-            TextField(
-              controller: _priceController, keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(hintText: '请输入金额', prefixText: '¥ '),
-            ),
-          const SizedBox(height: 6),
+          TextField(
+            controller: _priceController, keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onChanged: (_) => _scheduleDraftSave(),
+            decoration: const InputDecoration(hintText: '协商价（留空按平台参考价）', prefixText: '¥ '),
+          ),
+          const SizedBox(height: 8),
           Row(children: [
-            Switch(value: _autoCalcPrice, onChanged: (v) => setState(() => _autoCalcPrice = v), activeColor: AppColors.primary, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
-            const SizedBox(width: 6),
-            const Text('按航线距离自动计算预估费用', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            const Text('平台参考价', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            const Spacer(),
+            Text(_estimate?.total != null ? '¥${_estimate!.total!.toStringAsFixed(2)}' : '计算中…', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _estimate?.total != null ? AppColors.primary : AppColors.textHint)),
           ]),
+          const SizedBox(height: 4),
+          const Text('协商价不得低于参考价的50%，飞手按最终挂牌价接单', style: TextStyle(fontSize: 11, color: AppColors.textHint)),
         ]),
       ],
     );
@@ -304,10 +461,29 @@ class _PublishPageState extends ConsumerState<PublishPage> {
         _buildStepper(),
         _card(children: [
           _confirmRow('服务类型', _selectedService?.name ?? ''),
-          _confirmRow('任务时间', _selectedDate != null ? '${_selectedDate!.month}月${_selectedDate!.day}日 ${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}' : ''),
+          _confirmRow('任务时间', _selectedDate != null && _selectedTime != null ? '${_selectedDate!.month}月${_selectedDate!.day}日 ${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}' : ''),
           _confirmRow('航点数量', _waypointsStr != null ? '${_waypointsStr!.split(";").length}个' : '1个'),
           _confirmRow('任务描述', _descriptionController.text),
-          _confirmRow('酬劳', _autoCalcPrice ? '按距离自动计算' : '¥${_priceController.text}'),
+          if (_showWeightField && _weightController.text.isNotEmpty)
+            _confirmRow('货物重量', '${_weightController.text} kg'),
+          _confirmRow('参考价', _estimate?.total != null ? '¥${_estimate!.total!.toStringAsFixed(2)}' : '计算中…'),
+          _confirmRow('酬劳', _priceController.text.isEmpty ? '按平台参考价' : '¥${_priceController.text}'),
+          if (_estimate != null && _estimate!.items.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const SizedBox(width: 70, child: Text('计费明细', style: TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+                const SizedBox(height: 6),
+                ..._estimate!.items.map((item) => Padding(
+                  padding: const EdgeInsets.only(left: 70, top: 2),
+                  child: Row(children: [
+                    Expanded(child: Text(item.name, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))),
+                    Text('¥${item.amount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12)),
+                  ]),
+                )),
+              ]),
+            ),
+          ],
         ]),
       ],
     );
