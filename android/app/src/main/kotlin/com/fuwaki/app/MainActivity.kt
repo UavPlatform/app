@@ -22,9 +22,9 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "setApiKey" -> {
                         val key = call.argument<String>("key") ?: ""
-                        AMapLocationClient.setApiKey(key)
                         AMapLocationClient.updatePrivacyShow(this@MainActivity, true, true)
                         AMapLocationClient.updatePrivacyAgree(this@MainActivity, true)
+                        AMapLocationClient.setApiKey(key)
                         sdkReady = true
                         result.success(true)
                     }

@@ -28,7 +28,7 @@ class RiderListNotifier extends StateNotifier<RiderListState> {
   final RiderApi _api;
 
   RiderListNotifier(this._api) : super(const RiderListState()) {
-    loadRiders();
+    Future.microtask(() => loadRiders());
   }
 
   Future<void> loadRiders() async {

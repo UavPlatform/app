@@ -38,6 +38,12 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的任务'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.read(taskListProvider.notifier).loadTasks(),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: _tabs.map((t) => Tab(text: t)).toList(),
@@ -45,10 +51,6 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
           unselectedLabelColor: AppColors.onSurfaceVariant,
           indicatorColor: AppColors.primary,
         ),
-      ),
-      floatingActionButton: FloatingActionButton.small(
-        onPressed: () => ref.read(taskListProvider.notifier).loadTasks(),
-        child: const Icon(Icons.refresh),
       ),
       body: state.loading
           ? const Center(child: CircularProgressIndicator())

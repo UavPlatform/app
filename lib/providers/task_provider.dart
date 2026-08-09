@@ -82,7 +82,7 @@ class TaskListNotifier extends StateNotifier<TaskListState> {
   final TaskApi _api;
 
   TaskListNotifier(this._api) : super(const TaskListState()) {
-    loadTasks();
+    Future.microtask(() => loadTasks());
   }
 
   Future<void> loadTasks() async {
@@ -205,6 +205,9 @@ class TaskDetailNotifier extends StateNotifier<TaskDetailState> {
 
 final taskDetailProvider =
     StateNotifierProvider.family<TaskDetailNotifier, TaskDetailState, String>(
-  (ref, taskNum) => TaskDetailNotifier(ref.watch(taskApiProvider))
-    ..loadDetail(taskNum),
+  (ref, taskNum) {
+    final n = TaskDetailNotifier(ref.watch(taskApiProvider));
+    Future.microtask(() => n.loadDetail(taskNum));
+    return n;
+  },
 );
