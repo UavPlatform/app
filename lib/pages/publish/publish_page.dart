@@ -109,6 +109,9 @@ class _PublishPageState extends ConsumerState<PublishPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: const Text('已恢复上次未提交的草稿'),
+      // persist: false —— Flutter 3.38+ 带 action 的 SnackBar 默认不自动消失，需显式恢复
+      persist: false,
+      duration: const Duration(seconds: 3),
       action: SnackBarAction(label: '放弃', onPressed: _clearDraft),
     ));
   }
