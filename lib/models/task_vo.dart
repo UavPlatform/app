@@ -34,6 +34,17 @@ class TaskVo {
   final String taskType;
   final String taskStatus;
   final String? description;
+  final String? taskTime;
+  final String? completeNote;
+
+  /// 服务端统一计算的任务×订单操作提示（1B-9a 状态矩阵，直接渲染不端上拼装）
+  final String? actionHint;
+
+  /// 任务关联的作业设备（t41：接单飞手绑定设备中在线的一台；无在线设备为 null）
+  final String? deviceId;
+
+  /// 该设备的直播状态（IDLE/STARTING/RUNNING；无设备为 IDLE）
+  final String? liveState;
   final int? riderId;
   final String? riderName;
   final String? acceptTime;
@@ -53,6 +64,11 @@ class TaskVo {
     required this.taskType,
     required this.taskStatus,
     this.description,
+    this.taskTime,
+    this.completeNote,
+    this.actionHint,
+    this.deviceId,
+    this.liveState,
     this.riderId,
     this.riderName,
     this.acceptTime,
@@ -74,6 +90,11 @@ class TaskVo {
       taskType: (json['taskType'] as String?) ?? '',
       taskStatus: (json['taskStatus'] as String?) ?? '',
       description: json['description'] as String?,
+      taskTime: json['taskTime'] as String?,
+      completeNote: json['completeNote'] as String?,
+      actionHint: json['actionHint'] as String?,
+      deviceId: json['deviceId'] as String?,
+      liveState: json['liveState'] as String?,
       riderId: json['riderId'] as int?,
       riderName: json['riderName'] as String?,
       acceptTime: json['acceptTime'] as String?,
@@ -123,6 +144,16 @@ class TaskVo {
   String get formattedCreateTime {
     if (createTime == null) return '';
     return createTime!.replaceAll('T', ' ').substring(0, 16);
+  }
+
+  /// 任务时间展示（t15 契约："yyyy-MM-dd HH:mm:ss"，空格分隔）。
+  /// 截断到分钟展示，与 formattedCreateTime 的展示口径一致；
+  /// 兼容容忍 ISO 'T' 分隔与短格式。
+  String get formattedTaskTime {
+    final value = taskTime;
+    if (value == null || value.isEmpty) return '';
+    final normalized = value.replaceAll('T', ' ');
+    return normalized.length >= 16 ? normalized.substring(0, 16) : normalized;
   }
 
   static Result<TaskVo> parseResult(Map<String, dynamic> json) {
