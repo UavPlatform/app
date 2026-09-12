@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../config/api_config.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/token_storage.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -15,6 +16,7 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _userNameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _serverController = TextEditingController();
   bool _obscurePassword = true;
   bool _loading = false;
   bool _showServer = false;
@@ -34,31 +36,41 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   void dispose() {
     _userNameController.dispose();
     _passwordController.dispose();
+    _serverController.dispose();
     super.dispose();
   }
 
   Future<void> _login() async {
     if (_userNameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入用户名')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入用户名')));
       return;
     }
     if (_passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入密码')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入密码')));
       return;
     }
 
     setState(() => _loading = true);
 
-    await ref.read(authProvider.notifier).login(_userNameController.text, _passwordController.text);
+    await ref
+        .read(authProvider.notifier)
+        .login(_userNameController.text, _passwordController.text);
 
     if (!mounted) return;
     setState(() => _loading = false);
 
     final authState = ref.read(authProvider);
     if (authState.status == AuthStatus.authenticated) {
-      context.go('/home');
+      final isPilot = authState.user?.isPilot ?? false;
+      context.go(isPilot ? '/pilot/tasks' : '/home');
     } else if (authState.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(authState.error!)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(authState.error!)));
     }
   }
 
@@ -77,18 +89,31 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             children: [
               const SizedBox(height: 60),
               Container(
-                width: 72, height: 72,
+                width: 72,
+                height: 72,
                 decoration: BoxDecoration(
                   color: AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Icon(Icons.flight, size: 44, color: AppColors.primary),
+                child: const Icon(
+                  Icons.flight,
+                  size: 44,
+                  color: AppColors.primary,
+                ),
               ),
               const SizedBox(height: 20),
-              const Text('欢迎使用飞翼通', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const Text(
+                '欢迎使用飞翼通',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
-              const Text('无人机任务调度平台',
-                style: TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant)),
+              const Text(
+                '无人机飞手接单平台',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
               const SizedBox(height: 40),
               TextField(
                 controller: _userNameController,
@@ -108,18 +133,66 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   hintText: '请输入密码',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    onPressed: () {
+                      setState(() => _obscurePassword = !_obscurePassword);
+                    },
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: () => setState(() => _showServer = !_showServer),
+                child: Row(
+                  children: [
+                    Icon(
+                      _showServer ? Icons.expand_less : Icons.expand_more,
+                      size: 16,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      '服务器设置',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_showServer) ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _serverController,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(
+                    hintText: '请输入服务器地址，如 http://192.168.1.1:8080',
+                    prefixIcon: Icon(Icons.dns_outlined, size: 20),
+                  ),
+                  onChanged: (v) {
+                    final url = TokenStorage.normalizeHttpServerUrl(v) ?? '';
+                    ref.read(tokenStorageProvider).saveServerUrl(url);
+                    ref.read(httpClientProvider).updateBaseUrl(url);
+                  },
+                ),
+              ],
+              const SizedBox(height: 24),
               SizedBox(
-                width: double.infinity, height: 48,
+                width: double.infinity,
+                height: 48,
                 child: ElevatedButton(
                   onPressed: _loading ? null : _login,
                   child: _loading
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text('登 录', style: TextStyle(fontSize: 16)),
                 ),
               ),
@@ -127,10 +200,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('还没有账号？', style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant)),
+                  const Text(
+                    '还没有账号？',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
                   GestureDetector(
                     onTap: () => context.push('/register'),
-                    child: const Text('注册账号', style: TextStyle(fontSize: 13, color: AppColors.primary)),
+                    child: const Text(
+                      '用户注册',
+                      style: TextStyle(fontSize: 13, color: AppColors.primary),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  GestureDetector(
+                    onTap: () => context.push('/rider/register'),
+                    child: const Text(
+                      '飞手注册',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF2E7D32)),
+                    ),
                   ),
                 ],
               ),

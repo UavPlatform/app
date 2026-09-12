@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'page_transition.dart';
 import '../providers/auth_provider.dart';
 import '../pages/splash/splash_page.dart';
 import '../pages/splash/onboarding_page.dart';
@@ -16,16 +15,22 @@ import '../pages/profile/address_list_page.dart';
 import '../pages/profile/address_edit_page.dart';
 import '../pages/publish/publish_page.dart';
 import '../pages/publish/map_picker_page.dart';
+import '../pages/pilot/task_hall_page.dart';
+import '../pages/pilot/my_jobs_page.dart';
+import '../pages/pilot/pilot_profile_page.dart';
+import '../pages/pilot/drone_manage_page.dart';
+import '../pages/auth/rider_register_page.dart';
 import '../pages/chat/chat_detail_page.dart';
-import '../pages/riders/rider_list_page.dart';
-import '../pages/riders/rider_detail_page.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/pilot_bottom_nav.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _userShellKey = GlobalKey<NavigatorState>();
+final _pilotShellKey = GlobalKey<NavigatorState>();
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
+  final isPilot = authState.user?.isPilot ?? false;
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -34,6 +39,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = authState.status == AuthStatus.authenticated;
       final isAuthPage = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register' ||
+          state.matchedLocation == '/rider/register' ||
           state.matchedLocation == '/splash' ||
           state.matchedLocation == '/onboarding';
 
@@ -50,89 +56,111 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/splash',
-        pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const SplashPage()),
+        builder: (context, state) => const SplashPage(),
       ),
       GoRoute(
         path: '/onboarding',
-        pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const OnboardingPage()),
+        builder: (context, state) => const OnboardingPage(),
       ),
       GoRoute(
         path: '/login',
-        pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const LoginPage()),
+        builder: (context, state) => const LoginPage(),
       ),
       GoRoute(
         path: '/register',
-        pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const RegisterPage()),
+        builder: (context, state) => const RegisterPage(),
       ),
       GoRoute(
         path: '/publish',
-        pageBuilder: (context, state) => AppTransitionPage(
-          key: state.pageKey,
-          child: PublishPage(serviceType: state.extra as String?),
-        ),
+        builder: (context, state) => const PublishPage(),
       ),
       GoRoute(
         path: '/publish/map',
-        pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const MapPickerPage()),
+        builder: (context, state) => const MapPickerPage(),
       ),
       GoRoute(
         path: '/chat/:sessionId',
-        pageBuilder: (context, state) => AppTransitionPage(
-          key: state.pageKey,
-          child: ChatDetailPage(
-            sessionId: int.parse(state.pathParameters['sessionId']!),
-            sessionName: state.uri.queryParameters['name'],
-          ),
+        builder: (context, state) => ChatDetailPage(
+          sessionId: int.parse(state.pathParameters['sessionId']!),
+          sessionName: state.uri.queryParameters['otherUserName'] ??
+              state.uri.queryParameters['name'],
         ),
       ),
       GoRoute(
         path: '/order/:taskNum',
-        pageBuilder: (context, state) => AppTransitionPage(
-          key: state.pageKey,
-          child: OrderDetailPage(taskNum: state.pathParameters['taskNum']!),
-        ),
-      ),
-      GoRoute(
-        path: '/riders',
-        pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const RiderListPage()),
-      ),
-      GoRoute(
-        path: '/rider/:riderId',
-        pageBuilder: (context, state) => AppTransitionPage(
-          key: state.pageKey,
-          child: RiderDetailPage(riderId: int.parse(state.pathParameters['riderId']!)),
+        builder: (context, state) => OrderDetailPage(
+          taskNum: state.pathParameters['taskNum']!,
         ),
       ),
       GoRoute(
         path: '/addresses',
-        pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const AddressListPage()),
+        builder: (context, state) => const AddressListPage(),
+      ),
+      GoRoute(
+        path: '/pilot/drones',
+        builder: (context, state) => const DroneManagePage(),
+      ),
+      GoRoute(
+        path: '/rider/register',
+        builder: (context, state) => const RiderRegisterPage(),
       ),
       GoRoute(
         path: '/address/edit',
-        pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const AddressEditPage()),
+        builder: (context, state) => const AddressEditPage(),
       ),
 
-      // ========== 底部导航 ==========
+      // ========== 用户端底部导航 ==========
       ShellRoute(
         navigatorKey: _userShellKey,
         builder: (context, state, child) => AppBottomNav(child: child),
         routes: [
-          GoRoute(path: '/', redirect: (_, _) => '/home'),
+          GoRoute(
+            path: '/',
+            redirect: (_, __) => '/home',
+          ),
           GoRoute(
             path: '/home',
-            pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const HomePage()),
+            pageBuilder: (context, state) => const NoTransitionPage(child: HomePage()),
           ),
           GoRoute(
             path: '/orders',
-            pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const OrderListPage()),
+            pageBuilder: (context, state) => const NoTransitionPage(child: OrderListPage()),
           ),
           GoRoute(
             path: '/messages',
-            pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const MessageListPage()),
+            pageBuilder: (context, state) => const NoTransitionPage(child: MessageListPage()),
           ),
           GoRoute(
             path: '/profile',
-            pageBuilder: (context, state) => AppTransitionPage(key: state.pageKey, child: const ProfilePage()),
+            pageBuilder: (context, state) => const NoTransitionPage(child: ProfilePage()),
+          ),
+        ],
+      ),
+
+      // ========== 飞手端底部导航 ==========
+      ShellRoute(
+        navigatorKey: _pilotShellKey,
+        builder: (context, state, child) => PilotBottomNav(child: child),
+        routes: [
+          GoRoute(
+            path: '/pilot/tasks',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: TaskHallPage()),
+          ),
+          GoRoute(
+            path: '/pilot/jobs',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: MyJobsPage()),
+          ),
+          GoRoute(
+            path: '/pilot/messages',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: MessageListPage()),
+          ),
+          GoRoute(
+            path: '/pilot/profile',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: PilotProfilePage()),
           ),
         ],
       ),

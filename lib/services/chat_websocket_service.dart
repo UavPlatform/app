@@ -5,6 +5,7 @@ import 'dart:math';
 
 import '../config/api_config.dart';
 import '../models/message_vo.dart';
+import 'token_storage.dart';
 
 enum ChatWebSocketStatus {
   disconnected,

@@ -92,7 +92,7 @@ void main() {
       // 第一页 → 第二页
       await tester.tap(find.text('下一步'));
       await tester.pumpAndSettle();
-      expect(find.text('专业飞手接单'), findsOneWidget);
+      expect(find.text('专业团队服务'), findsOneWidget);
 
       // 第二页 → 第三页（末页，按钮文案变为「立即开始」）
       await tester.tap(find.text('下一步'));

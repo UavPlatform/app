@@ -3,13 +3,14 @@ import 'package:dio/dio.dart';
 import 'http_client.dart';
 import '../models/result_model.dart';
 import '../models/rider_vo.dart';
+import '../models/task_vo.dart';
+import '../models/rider_stats_vo.dart';
 
 class RiderApi {
   final HttpClient _client;
 
   RiderApi(this._client);
 
-  Future<Result<List<RiderVo>>> getRecommended() async {
   /// 任务广场 - 查看所有可接的任务
   Future<Result<TaskPageVo>> listAvailableTasks() async {
     final response = await _client.dio.get('/rider/square');
@@ -102,6 +103,19 @@ class RiderApi {
 
   /// 推荐飞手列表
   Future<Result<List<RiderStatsVo>>> getRecommendedRiders() async {
+    final response = await _client.dio.get('/rider/recommended');
+    final data = response.data as Map<String, dynamic>;
+    if (data['success'] == true) {
+      final list = (data['data'] as List<dynamic>)
+          .map((e) => RiderStatsVo.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return Result(success: true, code: 200, data: list);
+    }
+    return Result(success: false, code: data['code'], message: data['message'] as String?);
+  }
+
+  /// 推荐飞手（远端并行功能线：首页热门飞手）
+  Future<Result<List<RiderVo>>> getRecommended() async {
     final response = await _client.dio.get('/rider/recommended');
     final data = response.data as Map<String, dynamic>;
     final code = data['code'] as int?;
