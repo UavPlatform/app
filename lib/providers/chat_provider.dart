@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/chat_api.dart';
+import '../api/http_client.dart';
 import '../models/session_vo.dart';
 import '../models/message_vo.dart';
 import '../services/chat_websocket_service.dart';
@@ -12,9 +13,49 @@ final chatApiProvider = Provider<ChatApi>(
 );
 
 final chatWebSocketServiceProvider = Provider<ChatWebSocketService>((ref) {
-  final service = ChatWebSocketService();
+  final service = ChatWebSocketService(
+    ref.watch(tokenStorageProvider),
+    // t28②：握手 403 自愈——主动刷新 token，rejected 走 sessionExpired 登出链
+    refreshSession: () => ref.read(httpClientProvider).refreshTokens(),
+    onSessionInvalid: () => unawaited(
+      ref.read(authProvider.notifier).logout(sessionExpired: true),
+    ),
+  );
   ref.onDispose(service.dispose);
   return service;
+});
+
+/// 聊天连接状态流（t28③：superseded 状态供 UI 提示顶号）。
+final chatStatusProvider = StreamProvider<ChatWebSocketStatus>(
+  (ref) => ref.watch(chatWebSocketServiceProvider).status,
+);
+
+/// 认证驱动的实时链路生命周期（P1-3）：
+/// - 登录成功后自动建立聊天 WS（含应用启动时已持有 token 的场景）；
+/// - 登出/401 失效（unauthenticated）立即断开 WS，不再接收前一账号消息，
+///   并清理前一账号的会话列表与未读角标。
+/// 由 MyApp watch 激活；仅响应认证态变化，不在构建期做清理副作用。
+final chatRealtimeLifecycleProvider = Provider<void>((ref) {
+  final service = ref.watch(chatWebSocketServiceProvider);
+
+  ref.listen<AuthState>(authProvider, (prev, next) {
+    final userId = int.tryParse(next.user?.userId ?? '') ?? 0;
+    if (next.status == AuthStatus.authenticated && userId > 0) {
+      unawaited(service.ensureConnected(userId));
+    } else if (next.status == AuthStatus.unauthenticated) {
+      unawaited(service.disconnect());
+      ref.invalidate(totalUnreadCountProvider);
+      ref.invalidate(sessionListProvider);
+      ref.invalidate(messageListProvider);
+    }
+  });
+
+  // 冷启动初始状态：已持有 token 则直接建立长连接。
+  final auth = ref.read(authProvider);
+  final userId = int.tryParse(auth.user?.userId ?? '') ?? 0;
+  if (auth.status == AuthStatus.authenticated && userId > 0) {
+    unawaited(service.ensureConnected(userId));
+  }
 });
 
 // ==================== 会话列表 ====================
@@ -49,18 +90,45 @@ class SessionListState {
 
 class SessionListNotifier extends StateNotifier<SessionListState> {
   final ChatApi _api;
+  final HttpClient _httpClient;
   StreamSubscription<MessageVo>? _realtimeSub;
+  StreamSubscription<void>? _resyncSub;
 
-  SessionListNotifier(this._api, Stream<MessageVo> messages)
-    : super(const SessionListState()) {
+  SessionListNotifier(
+    this._api,
+    this._httpClient,
+    Stream<MessageVo> messages,
+    Stream<void> resync,
+  ) : super(const SessionListState()) {
     _realtimeSub = messages.listen(_applyRealtimeSummary);
+    // WS 断线重连成功后补拉会话列表（P1-2）。
+    _resyncSub = resync.listen((_) => load());
     load();
+  }
+
+  /// 进入会话时显式推进已读（t50，对齐 t49 后端契约）：
+  /// POST /chat/Message/read?sessionId= → 服务端该会话 lastReadTime=now；
+  /// 本地同步清零该会话未读，避免回到列表仍显示旧红点。
+  Future<void> markSessionRead(int sessionId) async {
+    try {
+      await _httpClient.dio.post(
+        '/chat/Message/read',
+        queryParameters: {'sessionId': sessionId},
+      );
+    } catch (_) {
+      // 已读推进失败不阻塞 UI（下次进入会话重试）
+    }
+    final sessions = state.sessions
+        .map((s) => s.id == sessionId ? s.copyWith(unreadCount: 0) : s)
+        .toList();
+    state = state.copyWith(sessions: sessions);
   }
 
   Future<void> load() async {
     state = state.copyWith(loading: true, error: null);
     try {
       final result = await _api.listSessions();
+      if (!mounted) return;
       if (result.success && result.data != null) {
         final sessions = [...result.data!]
           ..sort((a, b) => b.sortTime.compareTo(a.sortTime));
@@ -69,6 +137,7 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
         state = state.copyWith(loading: false, error: result.message ?? '加载失败');
       }
     } catch (_) {
+      if (!mounted) return;
       state = state.copyWith(loading: false, error: '加载失败');
     }
   }
@@ -84,6 +153,7 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
         type: 0,
         userIds: [userId],
       );
+      if (!mounted) return null;
       if (!result.success || result.data == null) {
         state = state.copyWith(
           creatingSession: false,
@@ -104,12 +174,14 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
       );
       return session;
     } catch (_) {
+      if (!mounted) return null;
       state = state.copyWith(creatingSession: false, error: '创建会话失败');
       return null;
     }
   }
 
   void _applyRealtimeSummary(MessageVo message) {
+    if (!mounted) return;
     final sessions = state.sessions.map((session) {
       if (session.id != message.sessionId) return session;
       return session.copyWith(
@@ -124,16 +196,22 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
   @override
   void dispose() {
     _realtimeSub?.cancel();
+    _resyncSub?.cancel();
     super.dispose();
   }
 }
 
 final sessionListProvider =
     StateNotifierProvider<SessionListNotifier, SessionListState>(
-      (ref) => SessionListNotifier(
-        ref.watch(chatApiProvider),
-        ref.watch(chatWebSocketServiceProvider).messages,
-      ),
+      (ref) {
+        final service = ref.watch(chatWebSocketServiceProvider);
+        return SessionListNotifier(
+          ref.watch(chatApiProvider),
+          ref.watch(httpClientProvider),
+          service.messages,
+          service.resync,
+        );
+      },
     );
 
 // ==================== 消息列表（单个会话） ====================
@@ -170,10 +248,17 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
   final ChatApi _api;
   final int sessionId;
   StreamSubscription<MessageVo>? _realtimeSub;
+  StreamSubscription<void>? _resyncSub;
 
-  MessageListNotifier(this._api, this.sessionId, Stream<MessageVo> messages)
-    : super(const MessageListState()) {
+  MessageListNotifier(
+    this._api,
+    this.sessionId,
+    Stream<MessageVo> messages,
+    Stream<void> resync,
+  ) : super(const MessageListState()) {
     _realtimeSub = messages.listen(_appendRealtimeMessage);
+    // WS 断线重连成功后补拉当前会话历史，弥合离线期间的消息空洞（P1-2）。
+    _resyncSub = resync.listen((_) => load());
     load();
   }
 
@@ -181,12 +266,14 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
     state = state.copyWith(loading: true, error: null);
     try {
       final result = await _api.getMessages(sessionId);
+      if (!mounted) return;
       if (result.success && result.data != null) {
         state = state.copyWith(loading: false, messages: result.data!);
       } else {
         state = state.copyWith(loading: false, error: result.message ?? '加载失败');
       }
     } catch (_) {
+      if (!mounted) return;
       state = state.copyWith(loading: false, error: '加载失败');
     }
   }
@@ -201,18 +288,22 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
       );
       if (result.success) {
         await load();
+        if (!mounted) return false;
         state = state.copyWith(sending: false);
         return true;
       }
+      if (!mounted) return false;
       state = state.copyWith(sending: false, error: result.message ?? '发送失败');
       return false;
     } catch (_) {
+      if (!mounted) return false;
       state = state.copyWith(sending: false, error: '发送失败');
       return false;
     }
   }
 
   void _appendRealtimeMessage(MessageVo message) {
+    if (!mounted) return;
     if (message.sessionId != sessionId) return;
     final messages = [
       ...state.messages.where((item) => item.msgId != message.msgId),
@@ -224,26 +315,35 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
   @override
   void dispose() {
     _realtimeSub?.cancel();
+    _resyncSub?.cancel();
     super.dispose();
   }
 }
 
 final messageListProvider =
     StateNotifierProvider.family<MessageListNotifier, MessageListState, int>(
-      (ref, sessionId) => MessageListNotifier(
-        ref.watch(chatApiProvider),
-        sessionId,
-        ref.watch(chatWebSocketServiceProvider).messages,
-      ),
+      (ref, sessionId) {
+        final service = ref.watch(chatWebSocketServiceProvider);
+        return MessageListNotifier(
+          ref.watch(chatApiProvider),
+          sessionId,
+          service.messages,
+          service.resync,
+        );
+      },
     );
 
 // ==================== 全局未读消息数 ====================
 
-final totalUnreadCountProvider = FutureProvider<int>((ref) async {
-  final api = ref.watch(chatApiProvider);
-  final result = await api.getUnreadCount();
-  if (result.success && result.data != null) {
-    return result.data!.values.fold<int>(0, (sum, v) => sum + v);
-  }
-  return 0;
+/// WS 断线重连成功的补拉信号（供 FutureProvider 等订阅刷新）。
+final chatResyncProvider = StreamProvider<void>(
+  (ref) => ref.watch(chatWebSocketServiceProvider).resync,
+);
+
+/// 全局未读角标（t50）：派生自会话列表未读数——
+/// WS 实时消息经 _applyRealtimeSummary 本地 +1（收=增），
+/// 进入会话 markSessionRead 本地清零（读=减），重连补拉 resync 触发会话重载对齐服务端。
+final totalUnreadCountProvider = Provider<int>((ref) {
+  final sessions = ref.watch(sessionListProvider).sessions;
+  return sessions.fold<int>(0, (sum, s) => sum + s.unreadCount);
 });
