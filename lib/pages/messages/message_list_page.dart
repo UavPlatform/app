@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../models/session_vo.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
+import 'system_messages_view.dart';
 
 class MessageListPage extends ConsumerStatefulWidget {
   const MessageListPage({super.key});
@@ -26,6 +28,11 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
       );
     }
 
+    // t33：系统通知专属会话（chat_session.type=2，懒创建）单独聚合展示
+    final systemSession = _systemSessionOf(state.sessions);
+    final chatSessions =
+        state.sessions.where((s) => s.type != 2).toList();
+
     return Scaffold(
       appBar: AppBar(title: const Text('消息')),
       floatingActionButton: FloatingActionButton.small(
@@ -36,8 +43,8 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               children: [
-                _buildSystemNotice(context),
-                if (state.sessions.isEmpty)
+                _buildSystemNotice(context, systemSession),
+                if (chatSessions.isEmpty)
                   SizedBox(
                     height: MediaQuery.of(context).size.height * 0.5,
                     child: const Center(
@@ -48,7 +55,7 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
                     ),
                   )
                 else
-                  ...state.sessions.map((s) {
+                  ...chatSessions.map((s) {
                     final title = s.otherUserName ?? s.name;
                     return Column(
                       children: [
@@ -127,7 +134,18 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
     );
   }
 
-  Widget _buildSystemNotice(BuildContext context) {
+  SessionVo? _systemSessionOf(List<SessionVo> sessions) {
+    for (final s in sessions) {
+      if (s.type == 2) return s;
+    }
+    return null;
+  }
+
+  /// t33：系统通知入口接通——聚合展示系统会话中的状态通知卡片，
+  /// 未读红点与系统会话未读数联动（深度修复属 2-1）。
+  Widget _buildSystemNotice(BuildContext context, SessionVo? systemSession) {
+    final unread = systemSession?.unreadCount ?? 0;
+    final hasUnread = systemSession != null && unread > 0;
     return Column(
       children: [
         ListTile(
@@ -148,12 +166,37 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
             '系统通知',
             style: TextStyle(fontWeight: FontWeight.w500),
           ),
-          subtitle: const Text(
-            '查看系统消息和订单动态',
-            style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+          subtitle: Text(
+            hasUnread ? '你有新的系统消息' : '查看系统消息和订单动态',
+            style: const TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
           ),
-          trailing: const Icon(Icons.chevron_right, color: AppColors.outline),
-          onTap: () {},
+          trailing: hasUnread
+              ? Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.error,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    unread > 99 ? '99+' : unread.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )
+              : const Icon(Icons.chevron_right, color: AppColors.outline),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => SystemMessagesView(
+                sessionId: systemSession?.id,
+              ),
+            ),
+          ),
         ),
         const Divider(height: 1, indent: 16),
       ],

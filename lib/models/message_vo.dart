@@ -8,6 +8,10 @@ class MessageVo {
   final String content;
   final bool isOffline;
 
+  /// 系统消息事件名（t23 载荷契约 payload.name，如 ORDER_PAID；
+  /// 仅 msgType=1/2 系统消息携带，CHAT 消息为 null）。
+  final String? payloadName;
+
   MessageVo({
     required this.msgId,
     required this.sessionId,
@@ -17,6 +21,7 @@ class MessageVo {
     required this.timestamp,
     required this.content,
     this.isOffline = false,
+    this.payloadName,
   });
 
   factory MessageVo.fromJson(Map<String, dynamic> json) {
@@ -30,6 +35,7 @@ class MessageVo {
       timestamp: (json['timestamp'] as num?)?.toInt() ?? 0,
       content: payload?['text'] as String? ?? '',
       isOffline: json['isOffline'] as bool? ?? false,
+      payloadName: payload?['name'] as String?,
     );
   }
 

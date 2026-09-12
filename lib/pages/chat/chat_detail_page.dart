@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/system_message_card.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/auth_provider.dart';
 
@@ -16,6 +17,15 @@ class ChatDetailPage extends ConsumerStatefulWidget {
 class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
   final _textController = TextEditingController();
   bool _connectedRealtime = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // t50：进入会话显式推进已读（POST /chat/Message/read），本地未读同步清零
+    Future.microtask(() {
+      ref.read(sessionListProvider.notifier).markSessionRead(widget.sessionId);
+    });
+  }
 
   @override
   void dispose() {
@@ -64,6 +74,13 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
                     itemBuilder: (context, index) {
                       final msg =
                           state.messages[state.messages.length - 1 - index];
+                      // t33：系统消息（NOTICE/ORDER，fromUserId=0）渲染为系统卡片
+                      if (isSystemMessage(msg)) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: SystemMessageCard(message: msg),
+                        );
+                      }
                       final isMine = msg.fromUserId == uid;
                       return Align(
                         alignment: isMine
