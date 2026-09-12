@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
+import '../../providers/chat_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/rider_provider.dart';
 import '../../models/rider_vo.dart';
@@ -59,49 +60,15 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final unreadCount = ref.watch(totalUnreadCountProvider);
     final location = ref.watch(locationProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
       appBar: AppBar(
-<<<<<<< HEAD
         toolbarHeight: 0,
         elevation: 0,
         backgroundColor: Colors.white,
-=======
-        title: GestureDetector(
-          onTap: () => ref.read(locationProvider.notifier).refresh(),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.location_on, color: AppColors.primary, size: 20),
-              const SizedBox(width: 4),
-              Text(
-                location.loading ? '定位中...' : location.city,
-                style: const TextStyle(fontSize: 16),
-              ),
-              const Icon(Icons.arrow_drop_down, size: 20),
-            ],
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Badge(
-              isLabelVisible: unreadCount > 0,
-              label: Text(
-                unreadCount > 99 ? '99+' : '$unreadCount',
-                style: const TextStyle(fontSize: 10),
-              ),
-              child: const Icon(Icons.notifications_outlined),
-            ),
-            onPressed: () {},
-          ),
-        ],
->>>>>>> 279ad29 (feat: 未读数深修与角标实时化)
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 16),
@@ -131,7 +98,15 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 Stack(children: [
                   IconButton(icon: const Icon(Icons.notifications_outlined, size: 21), onPressed: () => context.go('/messages')),
-                  Positioned(right: 10, top: 10, child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppColors.badge, shape: BoxShape.circle))),
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Badge(
+                      isLabelVisible: unreadCount > 0,
+                      label: Text(unreadCount > 99 ? '99+' : '$unreadCount', style: const TextStyle(fontSize: 9)),
+                      child: const SizedBox(width: 21, height: 21),
+                    ),
+                  ),
                 ]),
               ]),
               const SizedBox(height: 6),
