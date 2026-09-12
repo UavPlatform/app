@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../config/api_config.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 
@@ -16,6 +17,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _loading = false;
+  bool _showServer = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 服务器地址预填：本地已存地址优先，新装首启回落内置默认环境（P1-5）。
+    _serverController.text = ApiConfig.resolveBaseUrl(
+      TokenStorage.normalizeHttpServerUrl(
+        ref.read(tokenStorageProvider).getServerUrl(),
+      ),
+    );
+  }
 
   @override
   void dispose() {

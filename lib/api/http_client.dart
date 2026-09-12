@@ -5,19 +5,34 @@ import '../services/token_storage.dart';
 
 class HttpClient {
   final TokenStorage _tokenStorage;
+
+  /// 测试注入的自定义适配器（默认空，走真实网络栈）
+  final HttpClientAdapter? adapter;
   late final Dio dio;
 
   Future<String?>? _refreshFuture;
 
-  HttpClient(this._tokenStorage) {
+  /// 无人机未绑定时回调
+  static void Function()? onDroneRequired;
+
+  /// 401 刷新失败的兜底回调（P1-4）：由认证层注册，
+  /// 触发本地登出并经路由重定向回登录页。
+  /// 仅对携带过 Authorization 头的请求触发（登录等匿名 401 不登出）。
+  static void Function()? onUnauthorized;
+
+  HttpClient(this._tokenStorage, {this.adapter}) {
     dio = Dio(
       BaseOptions(
-        baseUrl: ApiConfig.baseUrl,
+        baseUrl: ApiConfig.resolveBaseUrl(_tokenStorage.getServerUrl()),
         connectTimeout: ApiConfig.connectTimeout,
         receiveTimeout: ApiConfig.receiveTimeout,
         headers: {'Content-Type': 'application/json'},
       ),
     );
+    final injected = adapter;
+    if (injected != null) {
+      dio.httpClientAdapter = injected;
+    }
 
     dio.interceptors.add(_authInterceptor());
     dio.interceptors.add(_refreshInterceptor());
@@ -45,7 +60,12 @@ class HttpClient {
           return handler.next(error);
         }
 
+        final hadAuthHeader =
+            error.requestOptions.headers['Authorization'] != null;
+
         if (error.requestOptions.extra[_retryKey] == true) {
+          // 已用新 token 重试仍 401：会话彻底失效。
+          _notifyUnauthorized(hadAuthHeader);
           return handler.next(error);
         }
 
@@ -53,6 +73,7 @@ class HttpClient {
         try {
           final newToken = await _refreshFuture;
           if (newToken == null) {
+            _notifyUnauthorized(hadAuthHeader);
             return handler.next(error);
           }
 
@@ -63,6 +84,8 @@ class HttpClient {
             final retryResponse = await dio.fetch(opts);
             handler.resolve(retryResponse);
           } catch (e) {
+            // 重试失败：401 场景已在重试请求的拦截器中触发登出通知，
+            // 这里不重复通知，仅透传原始错误。
             handler.next(error);
           }
         } finally {
@@ -72,22 +95,34 @@ class HttpClient {
     );
   }
 
-  Future<String?> _refreshAccessToken() async {
+  void _notifyUnauthorized(bool hadAuthHeader) {
+    if (hadAuthHeader) onUnauthorized?.call();
+  }
+
+  /// 主动刷新 accessToken（t28：WS 握手 403 自愈入口）。
+  /// 返回三态：refreshed（已持久化新 token）/ rejected（服务端明确拒绝，
+  /// 会话彻底失效）/ unreachable（网络性失败，可稍后重试）。
+  Future<TokenRefreshOutcome> refreshTokens() async {
     final refreshToken = _tokenStorage.getRefreshToken();
-    if (refreshToken == null) return null;
+    if (refreshToken == null) return TokenRefreshOutcome.rejected;
+
+    final refreshDio = Dio(
+      BaseOptions(
+        baseUrl: ApiConfig.resolveBaseUrl(_tokenStorage.getServerUrl()),
+        connectTimeout: ApiConfig.connectTimeout,
+        receiveTimeout: ApiConfig.receiveTimeout,
+      ),
+    );
+    final injected = adapter;
+    if (injected != null) {
+      refreshDio.httpClientAdapter = injected;
+    }
 
     try {
-      final response =
-          await Dio(
-            BaseOptions(
-              baseUrl: ApiConfig.baseUrl,
-              connectTimeout: ApiConfig.connectTimeout,
-              receiveTimeout: ApiConfig.receiveTimeout,
-            ),
-          ).post(
-            '/user/refresh',
-            options: Options(headers: {'Refresh-Token': refreshToken}),
-          );
+      final response = await refreshDio.post(
+        '/user/refresh',
+        options: Options(headers: {'Refresh-Token': refreshToken}),
+      );
 
       final data = response.data;
       if (data['success'] == true && data['data'] != null) {
@@ -96,13 +131,23 @@ class HttpClient {
           token: newToken,
           refreshToken: refreshToken,
         );
-        return newToken;
+        return TokenRefreshOutcome.refreshed;
       }
-      // refresh 返回了非成功响应（如 token 也过期了）
-      return null;
-    } catch (e) {
-      // refresh 请求本身失败（网络不通 / 接口不存在等）
-      return null;
+      return TokenRefreshOutcome.rejected;
+    } on DioException catch (e) {
+      final status = e.response?.statusCode ?? 0;
+      if (status >= 500) return TokenRefreshOutcome.unreachable;
+      if (e.response != null) return TokenRefreshOutcome.rejected;
+      return TokenRefreshOutcome.unreachable;
+    } catch (_) {
+      return TokenRefreshOutcome.unreachable;
     }
+  }
+
+  Future<String?> _refreshAccessToken() async {
+    final outcome = await refreshTokens();
+    return outcome == TokenRefreshOutcome.refreshed
+        ? _tokenStorage.getToken()
+        : null;
   }
 }

@@ -1,5 +1,11 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Token 刷新结果三态：
+/// - refreshed：拿到新 accessToken 并已持久化；
+/// - rejected：服务端可达但明确拒绝刷新（refreshToken 失效/缺失）→ 会话彻底失效；
+/// - unreachable：网络性失败（连接失败/超时/5xx）→ 维持现状稍后重试。
+enum TokenRefreshOutcome { refreshed, rejected, unreachable }
+
 class TokenStorage {
   static const _tokenKey = 'jwt_token';
   static const _refreshTokenKey = 'jwt_refresh_token';

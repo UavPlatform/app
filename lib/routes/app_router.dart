@@ -37,8 +37,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           state.matchedLocation == '/splash' ||
           state.matchedLocation == '/onboarding';
 
-      if (!isLoggedIn && !isAuthPage) return '/login';
-      if (isLoggedIn && isAuthPage) return '/home';
+      if (!isLoggedIn) {
+        // 401 刷新失败被强制登出（sessionExpired）：从任意位置直达登录页，
+        // 不再经过启动页/引导页（P1-4）；其余登出态维持原有守卫规则。
+        if (authState.sessionExpired || !isAuthPage) return '/login';
+      }
+      if (isLoggedIn && isAuthPage) {
+        return isPilot ? '/pilot/tasks' : '/home';
+      }
       return null;
     },
     routes: [

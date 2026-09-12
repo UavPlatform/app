@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/login_request.dart';
@@ -27,6 +29,14 @@ final authApiProvider = Provider<AuthApi>(
   (ref) => AuthApi(ref.watch(httpClientProvider)),
 );
 
+/// 401 刷新失败兜底（P1-4）：HttpClient 静态回调触发本地登出，
+/// 路由监听认证态变化自动跳转登录页。由 MyApp watch 激活。
+final unauthorizedSessionGuardProvider = Provider<void>((ref) {
+  HttpClient.onUnauthorized = () {
+    unawaited(ref.read(authProvider.notifier).logout(sessionExpired: true));
+  };
+});
+
 // ============================================================
 // 认证状态
 // ============================================================
@@ -48,13 +58,28 @@ class AuthState {
   final UserInfo? user;
   final String? error;
 
-  const AuthState({this.status = AuthStatus.unknown, this.user, this.error});
+  /// 会话被强制终止（401 刷新失败）而本地登出：路由据此直达登录页，
+  /// 跳过启动页/引导页流程。
+  final bool sessionExpired;
 
-  AuthState copyWith({AuthStatus? status, UserInfo? user, String? error}) {
+  const AuthState({
+    this.status = AuthStatus.unknown,
+    this.user,
+    this.error,
+    this.sessionExpired = false,
+  });
+
+  AuthState copyWith({
+    AuthStatus? status,
+    UserInfo? user,
+    String? error,
+    bool? sessionExpired,
+  }) {
     return AuthState(
       status: status ?? this.status,
       user: user ?? this.user,
       error: error,
+      sessionExpired: sessionExpired ?? this.sessionExpired,
     );
   }
 }
@@ -97,6 +122,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         status: AuthStatus.authenticated,
         user: token != null ? _parseToken(token) : null,
         error: null,
+        sessionExpired: false,
       );
     } catch (_) {
       state = state.copyWith(error: '网络请求失败，请稍后重试');
@@ -116,9 +142,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> logout() async {
+  /// 本地登出。401 刷新失败强制登出时传 sessionExpired: true，
+  /// 路由将直达登录页（P1-4）。
+  Future<void> logout({bool sessionExpired = false}) async {
     await _tokenStorage.clear();
-    state = const AuthState(status: AuthStatus.unauthenticated);
+    state = AuthState(
+      status: AuthStatus.unauthenticated,
+      sessionExpired: sessionExpired,
+    );
   }
 
   void clearError() {
