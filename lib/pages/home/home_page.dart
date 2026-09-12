@@ -64,9 +64,44 @@ class _HomePageState extends ConsumerState<HomePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
       appBar: AppBar(
+<<<<<<< HEAD
         toolbarHeight: 0,
         elevation: 0,
         backgroundColor: Colors.white,
+=======
+        title: GestureDetector(
+          onTap: () => ref.read(locationProvider.notifier).refresh(),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.location_on, color: AppColors.primary, size: 20),
+              const SizedBox(width: 4),
+              Text(
+                location.loading ? '定位中...' : location.city,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const Icon(Icons.arrow_drop_down, size: 20),
+            ],
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: Badge(
+              isLabelVisible: unreadCount > 0,
+              label: Text(
+                unreadCount > 99 ? '99+' : '$unreadCount',
+                style: const TextStyle(fontSize: 10),
+              ),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            onPressed: () {},
+          ),
+        ],
+>>>>>>> 279ad29 (feat: 未读数深修与角标实时化)
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 16),
