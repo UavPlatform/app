@@ -1,4 +1,5 @@
 import 'http_client.dart';
+import 'generated/openapi_paths.dart';
 import '../models/login_request.dart';
 import '../models/login_response.dart';
 import '../models/register_request.dart';
@@ -12,7 +13,7 @@ class AuthApi {
 
   Future<Result<LoginResponse>> login(LoginRequest request) async {
     final response = await _client.dio.post(
-      '/user/login',
+      ApiPaths.userLogin,
       data: request.toJson(),
     );
     return LoginResponse.parseResult(response.data);
@@ -20,7 +21,7 @@ class AuthApi {
 
   Future<Result<RegisterResponse>> register(RegisterRequest request) async {
     final response = await _client.dio.post(
-      '/user/register',
+      ApiPaths.userRegister,
       data: request.toJson(),
     );
     return RegisterResponse.parseResult(response.data);

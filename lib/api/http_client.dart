@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 import '../services/token_storage.dart';
+import 'generated/openapi_paths.dart';
 
 class HttpClient {
   final TokenStorage _tokenStorage;
@@ -137,7 +138,7 @@ class HttpClient {
 
     try {
       final response = await refreshDio.post(
-        '/user/refresh',
+        ApiPaths.userRefresh,
         options: Options(headers: {'Refresh-Token': refreshToken}),
       );
 

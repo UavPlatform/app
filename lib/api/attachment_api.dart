@@ -10,6 +10,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../models/result_model.dart';
+import 'generated/openapi_paths.dart';
 import 'http_client.dart';
 
 /// 上传限制与校验（t43 契约）。
@@ -122,7 +123,7 @@ class AttachmentApi {
   /// 附件列表（任务所有者/接单飞手可见）。
   Future<Result<List<AttachmentVo>>> listAttachments(String taskNum) async {
     try {
-      final response = await _client.dio.get('/tasks/$taskNum/attachments');
+      final response = await _client.dio.get(ApiPaths.tasksAttachmentsPath(taskNum));
       final data = response.data;
       if (data is Map<String, dynamic> && data['success'] == true) {
         final list = data['data'];
@@ -162,12 +163,12 @@ class AttachmentApi {
   }) async {
     try {
       final response = await _client.dio.post(
-        '/tasks/$taskNum/attachments/upload-url',
-        queryParameters: {
-          'fileName': fileName,
-          'contentType': contentType,
-          'sizeBytes': sizeBytes,
-        },
+        ApiPaths.tasksAttachmentsUploadUrlPath(taskNum),
+        queryParameters: ApiPaths.tasksAttachmentsUploadUrlQuery(
+          contentType: contentType,
+          fileName: fileName,
+          sizeBytes: sizeBytes,
+        ),
       );
       return Result.fromJson(
         response.data as Map<String, dynamic>,

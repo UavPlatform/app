@@ -1,4 +1,5 @@
 import 'http_client.dart';
+import 'generated/openapi_paths.dart';
 import '../models/result_model.dart';
 import '../models/session_vo.dart';
 import '../models/message_vo.dart';
@@ -11,7 +12,7 @@ class ChatApi {
   // ==================== 会话 ====================
 
   Future<Result<List<SessionVo>>> listSessions() async {
-    final response = await _client.dio.get('/chat/session/list');
+    final response = await _client.dio.get(ApiPaths.chatSessionList);
     final data = response.data as Map<String, dynamic>;
     if (data['success'] == true) {
       final list = (data['data'] as List<dynamic>)
@@ -27,7 +28,7 @@ class ChatApi {
     required int type,
     required List<int> userIds,
   }) async {
-    final response = await _client.dio.post('/chat/session/create', data: {
+    final response = await _client.dio.post(ApiPaths.chatSessionCreate, data: {
       'name': name,
       'type': type,
       'userIds': userIds,
@@ -46,7 +47,7 @@ class ChatApi {
   // ==================== 消息 ====================
 
   Future<Result<List<MessageVo>>> getMessages(int sessionId) async {
-    final response = await _client.dio.get('/chat/Message/messages/$sessionId');
+    final response = await _client.dio.get(ApiPaths.chatMessageMessagesPath(sessionId));
     final data = response.data as Map<String, dynamic>;
     if (data['success'] == true) {
       final list = (data['data'] as List<dynamic>)
@@ -61,7 +62,7 @@ class ChatApi {
     required int sessionId,
     required String content,
   }) async {
-    final response = await _client.dio.post('/chat/Message/send', data: {
+    final response = await _client.dio.post(ApiPaths.chatMessageSend, data: {
       'sessionId': sessionId,
       'content': content,
     });
@@ -71,7 +72,7 @@ class ChatApi {
 
   /// 获取每个会话的未读消息数
   Future<Result<Map<int, int>>> getUnreadCount() async {
-    final response = await _client.dio.get('/chat/Message/unread/count');
+    final response = await _client.dio.get(ApiPaths.chatMessageUnreadCount);
     final data = response.data as Map<String, dynamic>;
     if (data['success'] == true && data['data'] != null) {
       final raw = data['data'] as Map<String, dynamic>;

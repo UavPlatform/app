@@ -1,3 +1,5 @@
+import '../api/generated/openapi_models.dart';
+
 class SessionVo {
   final int id;
   final String name;
@@ -26,20 +28,19 @@ class SessionVo {
   });
 
   factory SessionVo.fromJson(Map<String, dynamic> json) {
+    final c = ApiSessionVO.fromJson(json);
     return SessionVo(
-      id: (json['id'] as num).toInt(),
-      name: json['name'] as String,
-      type: (json['type'] as num).toInt(),
-      userIds: (json['userIds'] as List<dynamic>)
-          .map((e) => (e as num).toInt())
-          .toList(),
-      avatar: json['avatar'] as String?,
-      description: json['description'] as String?,
-      createTime: _parseTimestamp(json['createTime']),
-      otherUserName: json['otherUserName'] as String?,
-      lastMessage: json['lastMessage'] as String?,
-      lastMessageTime: _parseNullableTimestamp(json['lastMessageTime']),
-      unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
+      id: c.id as int,
+      name: c.name as String,
+      type: c.type as int,
+      userIds: c.userIds as List<int>,
+      avatar: c.avatar,
+      description: c.description,
+      createTime: c.createTime ?? 0,
+      otherUserName: c.otherUserName,
+      lastMessage: c.lastMessage,
+      lastMessageTime: c.lastMessageTime,
+      unreadCount: c.unreadCount ?? 0,
     );
   }
 
@@ -63,16 +64,5 @@ class SessionVo {
       lastMessageTime: lastMessageTime ?? this.lastMessageTime,
       unreadCount: unreadCount ?? this.unreadCount,
     );
-  }
-
-  static int _parseTimestamp(dynamic value) {
-    return _parseNullableTimestamp(value) ?? 0;
-  }
-
-  static int? _parseNullableTimestamp(dynamic value) {
-    if (value == null) return null;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value);
-    return null;
   }
 }

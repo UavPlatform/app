@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/chat_api.dart';
+import '../api/generated/openapi_paths.dart';
 import '../api/http_client.dart';
 import '../models/session_vo.dart';
 import '../models/message_vo.dart';
@@ -112,8 +113,8 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
   Future<void> markSessionRead(int sessionId) async {
     try {
       await _httpClient.dio.post(
-        '/chat/Message/read',
-        queryParameters: {'sessionId': sessionId},
+        ApiPaths.chatMessageRead,
+        queryParameters: ApiPaths.chatMessageReadQuery(sessionId: sessionId),
       );
     } catch (_) {
       // 已读推进失败不阻塞 UI（下次进入会话重试）

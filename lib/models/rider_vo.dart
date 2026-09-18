@@ -1,3 +1,5 @@
+import '../api/generated/openapi_models.dart';
+
 class RiderVo {
   final int riderId;
   final String riderName;
@@ -14,12 +16,13 @@ class RiderVo {
   });
 
   factory RiderVo.fromJson(Map<String, dynamic> json) {
+    final c = ApiRiderStatsVO.fromJson(json);
     return RiderVo(
-      riderId: json['riderId'] as int,
-      riderName: json['riderName'] as String,
-      todayOrders: json['todayOrders'] as int,
-      totalCompleted: json['totalCompleted'] as int,
-      totalEarnings: (json['totalEarnings'] as num).toDouble(),
+      riderId: c.riderId as int,
+      riderName: c.riderName as String,
+      todayOrders: c.todayOrders as int,
+      totalCompleted: c.totalCompleted as int,
+      totalEarnings: c.totalEarnings as double,
     );
   }
 }

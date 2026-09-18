@@ -1,4 +1,5 @@
 import 'http_client.dart';
+import 'generated/openapi_paths.dart';
 import '../models/amap_config.dart';
 import '../models/result_model.dart';
 import '../models/create_task_request.dart';
@@ -10,13 +11,13 @@ class TaskApi {
   TaskApi(this._client);
 
   Future<Result<AmapConfig>> getAmapConfig() async {
-    final response = await _client.dio.get('/task/init');
+    final response = await _client.dio.get(ApiPaths.taskInit);
     return AmapConfig.parseResult(response.data);
   }
 
   Future<Result<TaskVo>> createTask(CreateTaskRequest request) async {
     final response = await _client.dio.post(
-      '/task/create',
+      ApiPaths.taskCreate,
       data: request.toJson(),
     );
     return TaskVo.parseResult(response.data);
@@ -24,24 +25,24 @@ class TaskApi {
 
   Future<Result<TaskPageVo>> listTasks({int page = 0, int size = 20}) async {
     final response = await _client.dio.get(
-      '/task/list',
-      queryParameters: {'page': page, 'size': size},
+      ApiPaths.taskList,
+      queryParameters: ApiPaths.taskListQuery(page: page, size: size),
     );
     return TaskPageVo.parseResult(response.data);
   }
 
   Future<Result<TaskVo>> getTaskDetail(String taskNum) async {
     final response = await _client.dio.get(
-      '/task/detail',
-      queryParameters: {'taskNum': taskNum},
+      ApiPaths.taskDetail,
+      queryParameters: ApiPaths.taskDetailQuery(taskNum: taskNum),
     );
     return TaskVo.parseResult(response.data);
   }
 
   Future<Result<void>> deleteTask(int taskId) async {
     final response = await _client.dio.delete(
-      '/task/delete',
-      queryParameters: {'id': taskId},
+      ApiPaths.taskDelete,
+      queryParameters: ApiPaths.taskDeleteQuery(id: taskId),
     );
     final data = response.data as Map<String, dynamic>;
     return Result(
@@ -53,8 +54,8 @@ class TaskApi {
 
   Future<Result<void>> confirmTask(String taskNum) async {
     final response = await _client.dio.post(
-      '/task/confirm',
-      queryParameters: {'taskNum': taskNum},
+      ApiPaths.taskConfirm,
+      queryParameters: ApiPaths.taskConfirmQuery(taskNum: taskNum),
     );
     final data = response.data as Map<String, dynamic>;
     return Result(

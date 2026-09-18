@@ -3,6 +3,8 @@
 import 'package:dio/dio.dart';
 
 import '../models/result_model.dart';
+import 'generated/openapi_models.dart';
+import 'generated/openapi_paths.dart';
 import 'http_client.dart';
 
 /// 订单状态码（后端 OrderStatus 枚举 code，t29 契约）。
@@ -57,17 +59,21 @@ class OrderVo {
     this.liveState,
   });
 
-  factory OrderVo.fromJson(Map<String, dynamic> json) {
+  /// 字段直取契约类（ApiOrderVO）：契约重命名/删除字段时此处编译失败。
+  factory OrderVo.fromApi(ApiOrderVO c) {
     return OrderVo(
-      orderNum: json['orderNum'] as String,
-      totalAmount: (json['totalAmount'] as num?)?.toDouble(),
-      distance: (json['distance'] as num?)?.toDouble(),
-      taskName: json['taskName'] as String?,
-      orderStatus: (json['orderStatus'] as num?)?.toInt() ?? 0,
-      deviceId: json['deviceId'] as String?,
-      liveState: json['liveState'] as String?,
+      orderNum: c.orderNum as String,
+      totalAmount: c.totalAmount,
+      distance: c.distance,
+      taskName: c.taskName,
+      orderStatus: c.orderStatus ?? 0,
+      deviceId: c.deviceId,
+      liveState: c.liveState,
     );
   }
+
+  factory OrderVo.fromJson(Map<String, dynamic> json) =>
+      OrderVo.fromApi(ApiOrderVO.fromJson(json));
 
   bool get isPending => orderStatus == OrderStatusCode.pending;
   String get statusLabel => OrderStatusCode.labelOf(orderStatus);
@@ -88,13 +94,14 @@ class OrderListVo {
   });
 
   factory OrderListVo.fromJson(Map<String, dynamic> json) {
+    final c = ApiOrderListVO.fromJson(json);
     return OrderListVo(
-      orders: (json['orders'] as List<dynamic>? ?? const [])
-          .map((e) => OrderVo.fromJson(e as Map<String, dynamic>))
+      orders: (c.orders ?? const <ApiOrderVO>[])
+          .map(OrderVo.fromApi)
           .toList(),
-      currentPage: (json['currentPage'] as num?)?.toInt() ?? 0,
-      totalPages: (json['totalPages'] as num?)?.toInt() ?? 0,
-      totalElements: (json['totalElements'] as num?)?.toInt() ?? 0,
+      currentPage: c.currentPage ?? 0,
+      totalPages: c.totalPages ?? 0,
+      totalElements: c.totalElements ?? 0,
     );
   }
 }
@@ -112,10 +119,11 @@ class PayResultVo {
   });
 
   factory PayResultVo.fromJson(Map<String, dynamic> json) {
+    final c = ApiPayResultVO.fromJson(json);
     return PayResultVo(
-      orderNum: json['orderNum'] as String,
-      prepayId: json['prepayId'] as String?,
-      payUrl: json['payUrl'] as String?,
+      orderNum: c.orderNum as String,
+      prepayId: c.prepayId,
+      payUrl: c.payUrl,
     );
   }
 }
@@ -129,8 +137,8 @@ class OrderApi {
   /// 当前用户订单列表，按创建时间倒序。
   Future<Result<OrderListVo>> listOrders({int page = 0, int size = 20}) async {
     final response = await _client.dio.get(
-      '/order/list',
-      queryParameters: {'page': page, 'size': size},
+      ApiPaths.orderList,
+      queryParameters: ApiPaths.orderListQuery(page: page, size: size),
     );
     return Result.fromJson(
       response.data as Map<String, dynamic>,
@@ -141,8 +149,8 @@ class OrderApi {
   /// 按订单号查询订单详情。
   Future<Result<OrderVo>> getOrderDetail(String orderNum) async {
     final response = await _client.dio.get(
-      '/order/detail',
-      queryParameters: {'orderNum': orderNum},
+      ApiPaths.orderDetail,
+      queryParameters: ApiPaths.orderDetailQuery(orderNum: orderNum),
     );
     return Result.fromJson(
       response.data as Map<String, dynamic>,
@@ -155,8 +163,8 @@ class OrderApi {
   Future<Result<PayResultVo>> payOrder(String orderNum, {String? openid}) async {
     try {
       final response = await _client.dio.post(
-        '/pay/$orderNum',
-        queryParameters: openid != null ? {'openid': openid} : null,
+        ApiPaths.payPath(orderNum),
+        queryParameters: openid != null ? ApiPaths.payQuery(openid: openid) : null,
         options: Options(contentType: 'application/json'),
       );
       return Result.fromJson(

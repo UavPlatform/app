@@ -1,4 +1,5 @@
 import 'http_client.dart';
+import 'generated/openapi_paths.dart';
 import '../models/result_model.dart';
 import '../models/login_response.dart';
 import '../models/rider_uav.dart';
@@ -21,15 +22,15 @@ class RiderAccountApi {
     if (djiId != null && djiId.isNotEmpty) {
       body['djiId'] = djiId;
     }
-    final response = await _client.dio.post('/rider/register', data: body);
+    final response = await _client.dio.post(ApiPaths.riderRegister, data: body);
     return LoginResponse.parseResult(response.data);
   }
 
   /// 绑定无人机
   Future<Result<void>> bindDrone(String djiId) async {
     final response = await _client.dio.post(
-      '/rider/drone/bind',
-      queryParameters: {'djiId': djiId},
+      ApiPaths.riderDroneBind,
+      queryParameters: ApiPaths.riderDroneBindQuery(djiId: djiId),
     );
     final data = response.data as Map<String, dynamic>;
     return Result(
@@ -42,8 +43,8 @@ class RiderAccountApi {
   /// 解绑无人机
   Future<Result<void>> unbindDrone(String djiId) async {
     final response = await _client.dio.delete(
-      '/rider/drone/unbind',
-      queryParameters: {'djiId': djiId},
+      ApiPaths.riderDroneUnbind,
+      queryParameters: ApiPaths.riderDroneUnbindQuery(djiId: djiId),
     );
     final data = response.data as Map<String, dynamic>;
     return Result(
@@ -55,7 +56,7 @@ class RiderAccountApi {
 
   /// 我的无人机列表
   Future<Result<List<RiderUav>>> listDrones() async {
-    final response = await _client.dio.get('/rider/drone/list');
+    final response = await _client.dio.get(ApiPaths.riderDroneList);
     final data = response.data as Map<String, dynamic>;
     if (data['success'] == true && data['data'] != null) {
       final list = (data['data'] as List<dynamic>)

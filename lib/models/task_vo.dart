@@ -1,3 +1,4 @@
+import '../api/generated/openapi_models.dart';
 import 'result_model.dart';
 
 class WaypointVo {
@@ -15,15 +16,19 @@ class WaypointVo {
     this.altitude,
   });
 
-  factory WaypointVo.fromJson(Map<String, dynamic> json) {
+  /// 字段直取契约类（ApiWaypointVo）：契约重命名/删除字段时此处编译失败。
+  factory WaypointVo.fromApi(ApiWaypointVo c) {
     return WaypointVo(
-      id: json['id'] as int,
-      orderIndex: json['orderIndex'] as int,
-      longitude: (json['longitude'] as num).toDouble(),
-      latitude: (json['latitude'] as num).toDouble(),
-      altitude: (json['altitude'] as num?)?.toDouble(),
+      id: c.id as int,
+      orderIndex: c.orderIndex as int,
+      longitude: c.longitude as double,
+      latitude: c.latitude as double,
+      altitude: c.altitude,
     );
   }
+
+  factory WaypointVo.fromJson(Map<String, dynamic> json) =>
+      WaypointVo.fromApi(ApiWaypointVo.fromJson(json));
 }
 
 class TaskVo {
@@ -81,34 +86,36 @@ class TaskVo {
     this.waypoints,
   });
 
-  factory TaskVo.fromJson(Map<String, dynamic> json) {
+  /// 字段直取契约类（ApiTaskVo）：契约重命名/删除字段时此处编译失败。
+  factory TaskVo.fromApi(ApiTaskVo c) {
     return TaskVo(
-      id: json['id'] as int,
-      taskNum: json['taskNum'] as String,
-      taskName: json['taskName'] as String,
-      userId: json['userId'] as int,
-      taskType: (json['taskType'] as String?) ?? '',
-      taskStatus: (json['taskStatus'] as String?) ?? '',
-      description: json['description'] as String?,
-      taskTime: json['taskTime'] as String?,
-      completeNote: json['completeNote'] as String?,
-      actionHint: json['actionHint'] as String?,
-      deviceId: json['deviceId'] as String?,
-      liveState: json['liveState'] as String?,
-      riderId: json['riderId'] as int?,
-      riderName: json['riderName'] as String?,
-      acceptTime: json['acceptTime'] as String?,
-      orderNum: json['orderNum'] as String?,
-      totalAmount: (json['totalAmount'] as num?)?.toDouble(),
-      totalDistance: (json['totalDistance'] as num?)?.toDouble(),
-      orderStatus: json['orderStatus'] as String?,
-      createTime: json['createTime'] as String?,
-      updateTime: json['updateTime'] as String?,
-      waypoints: (json['waypoints'] as List<dynamic>?)
-          ?.map((e) => WaypointVo.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      id: c.id as int,
+      taskNum: c.taskNum as String,
+      taskName: c.taskName as String,
+      userId: c.userId as int,
+      taskType: c.taskType ?? '',
+      taskStatus: c.taskStatus ?? '',
+      description: c.description,
+      taskTime: c.taskTime,
+      completeNote: c.completeNote,
+      actionHint: c.actionHint,
+      deviceId: c.deviceId,
+      liveState: c.liveState,
+      riderId: c.riderId,
+      riderName: c.riderName,
+      acceptTime: c.acceptTime,
+      orderNum: c.orderNum,
+      totalAmount: c.totalAmount,
+      totalDistance: c.totalDistance,
+      orderStatus: c.orderStatus,
+      createTime: c.createTime,
+      updateTime: c.updateTime,
+      waypoints: c.waypoints?.map(WaypointVo.fromApi).toList(),
     );
   }
+
+  factory TaskVo.fromJson(Map<String, dynamic> json) =>
+      TaskVo.fromApi(ApiTaskVo.fromJson(json));
 
   String get taskTypeName {
     switch (taskType) {
@@ -175,13 +182,12 @@ class TaskPageVo {
   });
 
   factory TaskPageVo.fromJson(Map<String, dynamic> json) {
+    final c = ApiTaskPageVO.fromJson(json);
     return TaskPageVo(
-      tasks: (json['tasks'] as List<dynamic>)
-          .map((e) => TaskVo.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      currentPage: json['currentPage'] as int,
-      totalPages: json['totalPages'] as int,
-      totalElements: json['totalElements'] as int,
+      tasks: (c.tasks as List<ApiTaskVo>).map(TaskVo.fromApi).toList(),
+      currentPage: c.currentPage as int,
+      totalPages: c.totalPages as int,
+      totalElements: c.totalElements as int,
     );
   }
 

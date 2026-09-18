@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'http_client.dart';
+import 'generated/openapi_paths.dart';
 import '../models/result_model.dart';
 import '../models/rider_vo.dart';
 import '../models/task_vo.dart';
@@ -13,7 +14,7 @@ class RiderApi {
 
   /// 任务广场 - 查看所有可接的任务
   Future<Result<TaskPageVo>> listAvailableTasks() async {
-    final response = await _client.dio.get('/rider/square');
+    final response = await _client.dio.get(ApiPaths.riderSquare);
     return TaskPageVo.parseResult(response.data);
   }
 
@@ -23,8 +24,8 @@ class RiderApi {
   Future<Result<void>> acceptTask(String taskNum) async {
     try {
       final response = await _client.dio.post(
-        '/rider/accept',
-        queryParameters: {'taskNum': taskNum},
+        ApiPaths.riderAccept,
+        queryParameters: ApiPaths.riderAcceptQuery(taskNum: taskNum),
       );
       final data = response.data as Map<String, dynamic>;
       return Result(
@@ -49,21 +50,21 @@ class RiderApi {
 
   /// 进行中的任务
   Future<Result<TaskPageVo>> getMyActiveTasks() async {
-    final response = await _client.dio.get('/rider/my-tasks');
+    final response = await _client.dio.get(ApiPaths.riderMyTasks);
     return TaskPageVo.parseResult(response.data);
   }
 
   /// 全部接单历史
   Future<Result<TaskPageVo>> getMyAllTasks() async {
-    final response = await _client.dio.get('/rider/my-tasks/history');
+    final response = await _client.dio.get(ApiPaths.riderMyTasksHistory);
     return TaskPageVo.parseResult(response.data);
   }
 
   /// 取消接单
   Future<Result<void>> cancelTask(String taskNum) async {
     final response = await _client.dio.post(
-      '/rider/cancel',
-      queryParameters: {'taskNum': taskNum},
+      ApiPaths.riderCancel,
+      queryParameters: ApiPaths.riderCancelQuery(taskNum: taskNum),
     );
     final data = response.data as Map<String, dynamic>;
     return Result(
@@ -76,8 +77,10 @@ class RiderApi {
   /// 完成任务
   Future<Result<void>> completeTask(String taskNum) async {
     final response = await _client.dio.post(
-      '/rider/complete',
-      queryParameters: {'taskNum': taskNum},
+      ApiPaths.riderComplete,
+      // 契约 builder 含可选 note；本端不传 note，剔除 null 键以保持既有请求 query 不变。
+      queryParameters: ApiPaths.riderCompleteQuery(taskNum: taskNum)
+        ..removeWhere((key, value) => value == null),
     );
     final data = response.data as Map<String, dynamic>;
     return Result(
@@ -89,7 +92,7 @@ class RiderApi {
 
   /// 飞手统计
   Future<Result<RiderStatsVo>> getRiderStats() async {
-    final response = await _client.dio.get('/rider/stats');
+    final response = await _client.dio.get(ApiPaths.riderStats);
     final data = response.data as Map<String, dynamic>;
     if (data['success'] == true && data['data'] != null) {
       return Result(
@@ -103,7 +106,7 @@ class RiderApi {
 
   /// 推荐飞手列表
   Future<Result<List<RiderStatsVo>>> getRecommendedRiders() async {
-    final response = await _client.dio.get('/rider/recommended');
+    final response = await _client.dio.get(ApiPaths.riderRecommended);
     final data = response.data as Map<String, dynamic>;
     if (data['success'] == true) {
       final list = (data['data'] as List<dynamic>)
@@ -116,7 +119,7 @@ class RiderApi {
 
   /// 推荐飞手（远端并行功能线：首页热门飞手）
   Future<Result<List<RiderVo>>> getRecommended() async {
-    final response = await _client.dio.get('/rider/recommended');
+    final response = await _client.dio.get(ApiPaths.riderRecommended);
     final data = response.data as Map<String, dynamic>;
     final code = data['code'] as int?;
     if (code == 200 && data['data'] != null) {

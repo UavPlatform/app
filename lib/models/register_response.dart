@@ -1,3 +1,4 @@
+import '../api/generated/openapi_models.dart';
 import 'result_model.dart';
 
 class RegisterResponse {
@@ -7,9 +8,10 @@ class RegisterResponse {
   RegisterResponse({required this.id, required this.userName});
 
   factory RegisterResponse.fromJson(Map<String, dynamic> json) {
+    final c = ApiRegisterVo.fromJson(json);
     return RegisterResponse(
-      id: json['id'] as int,
-      userName: json['userName'] as String,
+      id: c.id as int,
+      userName: c.userName as String,
     );
   }
 

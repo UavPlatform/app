@@ -10,6 +10,8 @@
 import 'package:dio/dio.dart';
 
 import '../models/result_model.dart';
+import 'generated/openapi_models.dart';
+import 'generated/openapi_paths.dart';
 import 'http_client.dart';
 
 /// 拉流凭证（后端 PullCredentialsVO）。
@@ -33,14 +35,15 @@ class LiveCredential {
   });
 
   factory LiveCredential.fromJson(Map<String, dynamic> json) {
+    final c = ApiPullCredentialsVO.fromJson(json);
     return LiveCredential(
-      roomId: json['roomId'] as String? ?? '',
-      userId: json['userId'] as String? ?? '',
-      userSig: json['userSig'] as String? ?? '',
-      sdkAppId: (json['sdkAppId'] as num?)?.toInt() ?? 0,
-      wsUrl: json['wsUrl'] as String?,
-      liveState: json['liveState'] as String? ?? 'IDLE',
-      ackConfirmed: json['ackConfirmed'] == true,
+      roomId: c.roomId ?? '',
+      userId: c.userId ?? '',
+      userSig: c.userSig ?? '',
+      sdkAppId: c.sdkAppId ?? 0,
+      wsUrl: c.wsUrl,
+      liveState: c.liveState ?? 'IDLE',
+      ackConfirmed: c.ackConfirmed == true,
     );
   }
 
@@ -58,8 +61,8 @@ class LiveApi {
   Future<Result<LiveCredential>> pullCredentials(String deviceId) async {
     try {
       final response = await _client.dio.post(
-        '/live/get',
-        queryParameters: {'deviceId': deviceId},
+        ApiPaths.liveGet,
+        queryParameters: ApiPaths.liveGetQuery(deviceId: deviceId),
       );
       return Result.fromJson(
         response.data as Map<String, dynamic>,
@@ -85,8 +88,8 @@ class LiveApi {
   Future<void> leaveLive(String deviceId) async {
     try {
       await _client.dio.post(
-        '/live/leave',
-        queryParameters: {'deviceId': deviceId},
+        ApiPaths.liveLeave,
+        queryParameters: ApiPaths.liveLeaveQuery(deviceId: deviceId),
       );
     } catch (_) {
       // 静默：leave 失败不影响退出流程，兜底由 LIVE_STOPPED 补齐

@@ -1,3 +1,4 @@
+import '../api/generated/openapi_models.dart';
 import 'result_model.dart';
 
 class AmapConfig {
@@ -7,9 +8,10 @@ class AmapConfig {
   AmapConfig({required this.key, required this.securityKey});
 
   factory AmapConfig.fromJson(Map<String, dynamic> json) {
+    final c = ApiAmapConfigVO.fromJson(json);
     return AmapConfig(
-      key: json['key'] as String,
-      securityKey: json['securityKey'] as String,//实则安卓的key没有这个字段，不想改后端了，暂且这样
+      key: c.key as String,
+      securityKey: c.securityKey as String,//实则安卓的key没有这个字段，不想改后端了，暂且这样
     );
   }
 

@@ -1,3 +1,5 @@
+import '../api/generated/openapi_models.dart';
+
 class RiderUav {
   final int id;
   final int userId;
@@ -12,11 +14,12 @@ class RiderUav {
   });
 
   factory RiderUav.fromJson(Map<String, dynamic> json) {
+    final c = ApiRiderUav.fromJson(json);
     return RiderUav(
-      id: (json['id'] as num).toInt(),
-      userId: (json['userId'] as num).toInt(),
-      djiId: json['djiId'] as String,
-      createTime: json['createTime'] as String?,
+      id: c.id as int,
+      userId: c.userId as int,
+      djiId: c.djiId as String,
+      createTime: c.createTime,
     );
   }
 }

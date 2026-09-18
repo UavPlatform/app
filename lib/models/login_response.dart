@@ -1,3 +1,4 @@
+import '../api/generated/openapi_models.dart';
 import 'result_model.dart';
 
 class LoginResponse {
@@ -10,9 +11,10 @@ class LoginResponse {
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
+    final c = ApiUserLoginVO.fromJson(json);
     return LoginResponse(
-      token: json['token'] as String,
-      refreshToken: json['refreshToken'] as String,
+      token: c.token as String,
+      refreshToken: c.refreshToken as String,
     );
   }
 
