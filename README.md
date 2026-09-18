@@ -19,7 +19,6 @@ samples, guidance on mobile development, and a full API reference.
 ## OpenAPI 契约（消费侧）
 
 后端契约由 backend 仓导出（`backend/spec/openapi/drone-backend.openapi.json`），本仓 **vendor + sha256 对账 + 生成物入库**。
-决策见 `../docs/adr/0004-OpenAPI契约流水线与消费端接入.md`。
 
 ```
 openapi/drone-backend.openapi.json    # vendor 进来的规格（本仓唯一事实源副本）
