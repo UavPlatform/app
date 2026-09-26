@@ -149,6 +149,27 @@ class MyRiderTasksNotifier extends StateNotifier<MyRiderTasksState> {
     }
   }
 
+  /// 确认订单（POST /rider/confirm-order，ADR-0003 决定 4）：
+  /// 确认约定作业时间后用服务端返回的最新 VO 替换本地任务，撮合状态随刷新推进。
+  Future<bool> confirmOrder(String taskNum) async {
+    try {
+      final result = await _api.confirmOrder(taskNum);
+      if (!result.success || result.data == null) {
+        state = state.copyWith(error: result.message ?? '确认失败');
+        return false;
+      }
+      final updated = result.data!;
+      state = state.copyWith(
+        activeTasks:
+            state.activeTasks.map((t) => t.taskNum == taskNum ? updated : t).toList(),
+      );
+      return true;
+    } catch (_) {
+      state = state.copyWith(error: '确认失败');
+      return false;
+    }
+  }
+
   void clearError() => state = state.copyWith(error: null);
 }
 
@@ -181,6 +202,27 @@ class RiderTaskDetailNotifier extends StateNotifier<RiderTaskDetailState> {
   final RiderApi _api;
 
   RiderTaskDetailNotifier(this._api) : super(const RiderTaskDetailState());
+
+  /// 拉取飞手任务详情（GET /rider/task/detail）：撮合状态、货物字段、
+  /// 系统报价与约定时间的权威来源；应征/确认后由调用方重载对齐服务端。
+  Future<void> load(String taskNum) async {
+    state = state.copyWith(loading: true, error: null);
+    try {
+      final result = await _api.getTaskDetail(taskNum);
+      if (!mounted) return;
+      if (!result.success || result.data == null) {
+        state = state.copyWith(
+          loading: false,
+          error: result.message ?? '获取任务详情失败',
+        );
+        return;
+      }
+      state = state.copyWith(loading: false, task: result.data);
+    } catch (_) {
+      if (!mounted) return;
+      state = state.copyWith(loading: false, error: '网络请求失败');
+    }
+  }
 
   Future<bool> cancelTask(String taskNum) async {
     try {

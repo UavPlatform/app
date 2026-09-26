@@ -73,11 +73,7 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
     return TabBarView(
       controller: _tabController,
       children: [
-        _buildTabContent(
-          state.activeTasks,
-          '暂无进行中的任务',
-          '去任务大厅接单吧',
-        ),
+        _buildActiveGroups(state.activeTasks),
         _buildTabContent(
           state.historyTasks.where((t) => t.isCompleted).toList(),
           '暂无已完成的任务',
@@ -87,30 +83,84 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
     );
   }
 
+  /// 进行中 Tab 按撮合阶段分组（ADR-0003 状态机）：
+  /// 待用户下单（NEGOTIATING/AWAITING_PAYMENT）/ 待我确认（AWAITING_RIDER_CONFIRM）/
+  /// 已确认待执飞（CONFIRMED）；卡片文案以服务端 actionHint 为准。
+  Widget _buildActiveGroups(List<TaskVo> tasks) {
+    if (tasks.isEmpty) {
+      return _emptyState('暂无进行中的任务', '去任务大厅接单吧');
+    }
+
+    final groups = <(String, List<TaskVo>)>[
+      ('待用户下单', tasks.where((t) => t.isAwaitingUserOrder).toList()),
+      ('待我确认', tasks.where((t) => t.isAwaitingRiderConfirm).toList()),
+      ('已确认待执飞', tasks.where((t) => t.isConfirmedForFlight).toList()),
+      (
+        '其他',
+        tasks
+            .where((t) =>
+                !t.isAwaitingUserOrder &&
+                !t.isAwaitingRiderConfirm &&
+                !t.isConfirmedForFlight)
+            .toList(),
+      ),
+    ];
+
+    final children = <Widget>[];
+    for (final (title, group) in groups) {
+      if (group.isEmpty) continue;
+      children.add(Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+        child: Row(
+          children: [
+            Container(width: 4, height: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(
+              '$title (${group.length})',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ));
+      children.addAll(group.map((t) => _buildCard(context, t)));
+      children.add(const SizedBox(height: 4));
+    }
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      children: children,
+    );
+  }
+
+  Widget _emptyState(String title, String? subtitle) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        const SizedBox(height: 80),
+        Center(
+          child: Column(
+            children: [
+              Icon(Icons.assignment_outlined, size: 64,
+                  color: AppColors.outlineVariant.withOpacity(0.5)),
+              const SizedBox(height: 16),
+              Text(title,
+                  style: const TextStyle(color: AppColors.onSurfaceVariant, fontSize: 16)),
+              if (subtitle != null) ...[
+                const SizedBox(height: 8),
+                Text(subtitle,
+                    style: const TextStyle(color: AppColors.outline, fontSize: 13)),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTabContent(List<TaskVo> tasks, String emptyTitle, String? emptySubtitle) {
     if (tasks.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          const SizedBox(height: 80),
-          Center(
-            child: Column(
-              children: [
-                Icon(Icons.assignment_outlined, size: 64,
-                    color: AppColors.outlineVariant.withOpacity(0.5)),
-                const SizedBox(height: 16),
-                Text(emptyTitle,
-                    style: const TextStyle(color: AppColors.onSurfaceVariant, fontSize: 16)),
-                if (emptySubtitle != null) ...[
-                  const SizedBox(height: 8),
-                  Text(emptySubtitle,
-                      style: const TextStyle(color: AppColors.outline, fontSize: 13)),
-                ],
-              ],
-            ),
-          ),
-        ],
-      );
+      return _emptyState(emptyTitle, emptySubtitle);
     }
 
     return ListView.builder(
@@ -124,6 +174,33 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
   Widget _buildCard(BuildContext context, TaskVo task) {
     final isActive = task.isInProgress;
     final creatingSession = ref.watch(sessionListProvider).creatingSession;
+
+    // 撮合阶段徽标（ADR-0003 状态机；提示文案统一取服务端 actionHint）
+    final String badgeText;
+    final Color badgeBg;
+    final Color badgeFg;
+    if (task.isCompleted) {
+      badgeText = '已完成';
+      badgeBg = AppColors.statusCompleted;
+      badgeFg = AppColors.statusCompletedText;
+    } else if (task.isAwaitingUserOrder) {
+      badgeText = '待用户下单';
+      badgeBg = AppColors.primaryLight;
+      badgeFg = AppColors.primary;
+    } else if (task.isAwaitingRiderConfirm) {
+      badgeText = '待我确认';
+      badgeBg = AppColors.statusPending;
+      badgeFg = AppColors.statusPendingText;
+    } else if (task.isConfirmedForFlight || isActive) {
+      badgeText = '已确认';
+      badgeBg = AppColors.statusInProgress;
+      badgeFg = AppColors.statusInProgressText;
+    } else {
+      badgeText = '进行中';
+      badgeBg = AppColors.statusCompleted;
+      badgeFg = AppColors.statusCompletedText;
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -136,15 +213,12 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isActive ? AppColors.statusInProgress : AppColors.statusCompleted,
+                    color: badgeBg,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    isActive ? '执行中' : '已完成',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isActive ? AppColors.statusInProgressText : AppColors.statusCompletedText,
-                    ),
+                    badgeText,
+                    style: TextStyle(fontSize: 12, color: badgeFg),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -186,16 +260,41 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
                 overflow: TextOverflow.ellipsis,
               ),
             ],
+            // 服务端 actionHint 为唯一提示文案源（t32/t42 状态矩阵）
+            if (task.actionHint != null && task.actionHint!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  task.actionHint!,
+                  style: const TextStyle(fontSize: 13, color: AppColors.primary),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             _infoRow(Icons.tag_outlined, '编号: ${task.taskNum}'),
+            if (task.cargoLabel.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _infoRow(Icons.inventory_2_outlined, task.cargoLabel),
+            ],
+            if (task.formattedScheduledTime.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _infoRow(Icons.schedule, '约定作业时间: ${task.formattedScheduledTime}'),
+            ],
             if (task.totalDistance != null && task.totalDistance! > 0) ...[
               const SizedBox(height: 6),
               _infoRow(Icons.route_outlined, '距离: ${task.totalDistance!.toStringAsFixed(0)} m'),
             ],
             const SizedBox(height: 6),
             _infoRow(Icons.access_time, task.formattedCreateTime),
-            if (isActive) ...[
+            if (!task.isCompleted) ...[
               const SizedBox(height: 8),
+              // 订单内聊天（ADR-0003 决定 1：同 taskNum 建会话）
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -216,6 +315,42 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
                   ),
                 ),
               ),
+            ],
+            // 待我确认 → 确认订单（回显约定时间后调 confirm-order）
+            if (task.isAwaitingRiderConfirm) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => _onConfirm(context, task),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('确认订单'),
+                ),
+              ),
+            ],
+            // 已确认 → 执飞引导；未确认的任务在此不出现任何执飞入口
+            if (task.isConfirmedForFlight) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _onOpenDjifly(context, task),
+                  icon: const Icon(Icons.flight_takeoff, size: 18),
+                  label: const Text('打开 djifly'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+            if (isActive) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -298,9 +433,11 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
 
   Future<void> _onChat(BuildContext context, TaskVo task) async {
     final fallbackName = '${task.taskTypeName} - ${task.taskName}';
+    // 订单内会话（ADR-0003 决定 1）：同 taskNum 绑定任务，服务端按任务 + 飞手去重。
     final session = await ref.read(sessionListProvider.notifier).createDirectSession(
           name: fallbackName,
           userId: task.userId,
+          taskNum: task.taskNum,
         );
     if (!context.mounted) return;
 
@@ -313,6 +450,62 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
 
     final chatName = session.otherUserName ?? fallbackName;
     context.push('/chat/${session.id}?otherUserName=${Uri.encodeComponent(chatName)}');
+  }
+
+  /// 确认订单（TASK-APP-005）：先回显约定作业时间，再调 confirm-order；
+  /// 成功后用服务端返回 VO 推进分组（待我确认 → 已确认待执飞）。
+  Future<void> _onConfirm(BuildContext context, TaskVo task) async {
+    final scheduled = task.formattedScheduledTime;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认订单'),
+        content: Text(
+          scheduled.isEmpty
+              ? '确定接下「${task.taskName}」吗？\n（服务端未回显约定作业时间）'
+              : '确认按约定作业时间「$scheduled」接单吗？\n确认后任务将进入待执飞。',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('再想想')),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('确认接单'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !context.mounted) return;
+
+    final notifier = ref.read(myRiderTasksProvider.notifier);
+    final ok = await notifier.confirmOrder(task.taskNum);
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '已确认订单' : ref.read(myRiderTasksProvider).error ?? '确认失败')),
+    );
+  }
+
+  /// 执飞引导（ADR-0002：app 引导 → djifly 执飞）：
+  /// 暂无系统深链，降级为任务号 + 说明文案。
+  void _onOpenDjifly(BuildContext context, TaskVo task) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('打开 djifly 执飞'),
+        content: Text(
+          '本 App 不执行真实飞行，请打开 djifly 完成执飞。\n\n'
+          '任务编号：${task.taskNum}\n'
+          '登录同一账号后，在 djifly「待执飞任务」中按任务号查看本任务。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _onComplete(BuildContext context, TaskVo task) async {

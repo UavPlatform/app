@@ -340,6 +340,30 @@ class ApiRegisterVo {
   }
 }
 
+/// 契约 components.schemas.RiderApplyDto
+class ApiRiderApplyDto {
+  final int? aircraftModelId;
+  final String? taskNum;
+
+  const ApiRiderApplyDto({this.aircraftModelId, this.taskNum});
+
+  factory ApiRiderApplyDto.fromJson(Map<String, dynamic> json) => ApiRiderApplyDto(
+    aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
+    taskNum: json['taskNum'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (aircraftModelId != null) {
+      json['aircraftModelId'] = aircraftModelId;
+    }
+    if (taskNum != null) {
+      json['taskNum'] = taskNum;
+    }
+    return json;
+  }
+}
+
 /// 契约 components.schemas.RiderRegisterDto
 class ApiRiderRegisterDto {
   final int? aircraftModelId;

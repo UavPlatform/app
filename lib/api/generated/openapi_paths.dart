@@ -77,6 +77,21 @@ class ApiPaths {
   /// GET /rider/my-tasks/history
   static const String riderMyTasksHistory = '/rider/my-tasks/history';
 
+  /// GET /rider/task/detail
+  static const String riderTaskDetail = '/rider/task/detail';
+  static Map<String, dynamic> riderTaskDetailQuery({required String taskNum}) =>
+      <String, dynamic>{'taskNum': taskNum};
+
+  /// POST /rider/apply
+  static const String riderApply = '/rider/apply';
+  static Map<String, dynamic> riderApplyQuery({required dynamic taskNum, required dynamic aircraftModelId}) =>
+      <String, dynamic>{'taskNum': taskNum, 'aircraftModelId': aircraftModelId};
+
+  /// POST /rider/confirm-order
+  static const String riderConfirmOrder = '/rider/confirm-order';
+  static Map<String, dynamic> riderConfirmOrderQuery({required String taskNum}) =>
+      <String, dynamic>{'taskNum': taskNum};
+
   /// POST /rider/cancel
   static const String riderCancel = '/rider/cancel';
   static Map<String, dynamic> riderCancelQuery({required String taskNum}) =>

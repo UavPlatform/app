@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
+import '../../models/task_application_vo.dart';
 import '../../models/task_vo.dart';
+import '../../providers/aircraft_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
-import '../../providers/task_provider.dart';
+import '../../providers/rider_account_provider.dart';
 import '../../providers/rider_provider.dart';
+import '../../providers/task_provider.dart';
 import '../live/live_watch_page.dart';
 import '../pay/pay_page.dart';
 import 'deliverables_section.dart';
@@ -57,21 +60,44 @@ class _UserDetailView extends ConsumerWidget {
   }
 }
 
-/// 飞手端任务详情（从已加载的列表中查找）
-class _PilotDetailView extends ConsumerWidget {
+/// 飞手端任务详情（GET /rider/task/detail 拉取权威撮合状态，
+/// 已加载列表兜底首帧渲染，应征/确认后重载对齐服务端）。
+class _PilotDetailView extends ConsumerStatefulWidget {
   final String taskNum;
   const _PilotDetailView({required this.taskNum});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final task = riderTaskLookup(ref, taskNum);
+  ConsumerState<_PilotDetailView> createState() => _PilotDetailViewState();
+}
+
+class _PilotDetailViewState extends ConsumerState<_PilotDetailView> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(riderTaskDetailProvider.notifier).load(widget.taskNum);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = ref.watch(riderTaskDetailProvider);
+    final fresh =
+        detail.task?.taskNum == widget.taskNum ? detail.task : null;
+    final task = fresh ?? riderTaskLookup(ref, widget.taskNum);
 
     if (task == null) {
+      if (detail.loading && detail.error == null) {
+        return const Scaffold(
+            body: Center(child: CircularProgressIndicator()));
+      }
       return Scaffold(
         appBar: AppBar(title: const Text('任务详情')),
-        body: const Center(
-          child: Text('未找到任务',
-              style: TextStyle(color: AppColors.onSurfaceVariant)),
+        body: Center(
+          child: Text(detail.error ?? '未找到任务',
+              style: const TextStyle(color: AppColors.onSurfaceVariant)),
         ),
       );
     }
@@ -105,6 +131,17 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
           // t42：操作提示矩阵（t32 服务端统一计算，直接渲染不端上拼装）
           if (task.actionHint != null && task.actionHint!.isNotEmpty)
             _buildActionHintBanner(task.actionHint!),
+          // 飞手端撮合区（TASK-APP-005 / ADR-0003）：选机型应征 → 只读系统报价
+          // → 确认约定时间 → 执飞引导 + 订单内聊天；不存在价格输入控件。
+          if (isPilot) ...[
+            _PilotMatchSection(
+              task: task,
+              onTaskRefreshed: () => ref
+                  .read(riderTaskDetailProvider.notifier)
+                  .load(task.taskNum),
+            ),
+            const SizedBox(height: 8),
+          ],
           // 撮合中心（TASK-APP-003 / ADR-0003）：应征飞手列表 + 订单内聊天，
           // 系统报价只读展示，无任何议价/调价入口。
           if (!isPilot)
@@ -118,6 +155,21 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
             _infoRow('任务类型', task.taskTypeName),
             if (task.formattedTaskTime.isNotEmpty)
               _infoRow('任务时间', task.formattedTaskTime),
+            // 吊运货物信息（ADR-0003 计价输入：重量 + 类别）
+            if (task.cargoLabel.isNotEmpty) _infoRow('货物', task.cargoLabel),
+            // 系统报价只读回显（ADR-0003 决定 2：客户端不得改价）
+            if (task.quotedAmountText.isNotEmpty)
+              _infoRow('系统报价', '${task.quotedAmountText}（平台计价）'),
+            if (task.formattedScheduledTime.isNotEmpty)
+              _infoRow('约定作业时间', task.formattedScheduledTime),
+            if (task.aircraftModelName != null &&
+                task.aircraftModelName!.isNotEmpty)
+              _infoRow(
+                '机型',
+                task.modelCode != null && task.modelCode!.isNotEmpty
+                    ? '${task.aircraftModelName}（${task.modelCode}）'
+                    : task.aircraftModelName!,
+              ),
             if (_orderStatusLabel(task.orderStatus) != null)
               _infoRow('订单状态', _orderStatusLabel(task.orderStatus)!),
             if (task.riderName != null && task.riderName!.isNotEmpty)
@@ -190,12 +242,16 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
   );
 }
 
-/// 详情页下拉刷新：任务详情始终刷新；用户侧同时刷新应征列表与任务内会话，
-/// 使空状态「等待飞手接单」在飞手应征后能被拉到最新数据。
+/// 详情页下拉刷新：飞手侧刷新 /rider/task/detail（撮合状态权威源）；
+/// 用户侧同时刷新应征列表与任务内会话，使空状态「等待飞手接单」
+/// 在飞手应征后能被拉到最新数据。
 Future<void> _refreshDetail(WidgetRef ref, TaskVo task,
     {required bool isPilot}) async {
+  if (isPilot) {
+    await ref.read(riderTaskDetailProvider.notifier).load(task.taskNum);
+    return;
+  }
   await ref.read(taskDetailProvider(task.taskNum).notifier).loadDetail(task.taskNum);
-  if (isPilot) return;
   await ref.read(taskApplicationsProvider(task.taskNum).notifier).load();
   await ref.read(taskChatSessionsProvider(task.taskNum).notifier).load();
 }
@@ -596,6 +652,405 @@ class _WatchLiveEntry extends StatelessWidget {
       icon: const Icon(Icons.live_tv, size: 18),
       label: const Text('观看直播', style: TextStyle(fontSize: 16)),
     );
+  }
+}
+
+/// 飞手端撮合区（TASK-APP-005 / ADR-0003）：
+///   招募中 → 选机型应征（绑定设备映射机型优先；未绑机/未映射 → 引导去绑机页）；
+///   应征成功 → 只读展示系统报价 quotedAmount（客户端不传金额，无议价入口）；
+///   待我确认 → 确认约定作业时间（回显 scheduledTime）后调用 confirm-order；
+///   已确认 → 执飞引导（djifly，无系统深链时展示任务号 + 说明文案）；
+///   聊天入口绑定 taskNum（应用内已应征时附 applicationId）进入订单内会话。
+class _PilotMatchSection extends ConsumerStatefulWidget {
+  final TaskVo task;
+  final VoidCallback onTaskRefreshed;
+
+  const _PilotMatchSection({
+    required this.task,
+    required this.onTaskRefreshed,
+  });
+
+  @override
+  ConsumerState<_PilotMatchSection> createState() =>
+      _PilotMatchSectionState();
+}
+
+class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
+  /// 绑定设备映射的机型 ID（null = 未绑机或旧注册路径未映射机型）。
+  int? _boundModelId;
+
+  int? _selectedModelId;
+  String? _error;
+  bool _preparing = false;
+  bool _submitting = false;
+  bool _confirming = false;
+  TaskApplicationVo? _applied;
+
+  TaskVo get task => widget.task;
+
+  @override
+  void initState() {
+    super.initState();
+    if (task.canApply) {
+      _preparing = true;
+      // 延迟到 build 之外再改 provider（Riverpod 禁止生命周期内同步修改）。
+      Future.microtask(_prepare);
+    }
+  }
+
+  /// 应征前置：拉绑定设备（映射机型优先预选）+ 机型目录（aircraftModelsProvider）。
+  Future<void> _prepare() async {
+    await ref.read(droneListProvider.notifier).load();
+    if (!mounted) return;
+
+    int? bound;
+    for (final drone in ref.read(droneListProvider).drones) {
+      if (drone.aircraftModelId != null) {
+        bound = drone.aircraftModelId;
+        break;
+      }
+    }
+
+    int? preselect;
+    String? catalogError;
+    if (bound != null) {
+      await ref.read(aircraftModelsProvider.notifier).load();
+      if (!mounted) return;
+      final catalog = ref.read(aircraftModelsProvider);
+      if (catalog.models.any((m) => m.id == bound)) {
+        preselect = bound;
+      }
+      catalogError = catalog.error;
+    }
+
+    setState(() {
+      _boundModelId = bound;
+      _selectedModelId = preselect;
+      _error = catalogError;
+      _preparing = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final myJobs = ref.watch(myRiderTasksProvider);
+    final inMyJobs = myJobs.activeTasks.any((t) => t.taskNum == task.taskNum);
+    final showApply = task.canApply &&
+        _applied == null &&
+        !inMyJobs;
+    final awaitingConfirm = task.isAwaitingRiderConfirm;
+    final confirmed = task.isConfirmedForFlight || task.isInProgress;
+
+    // 系统报价只读（ADR-0003）：仅展示应用内刚应征拿到的系统报价；
+    // 任务回显报价由下方「任务信息」统一展示，避免重复。
+    final quote = _applied?.quotedAmountText ?? '';
+
+    final children = <Widget>[];
+
+    if (quote.isNotEmpty) {
+      children.add(_infoRow('系统报价', '$quote（平台计价）'));
+      children.add(const SizedBox(height: 4));
+    }
+
+    if (showApply) {
+      children.addAll(_buildApplyForm());
+    } else if (_applied != null) {
+      children.add(_appliedBox('应征成功，等待用户选定下单'));
+    }
+
+    if (_error != null && !showApply) {
+      children.add(Text(
+        _error!,
+        style: const TextStyle(fontSize: 13, color: AppColors.error),
+      ));
+      children.add(const SizedBox(height: 8));
+    }
+
+    if (awaitingConfirm) {
+      children.add(SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: _confirming ? null : _onConfirm,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          child: Text(_confirming ? '确认中…' : '确认订单',
+              style: const TextStyle(fontSize: 16)),
+        ),
+      ));
+    }
+
+    if (confirmed) {
+      children.add(SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: _onOpenDjifly,
+          icon: const Icon(Icons.flight_takeoff, size: 18),
+          label: const Text('打开 djifly', style: TextStyle(fontSize: 16)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.primary),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+      ));
+    }
+
+    // 订单内聊天：已应征/已选定/已确认后可与用户沟通（同 taskNum 会话）。
+    if (!showApply) {
+      final creating = ref.watch(sessionListProvider).creatingSession;
+      children.add(SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: creating ? null : _onContactUser,
+          icon: creating
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.chat_bubble_outline, size: 18),
+          label: Text(creating ? '正在连接' : '联系用户'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.primary),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+      ));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: _buildSection('吊运撮合', children),
+    );
+  }
+
+  /// 应征表单：机型下拉（绑定设备映射优先预选）+ 应征按钮。
+  /// 未选机型时拒绝提交；无任何金额输入（ADR-0003 禁止改价）。
+  List<Widget> _buildApplyForm() {
+    if (_preparing) {
+      return const [
+        SizedBox(height: 8),
+        Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        SizedBox(height: 8),
+      ];
+    }
+
+    // 未绑机 / 绑定设备未映射机型 → 引导去绑机页（服务端 AIRCRAFT_MODEL_REQUIRED 门禁）。
+    if (_boundModelId == null) {
+      return [
+        Text(
+          '尚未绑定已映射机型的无人机，无法应征吊运任务。',
+          style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () => context.push('/pilot/drones'),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('去绑定设备', style: TextStyle(fontSize: 16)),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    final models = ref.watch(aircraftModelsProvider).models;
+    return [
+      DropdownButtonFormField<int>(
+        initialValue: _selectedModelId,
+        decoration: const InputDecoration(
+          labelText: '本次使用机型',
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          for (final model in models)
+            DropdownMenuItem<int>(
+              value: model.id,
+              child: Text(
+                [
+                  model.displayName ?? model.modelCode ?? '未知机型',
+                  if (model.maxPayloadKg != null)
+                    '载重 ${_kgText(model.maxPayloadKg!)} kg',
+                ].join(' · '),
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+        ],
+        hint: const Text('请选择机型'),
+        onChanged: _submitting
+            ? null
+            : (value) => setState(() {
+                  _selectedModelId = value;
+                  _error = null;
+                }),
+      ),
+      const SizedBox(height: 8),
+      if (_error != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            _error!,
+            style: const TextStyle(fontSize: 13, color: AppColors.error),
+          ),
+        ),
+      SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: _submitting ? null : _onApply,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          child: Text(_submitting ? '应征中…' : '应征任务',
+              style: const TextStyle(fontSize: 16)),
+        ),
+      ),
+    ];
+  }
+
+  /// 载重展示：整数去小数点（30 而非 30.0）。
+  static String _kgText(double kg) =>
+      kg == kg.roundToDouble() ? '${kg.toInt()}' : '$kg';
+
+  Widget _appliedBox(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.statusInProgress,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 14, color: AppColors.statusInProgressText),
+      ),
+    );
+  }
+
+  /// 应征提交：只发 taskNum + aircraftModelId，金额由平台计价（ADR-0003）。
+  Future<void> _onApply() async {
+    final modelId = _selectedModelId;
+    if (modelId == null) {
+      setState(() => _error = '请先选择本次使用的机型');
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    final result = await ref
+        .read(riderApiProvider)
+        .apply(taskNum: task.taskNum, aircraftModelId: modelId);
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    if (!result.success || result.data == null) {
+      // 服务端业务失败（超重/机型不可吊运/机型不匹配等）直接展示 message。
+      setState(() => _error = result.message ?? '应征失败，请稍后重试');
+      return;
+    }
+    setState(() => _applied = result.data);
+    widget.onTaskRefreshed();
+  }
+
+  /// 确认订单：先回显约定作业时间，再调用 confirm-order（ADR-0003 决定 4）。
+  Future<void> _onConfirm() async {
+    final scheduled = task.formattedScheduledTime;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认订单'),
+        content: Text(
+          scheduled.isEmpty
+              ? '确定接下「${task.taskName}」吗？\n（服务端未回显约定作业时间）'
+              : '确认按约定作业时间「$scheduled」接单吗？\n确认后任务将进入待执飞。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('再想想'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('确认接单'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() => _confirming = true);
+    final result = await ref.read(riderApiProvider).confirmOrder(task.taskNum);
+    if (!mounted) return;
+    setState(() => _confirming = false);
+    if (!result.success) {
+      setState(() => _error = result.message ?? '确认失败，请稍后重试');
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已确认订单')),
+    );
+    widget.onTaskRefreshed();
+  }
+
+  /// 执飞引导：无系统深链时降级为任务号 + 说明文案（ADR-0002 边界）。
+  void _onOpenDjifly() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('打开 djifly 执飞'),
+        content: Text(
+          '本 App 不执行真实飞行，请打开 djifly 完成执飞。\n\n'
+          '任务编号：${task.taskNum}\n'
+          '登录同一账号后，在 djifly「待执飞任务」中按任务号查看本任务。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 订单内聊天（ADR-0003 决定 1）：同 taskNum 建会话（服务端按任务 + 飞手去重），
+  /// 应用内刚应征时附 applicationId 精确挂到应征记录。
+  Future<void> _onContactUser() async {
+    final session = await ref.read(sessionListProvider.notifier).createDirectSession(
+          name: '${task.taskTypeName} - ${task.taskName}',
+          userId: task.userId,
+          taskNum: task.taskNum,
+          applicationId: _applied?.applicationId,
+        );
+    if (!mounted) return;
+    if (session == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ref.read(sessionListProvider).error ?? '创建会话失败'),
+        ),
+      );
+      return;
+    }
+    final name = session.otherUserName ?? '用户';
+    context.push('/chat/${session.id}?name=${Uri.encodeComponent(name)}');
   }
 }
 

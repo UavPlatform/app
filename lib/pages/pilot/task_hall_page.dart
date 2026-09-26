@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../models/task_vo.dart';
 import '../../providers/rider_provider.dart';
@@ -12,7 +13,9 @@ class TaskHallPage extends ConsumerStatefulWidget {
 }
 
 class _TaskHallPageState extends ConsumerState<TaskHallPage> {
-  String? _selectedType;
+  // ADR-0003 / REQ-APP-002：本端收敛为吊运单一品类，大厅默认只看「调运」，
+  // 保留「全部」供切换查看历史品类任务。
+  String? _selectedType = 'TRANSPORT';
 
   static const _typeOptions = ['全部', '航拍', '调运', '测绘', '监测'];
   static const _typeKeys = [null, 'AERIAL_PHOTO', 'TRANSPORT', 'SURVEY', 'MONITORING'];
@@ -121,60 +124,70 @@ class _TaskHallPageState extends ConsumerState<TaskHallPage> {
   Widget _buildTaskCard(BuildContext context, TaskVo task) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(8),
+      // 卡片 → 任务详情（详情内提供应征按钮与货物/约定信息）。
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.push('/order/${task.taskNum}'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      task.taskTypeName,
+                      style: const TextStyle(fontSize: 12, color: AppColors.primary),
+                    ),
                   ),
-                  child: Text(
-                    task.taskTypeName,
-                    style: const TextStyle(fontSize: 12, color: AppColors.primary),
+                  const Spacer(),
+                  Text(
+                    task.priceText,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  task.priceText,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              task.taskName,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (task.description != null && task.description!.isNotEmpty) ...[
-              const SizedBox(height: 6),
+                ],
+              ),
+              const SizedBox(height: 10),
               Text(
-                task.description!,
-                style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
-                maxLines: 2,
+                task.taskName,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-            ],
-            const SizedBox(height: 12),
-            _infoRow(Icons.tag_outlined, '编号: ${task.taskNum}'),
-            if (task.totalDistance != null && task.totalDistance! > 0) ...[
+              if (task.description != null && task.description!.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  task.description!,
+                  style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              const SizedBox(height: 12),
+              _infoRow(Icons.tag_outlined, '编号: ${task.taskNum}'),
+              // 吊运货物信息（ADR-0003 计价输入：重量 + 类别）
+              if (task.cargoLabel.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                _infoRow(Icons.inventory_2_outlined, task.cargoLabel),
+              ],
+              if (task.totalDistance != null && task.totalDistance! > 0) ...[
+                const SizedBox(height: 6),
+                _infoRow(Icons.route_outlined, '距离: ${task.totalDistance!.toStringAsFixed(0)} m'),
+              ],
               const SizedBox(height: 6),
-              _infoRow(Icons.route_outlined, '距离: ${task.totalDistance!.toStringAsFixed(0)} m'),
+              _infoRow(Icons.access_time, task.formattedCreateTime),
             ],
-            const SizedBox(height: 6),
-            _infoRow(Icons.access_time, task.formattedCreateTime),
-          ],
+          ),
         ),
       ),
     );

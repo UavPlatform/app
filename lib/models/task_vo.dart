@@ -66,6 +66,28 @@ class TaskVo {
   final String? updateTime;
   final List<WaypointVo>? waypoints;
 
+  // ==================== 吊运撮合字段（TASK-BACKEND-003/004，ADR-0003） ====================
+
+  /// 货物重量 kg（吊运计价输入之一；空 = 任务未填，吊运应征会被服务端拒绝）
+  final double? cargoWeightKg;
+
+  /// 货物类别（CONSTRUCTION/EQUIPMENT/AGRICULTURAL）
+  final String? cargoCategory;
+
+  /// 选定应征的系统报价（= 成交价 totalAmount，严格相等；未选定为 null）。
+  /// ADR-0003：只读展示，客户端不得改价。
+  final double? quotedAmount;
+
+  /// 选定应征的机型（用户下单后可见成交机型；未选定为 null）
+  final int? aircraftModelId;
+  final String? aircraftModelName;
+  final String? modelCode;
+
+  /// 约定作业时间（ADR-0003 决定 4，用户下单时提交；飞手确认前回显）
+  final String? scheduledTime;
+  final String? userConfirmedAt;
+  final String? riderConfirmedAt;
+
   TaskVo({
     required this.id,
     required this.taskNum,
@@ -90,6 +112,15 @@ class TaskVo {
     this.createTime,
     this.updateTime,
     this.waypoints,
+    this.cargoWeightKg,
+    this.cargoCategory,
+    this.quotedAmount,
+    this.aircraftModelId,
+    this.aircraftModelName,
+    this.modelCode,
+    this.scheduledTime,
+    this.userConfirmedAt,
+    this.riderConfirmedAt,
   });
 
   /// 字段直取契约类（ApiTaskVo）：契约重命名/删除字段时此处编译失败。
@@ -118,6 +149,15 @@ class TaskVo {
       createTime: c.createTime,
       updateTime: c.updateTime,
       waypoints: c.waypoints?.map(WaypointVo.fromApi).toList(),
+      cargoWeightKg: c.cargoWeightKg,
+      cargoCategory: c.cargoCategory,
+      quotedAmount: c.quotedAmount,
+      aircraftModelId: c.aircraftModelId,
+      aircraftModelName: c.aircraftModelName,
+      modelCode: c.modelCode,
+      scheduledTime: c.scheduledTime,
+      userConfirmedAt: c.userConfirmedAt,
+      riderConfirmedAt: c.riderConfirmedAt,
     );
   }
 
@@ -153,6 +193,63 @@ class TaskVo {
       matchStatus == null ||
       matchStatus == 'SEEKING_RIDER' ||
       matchStatus == 'NEGOTIATING';
+
+  // ==================== 撮合阶段判定（ADR-0003 决定 6，仅控显隐；文案用 actionHint） ====================
+
+  /// 待用户下单（已应征，等待用户选定/支付）
+  bool get isAwaitingUserOrder =>
+      matchStatus == 'NEGOTIATING' || matchStatus == 'AWAITING_PAYMENT';
+
+  /// 待飞手确认（用户已支付，等待我确认约定时间）
+  bool get isAwaitingRiderConfirm => matchStatus == 'AWAITING_RIDER_CONFIRM';
+
+  /// 已确认（可执飞；djifly 执飞门禁点）
+  bool get isConfirmedForFlight => matchStatus == 'CONFIRMED';
+
+  /// 我方可发起应征（招募中/洽谈中，且任务未在执行）
+  bool get canApply =>
+      (matchStatus == null ||
+          matchStatus == 'SEEKING_RIDER' ||
+          matchStatus == 'NEGOTIATING') &&
+      taskStatus == 'IDLE';
+
+  /// 吊运货物摘要（重量 + 类别），无货物字段时返回空串。
+  String get cargoLabel {
+    final weight = cargoWeightKg;
+    final category = cargoCategory;
+    if (weight == null && category == null) return '';
+    final parts = <String>[
+      if (weight != null) '${_trimDouble(weight)} kg',
+      if (category != null && category.isNotEmpty) _cargoCategoryName(category),
+    ];
+    return parts.join(' · ');
+  }
+
+  /// 系统报价（只读展示；ADR-0003：成交价必须严格等于该值，客户端不提供改价入口）。
+  String get quotedAmountText =>
+      quotedAmount == null ? '' : '¥${_trimDouble(quotedAmount!)}';
+
+  /// 约定作业时间（截断到分钟，与 formattedTaskTime 展示口径一致）。
+  String get formattedScheduledTime {
+    final value = scheduledTime;
+    if (value == null || value.isEmpty) return '';
+    final normalized = value.replaceAll('T', ' ');
+    return normalized.length >= 16 ? normalized.substring(0, 16) : normalized;
+  }
+
+  static String _cargoCategoryName(String code) {
+    switch (code) {
+      case 'CONSTRUCTION': return '建材';
+      case 'EQUIPMENT': return '设备';
+      case 'AGRICULTURAL': return '农产品';
+      default: return code;
+    }
+  }
+
+  static String _trimDouble(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value.toString();
+  }
 
   String get priceText {
     if (totalAmount != null && totalAmount! > 0) {
