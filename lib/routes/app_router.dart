@@ -28,30 +28,41 @@ final _userShellKey = GlobalKey<NavigatorState>();
 final _pilotShellKey = GlobalKey<NavigatorState>();
 
 final goRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-  final isPilot = authState.user?.isPilot ?? false;
+  // 认证态变化只触发 redirect 重算（refreshListenable），不得重建 GoRouter：
+  // 重建会把导航重置回 initialLocation(/splash)，表现为「注册/登录后被踢回
+  // 启动页→引导页→登录页」（TASK-APP-006 修复前复现）。
+  final authRefresh = ValueNotifier<int>(0);
+  ref.listen<AuthState>(authProvider, (_, _) => authRefresh.value++);
 
-  return GoRouter(
+  final router = GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
+    refreshListenable: authRefresh,
     redirect: (context, state) {
+      final authState = ref.read(authProvider);
       final isLoggedIn = authState.status == AuthStatus.authenticated;
-      final isAuthPage = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register' ||
-          state.matchedLocation == '/rider/register' ||
-          state.matchedLocation == '/splash' ||
-          state.matchedLocation == '/onboarding';
+      final location = state.matchedLocation;
+      final isAuthPage = location == '/login' ||
+          location == '/register' ||
+          location == '/rider/register' ||
+          location == '/splash' ||
+          location == '/onboarding';
 
       if (!isLoggedIn) {
-        // 401 刷新失败被强制登出（sessionExpired）：从任意位置直达登录页，
-        // 不再经过启动页/引导页（P1-4）；其余登出态维持原有守卫规则。
-        if (authState.sessionExpired || !isAuthPage) return '/login';
+        // 401 刷新失败被强制登出（sessionExpired）：仅从启动页/引导页直达
+        // 登录页，不再经过启动页/引导页（P1-4）。注册页必须放行——否则登录页
+        // 点「用户注册/飞手注册」会被重定向回登录页，表现为点击无效
+        // （TASK-APP-006 用户实测根因）。
+        final skipToLogin = authState.sessionExpired &&
+            (location == '/splash' || location == '/onboarding');
+        if (skipToLogin || !isAuthPage) return '/login';
       }
       if (isLoggedIn && isAuthPage) {
+        final isPilot = authState.user?.isPilot ?? false;
         return isPilot ? '/pilot/tasks' : '/home';
       }
       // 一级「消息」Tab 已移除（REQ-APP-002 三 Tab）：旧深链统一落到订单列表。
-      if (state.matchedLocation == '/messages') return '/orders';
+      if (location == '/messages') return '/orders';
       return null;
     },
     routes: [
@@ -159,4 +170,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+
+  ref.onDispose(() {
+    authRefresh.dispose();
+    router.dispose();
+  });
+  return router;
 });
