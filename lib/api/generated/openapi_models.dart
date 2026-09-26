@@ -476,6 +476,26 @@ class ApiRiderUav {
   }
 }
 
+/// 契约 components.schemas.SelectRiderDto
+class ApiSelectRiderDto {
+  final int applicationId;
+  final String scheduledTime;
+
+  const ApiSelectRiderDto({required this.applicationId, required this.scheduledTime});
+
+  factory ApiSelectRiderDto.fromJson(Map<String, dynamic> json) => ApiSelectRiderDto(
+    applicationId: ((json['applicationId'] as num?)?.toInt() ?? 0),
+    scheduledTime: ((json['scheduledTime'] as String?) ?? ""),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    json['applicationId'] = applicationId;
+    json['scheduledTime'] = scheduledTime;
+    return json;
+  }
+}
+
 /// 契约 components.schemas.SessionDTO
 class ApiSessionDTO {
   final int? applicationId;

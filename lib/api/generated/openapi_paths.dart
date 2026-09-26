@@ -36,6 +36,10 @@ class ApiPaths {
   static Map<String, dynamic> taskConfirmQuery({required String taskNum}) =>
       <String, dynamic>{'taskNum': taskNum};
 
+  /// POST /task/{taskNum}/select-rider
+  static const String taskSelectRider = '/task/{taskNum}/select-rider';
+  static String taskSelectRiderPath(String taskNum) => '/task/' + Uri.encodeComponent(taskNum) + '/select-rider';
+
   /// GET /task/{taskNum}/applications
   static const String taskApplications = '/task/{taskNum}/applications';
   static String taskApplicationsPath(String taskNum) => '/task/' + Uri.encodeComponent(taskNum) + '/applications';

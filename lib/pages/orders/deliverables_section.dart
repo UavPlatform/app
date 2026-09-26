@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/attachment_api.dart';
 import '../../services/attachment_file_source.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/task_provider.dart';
 import '../../theme/app_colors.dart';
 
 /// 文件来源抽象：生产默认走 image_picker 真实选择器（t48），
@@ -58,6 +59,9 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
       final result = await _attachmentApi.listAttachments(widget.taskNum);
       if (!mounted) return;
       if (result.success && result.data != null) {
+        // 履约证据条数供「确认完成」按钮显隐消费（ADR-0003 完成闭环）。
+        ref.read(taskEvidenceCountProvider(widget.taskNum).notifier).state =
+            result.data!.length;
         setState(() {
           _attachments = result.data!;
           _loading = false;

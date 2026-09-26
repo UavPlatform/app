@@ -1,7 +1,9 @@
 // 应征飞手区块（TASK-APP-003 / ADR-0003 撮合中心）：
 //   GET /task/{taskNum}/applications → 飞手头像/昵称、机型名、载重、系统报价、应征时间；
 //   点击应征项进入订单内聊天（已有会话直接进，否则 /chat/session/create 带
-//   taskNum + applicationId，服务端按同任务 + 飞手去重）。
+//   taskNum + applicationId，服务端按同任务 + 飞手去重）；
+//   「选定飞手」（TASK-APP-004）→ 约定作业时间弹窗 → POST /task/{taskNum}/select-rider
+//   → 刷新详情后进入既有支付流（锁价校验见 pay_entry.dart）。
 // 红线（ADR-0003 决定 2）：quotedAmount 只读展示，本区块不存在任何价格输入控件。
 
 import 'package:flutter/material.dart';
@@ -13,6 +15,8 @@ import '../../../models/task_chat_session_vo.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/task_provider.dart';
 import '../../../theme/app_colors.dart';
+import '../pay_entry.dart';
+import 'select_rider_dialog.dart';
 
 class ApplicationsSection extends ConsumerWidget {
   final String taskNum;
@@ -30,8 +34,13 @@ class ApplicationsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(taskApplicationsProvider(taskNum));
+    // 选定飞手后其余应征自动关闭（ADR-0003 决定 1）：CLOSED 记录不再展示，
+    // SELECTED（已选定）仍保留作为选定结果回显。
+    final visible = state.applications
+        .where((app) => app.status != 'CLOSED')
+        .toList();
 
-    if (!inMatching && state.applications.isEmpty) {
+    if (!inMatching && visible.isEmpty) {
       return const SizedBox.shrink();
     }
     if (state.loading) {
@@ -42,7 +51,7 @@ class ApplicationsSection extends ConsumerWidget {
         ),
       ]);
     }
-    if (state.applications.isEmpty) {
+    if (visible.isEmpty) {
       if (state.error != null) return _errorCard(ref);
       return _section([
         // 空状态（REQ-APP-002 场景 2）：暂无应征时提示等待飞手接单。
@@ -73,11 +82,12 @@ class ApplicationsSection extends ConsumerWidget {
 
     final sessions = ref.watch(taskChatSessionsProvider(taskNum));
     return _section([
-      for (final app in state.applications)
+      for (final app in visible)
         _ApplicationTile(
           taskNum: taskNum,
           application: app,
           unread: _unreadFor(sessions.sessions, app),
+          canSelect: inMatching && app.applicationId != null,
         ),
       if (state.error != null)
         Padding(
@@ -160,16 +170,20 @@ class ApplicationsSection extends ConsumerWidget {
 }
 
 /// 应征列表单项：头像 + 昵称 + 机型/载重 + 系统报价（只读） + 应征时间，
-/// 右侧聊天入口；点击整行进入订单内聊天。
+/// 右侧聊天入口与「选定飞手」操作（招募/洽谈阶段）；点击整行进入订单内聊天。
 class _ApplicationTile extends ConsumerWidget {
   final String taskNum;
   final TaskApplicationVo application;
   final int unread;
 
+  /// 是否可选定该飞手（仅招募/洽谈阶段且应征带 applicationId）。
+  final bool canSelect;
+
   const _ApplicationTile({
     required this.taskNum,
     required this.application,
     required this.unread,
+    required this.canSelect,
   });
 
   @override
@@ -276,11 +290,50 @@ class _ApplicationTile extends ConsumerWidget {
                   size: 18,
                   color: AppColors.primary,
                 ),
+                if (canSelect) ...[
+                  const SizedBox(height: 2),
+                  TextButton(
+                    onPressed: () => _onSelect(context, ref),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      '选定飞手',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// 选定飞手完整路径（TASK-APP-004）：约定作业时间弹窗 →
+  /// POST /task/{taskNum}/select-rider（锁价 totalAmount = quotedAmount）→
+  /// 刷新应征列表（其余 CLOSED）→ 进入既有支付流（先做锁价一致性校验）。
+  Future<void> _onSelect(BuildContext context, WidgetRef ref) async {
+    final selected = await showSelectRiderDialog(
+      context,
+      taskNum: taskNum,
+      application: application,
+    );
+    if (selected != true || !context.mounted) return;
+    await ref.read(taskApplicationsProvider(taskNum).notifier).load();
+    if (!context.mounted) return;
+    await openPayEntry(
+      context,
+      ref,
+      taskNum: taskNum,
+      quotedAmount: application.quotedAmount,
     );
   }
 

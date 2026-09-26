@@ -237,6 +237,18 @@ class TaskVo {
     return normalized.length >= 16 ? normalized.substring(0, 16) : normalized;
   }
 
+  /// 用户确认时间（下单确认约定时间；截断到分钟展示，无则空串）。
+  String get formattedUserConfirmedAt => _minuteText(userConfirmedAt);
+
+  /// 飞手确认时间（双确认第二步；截断到分钟展示，无则空串）。
+  String get formattedRiderConfirmedAt => _minuteText(riderConfirmedAt);
+
+  static String _minuteText(String? value) {
+    if (value == null || value.isEmpty) return '';
+    final normalized = value.replaceAll('T', ' ');
+    return normalized.length >= 16 ? normalized.substring(0, 16) : normalized;
+  }
+
   static String _cargoCategoryName(String code) {
     switch (code) {
       case 'CONSTRUCTION': return '建材';

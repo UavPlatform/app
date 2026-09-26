@@ -47,7 +47,6 @@ final chatRealtimeLifecycleProvider = Provider<void>((ref) {
       unawaited(service.ensureConnected(userId));
     } else if (next.status == AuthStatus.unauthenticated) {
       unawaited(service.disconnect());
-      ref.invalidate(totalUnreadCountProvider);
       ref.invalidate(sessionListProvider);
       ref.invalidate(messageListProvider);
     }
@@ -404,20 +403,12 @@ final messageListProvider =
       },
     );
 
-// ==================== 全局未读消息数 ====================
+// ==================== 重连补拉与按单未读 ====================
 
 /// WS 断线重连成功的补拉信号（供 FutureProvider 等订阅刷新）。
 final chatResyncProvider = StreamProvider<void>(
   (ref) => ref.watch(chatWebSocketServiceProvider).resync,
 );
-
-/// 全局未读角标（t50）：派生自会话列表未读数——
-/// WS 实时消息经 _applyRealtimeSummary 本地 +1（收=增），
-/// 进入会话 markSessionRead 本地清零（读=减），重连补拉 resync 触发会话重载对齐服务端。
-final totalUnreadCountProvider = Provider<int>((ref) {
-  final sessions = ref.watch(sessionListProvider).sessions;
-  return sessions.fold<int>(0, (sum, s) => sum + s.unreadCount);
-});
 
 /// 按订单聚合的未读（订单列表「按单红点」，替换 APP-001 的首项全局占位）：
 /// 会话 `taskNum` → 任务 `orderNum`，同一订单下多会话未读求和；

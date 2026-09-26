@@ -22,6 +22,7 @@ import '../tool/sha256.dart';
 /// 35 条为既有调用点清单；第 36 条 POST /user/refresh 是 http_client.dart 的
 /// token 刷新调用——契约里存在该路径，因此必须登记并走 ApiPaths.userRefresh，
 /// 不能残留字面量。TASK-APP-005 追加 3 条：飞手任务详情 / 应征 / 确认订单。
+/// TASK-APP-004 追加 1 条：用户选定飞手下单（select-rider）。
 const List<List<String>> calledEndpoints = <List<String>>[
   <String>['get', '/task/init'],
   <String>['post', '/task/create'],
@@ -29,6 +30,7 @@ const List<List<String>> calledEndpoints = <List<String>>[
   <String>['get', '/task/detail'],
   <String>['delete', '/task/delete'],
   <String>['post', '/task/confirm'],
+  <String>['post', '/task/{taskNum}/select-rider'],
   <String>['get', '/task/{taskNum}/applications'],
   <String>['get', '/task/{taskNum}/chat-sessions'],
   <String>['get', '/chat/session/list'],
@@ -121,7 +123,7 @@ void main() {
 
   group('调用端点登记表', () {
     test('每条登记端点都存在于 vendored 规格（method + path）', () {
-      expect(calledEndpoints, hasLength(39));
+      expect(calledEndpoints, hasLength(40));
       for (final List<String> endpoint in calledEndpoints) {
         final String method = endpoint[0].toLowerCase();
         final String path = endpoint[1];
@@ -143,10 +145,10 @@ void main() {
       );
     });
 
-    test('登记表无重复（38 条既有端点 + /user/refresh = 39）', () {
+    test('登记表无重复（38 条既有端点 + /user/refresh + select-rider = 40）', () {
       String key(List<String> endpoint) =>
           '${endpoint[0].toLowerCase()} ${endpoint[1]}';
-      expect(calledEndpoints.map(key).toSet(), hasLength(39));
+      expect(calledEndpoints.map(key).toSet(), hasLength(40));
     });
   });
 

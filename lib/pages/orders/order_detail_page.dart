@@ -11,8 +11,8 @@ import '../../providers/rider_account_provider.dart';
 import '../../providers/rider_provider.dart';
 import '../../providers/task_provider.dart';
 import '../live/live_watch_page.dart';
-import '../pay/pay_page.dart';
 import 'deliverables_section.dart';
+import 'pay_entry.dart';
 import 'widgets/applications_section.dart';
 
 class OrderDetailPage extends ConsumerWidget {
@@ -149,6 +149,10 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
               taskNum: task.taskNum,
               inMatching: task.isInMatchingStage,
             ),
+          // 撮合状态（TASK-APP-004 / ADR-0003 决定 4、6）：待飞手确认 / 已确认 /
+          // 进行中……描述文案以上方 actionHint 横幅为准（服务端统一计算），
+          // 此处只补可核验事实：状态名 + 双确认时间（有则展示）。
+          if (!isPilot && !task.isInMatchingStage) _buildMatchStatusSection(task),
           _buildSection('任务信息', [
             _infoRow('任务编号', task.taskNum),
             _infoRow('任务名称', task.taskName),
@@ -369,6 +373,56 @@ Widget _infoRow(String label, String value) {
   );
 }
 
+/// 撮合状态区块（TASK-APP-004）：状态名 + 双确认时间戳。
+/// 描述性文案不在这里重复——服务端 actionHint 横幅是唯一文案源。
+Widget _buildMatchStatusSection(TaskVo task) {
+  return Container(
+    margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '撮合状态',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 16),
+        _infoRow('状态', _matchStatusLabel(task)),
+        // 双确认（ADR-0003 决定 4）：下单即用户确认；飞手确认后才进入进行中。
+        if (task.formattedUserConfirmedAt.isNotEmpty)
+          _infoRow('用户确认时间', task.formattedUserConfirmedAt),
+        if (task.formattedRiderConfirmedAt.isNotEmpty)
+          _infoRow('飞手确认时间', task.formattedRiderConfirmedAt),
+      ],
+    ),
+  );
+}
+
+/// 撮合状态名：执行/完成态优先看 TaskStatus，否则按 matchStatus 映射。
+/// 仅作状态名展示，阶段描述文案仍以 actionHint 为准。
+String _matchStatusLabel(TaskVo task) {
+  if (task.isInProgress) return '进行中';
+  if (task.isCompleted) return '已完成';
+  switch (task.matchStatus) {
+    case 'AWAITING_PAYMENT':
+      return '待支付';
+    case 'AWAITING_RIDER_CONFIRM':
+      return '待飞手确认';
+    case 'CONFIRMED':
+      return '已确认';
+    case 'PENDING_ACCEPTANCE':
+      return '待验收';
+    case 'CLOSED':
+      return '已关闭';
+    default:
+      return task.taskStatusName;
+  }
+}
+
 /// 后端 OrderStatus 枚举名 → 中文标签（/task/detail 返回枚举名字符串）。
 String? _orderStatusLabel(String? orderStatus) {
   switch (orderStatus) {
@@ -389,27 +443,19 @@ String? _orderStatusLabel(String? orderStatus) {
   }
 }
 
-/// 待支付订单支付入口（t29：跳转模拟收银台，完成后刷新详情）。
+/// 待支付订单支付入口（TASK-APP-004：先做锁价校验 totalAmount == quotedAmount，
+/// 不一致不发起支付；校验通过才跳转既有模拟收银台，完成后刷新详情）。
 Future<void> _onPayUser(
   BuildContext context,
   WidgetRef ref,
   TaskVo task,
-) async {
-  final paid = await Navigator.of(context).push<bool>(
-    MaterialPageRoute(
-      builder: (_) => PayPage(orderNum: task.orderNum!),
-    ),
+) {
+  return openPayEntry(
+    context,
+    ref,
+    taskNum: task.taskNum,
+    quotedAmount: task.quotedAmount,
   );
-  if (!context.mounted) return;
-  if (paid == true) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('支付成功')),
-    );
-    // 重新拉取任务详情，订单状态流转可见（PENDING → PAID）
-    await ref
-        .read(taskDetailProvider(task.taskNum).notifier)
-        .loadDetail(task.taskNum);
-  }
 }
 
 /// 用户侧「联系飞手」（t34，P1-6）：创建直连会话并跳转聊天详情。
@@ -469,6 +515,11 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
         )
       : null;
 
+  // 履约证据（TASK-APP-004）：0 条 = 明确无证据 → 禁用「确认完成」并提示；
+  // null = 证据列表尚未加载成功 → 放行，由服务端 DELIVERY_EVIDENCE_REQUIRED 兜底。
+  final evidenceCount = ref.watch(taskEvidenceCountProvider(task.taskNum));
+  final noEvidence = evidenceCount == 0;
+
   if (task.isWaitingConfirm) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -497,7 +548,8 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
               ],
               Expanded(
                 child: FilledButton(
-                  onPressed: () => _onConfirmUser(context, ref, task),
+                  onPressed:
+                      noEvidence ? null : () => _onConfirmUser(context, ref, task),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.success,
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -510,6 +562,17 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
               ),
             ],
           ),
+          if (noEvidence) ...[
+            const SizedBox(height: 8),
+            const SizedBox(
+              width: double.infinity,
+              child: Text(
+                '暂无履约证据，待飞手上传后方可确认完成',
+                style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -561,7 +624,11 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
     );
   }
 
-  if (task.isIdle) {
+  // 撮合双确认阶段（TASK-APP-004 / ADR-0003 决定 4）：待飞手确认 / 已确认待执飞
+  // 的任务仍是 IDLE，但不能落到下方「删除任务」分支——此阶段要提供履约沟通
+  // （联系飞手）与直播入口，等待/可开飞文案由服务端 actionHint 横幅承担。
+  if (task.isIdle &&
+      !(task.isAwaitingRiderConfirm || task.isConfirmedForFlight)) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -591,7 +658,8 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
     );
   }
 
-  // 已接单状态（含执行中/已完成等有飞手的任务）：联系飞手 + 观看直播入口
+  // 已接单状态（含双确认阶段、执行中、已完成等有飞手的任务）：
+  // 联系飞手 + 观看直播入口（履约中沟通与直播沿用既有链路）。
   if (contactButton != null || watchEntry != null) {
     return Container(
       padding: const EdgeInsets.all(16),

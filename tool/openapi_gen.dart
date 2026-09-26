@@ -28,6 +28,7 @@ const List<List<String>> endpoints = <List<String>>[
   <String>['get', '/task/detail'],
   <String>['delete', '/task/delete'],
   <String>['post', '/task/confirm'],
+  <String>['post', '/task/{taskNum}/select-rider'],
   <String>['get', '/task/{taskNum}/applications'],
   <String>['get', '/task/{taskNum}/chat-sessions'],
   <String>['get', '/chat/session/list'],

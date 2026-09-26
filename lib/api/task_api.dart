@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import 'http_client.dart';
 import 'generated/openapi_models.dart';
 import 'generated/openapi_paths.dart';
@@ -61,6 +63,38 @@ class TaskApi {
     );
   }
 
+  /// 用户选定飞手并下单（POST /task/{taskNum}/select-rider）：
+  /// 只提交 applicationId + 约定作业时间，金额由服务端锁定为该应征的
+  /// 系统报价 quotedAmount（ADR-0003 禁止改价，客户端不传任何金额字段）。
+  /// 成功后该应征 SELECTED、其余应征 CLOSED，订单 totalAmount = quotedAmount。
+  Future<Result<TaskVo>> selectRider({
+    required String taskNum,
+    required int applicationId,
+    required String scheduledTime,
+  }) async {
+    try {
+      final response = await _client.dio.post(
+        ApiPaths.taskSelectRiderPath(taskNum),
+        data: ApiSelectRiderDto(
+          applicationId: applicationId,
+          scheduledTime: scheduledTime,
+        ).toJson(),
+      );
+      return TaskVo.parseResult(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      if (body is Map<String, dynamic>) {
+        return Result(
+          success: false,
+          code: body['code'] as int?,
+          errorCode: body['errorCode'] as String?,
+          message: body['message'] as String? ?? '选定飞手失败，请稍后重试',
+        );
+      }
+      return Result(success: false, message: '选定飞手失败，请检查网络后重试');
+    }
+  }
+
   Future<Result<void>> deleteTask(int taskId) async {
     final response = await _client.dio.delete(
       ApiPaths.taskDelete,
@@ -74,16 +108,32 @@ class TaskApi {
     );
   }
 
+  /// 用户确认完成（POST /task/confirm）：服务端要求 ≥1 履约证据，
+  /// 无证据时返回 DELIVERY_EVIDENCE_REQUIRED，业务失败信封原样透出供 UI 展示。
   Future<Result<void>> confirmTask(String taskNum) async {
-    final response = await _client.dio.post(
-      ApiPaths.taskConfirm,
-      queryParameters: ApiPaths.taskConfirmQuery(taskNum: taskNum),
-    );
-    final data = response.data as Map<String, dynamic>;
-    return Result(
-      success: data['success'] == true,
-      code: data['code'] as int?,
-      message: data['message'] as String?,
-    );
+    try {
+      final response = await _client.dio.post(
+        ApiPaths.taskConfirm,
+        queryParameters: ApiPaths.taskConfirmQuery(taskNum: taskNum),
+      );
+      final data = response.data as Map<String, dynamic>;
+      return Result(
+        success: data['success'] == true,
+        code: data['code'] as int?,
+        errorCode: data['errorCode'] as String?,
+        message: data['message'] as String?,
+      );
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      if (body is Map<String, dynamic>) {
+        return Result(
+          success: false,
+          code: body['code'] as int?,
+          errorCode: body['errorCode'] as String?,
+          message: body['message'] as String? ?? '确认失败，请稍后重试',
+        );
+      }
+      return Result(success: false, message: '确认失败，请检查网络后重试');
+    }
   }
 }

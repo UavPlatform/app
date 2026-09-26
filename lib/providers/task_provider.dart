@@ -274,3 +274,13 @@ final taskApplicationsProvider = StateNotifierProvider.autoDispose.family<
   (ref, taskNum) =>
       TaskApplicationsNotifier(ref.watch(taskApiProvider), taskNum),
 );
+
+// ============================================================
+// 履约证据计数（TASK-APP-004：证据列表驱动「确认完成」按钮显隐）
+// ============================================================
+
+/// 任务履约证据条数（GET /tasks/{taskNum}/attachments 成功后由
+/// DeliverablesSection 写入）：0 = 明确无证据（禁用确认完成），
+/// null = 尚未加载成功（交由服务端 DELIVERY_EVIDENCE_REQUIRED 兜底）。
+final taskEvidenceCountProvider =
+    StateProvider.autoDispose.family<int?, String>((ref, taskNum) => null);
