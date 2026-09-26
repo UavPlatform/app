@@ -6,7 +6,6 @@ import '../../models/task_vo.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/task_provider.dart';
 import '../../providers/rider_provider.dart';
-import '../../providers/chat_provider.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -17,7 +16,6 @@ class HomePage extends ConsumerWidget {
     final taskState = ref.watch(taskListProvider);
     final tasks = taskState.tasks;
     final recommendedRiders = ref.watch(recommendedRidersProvider);
-    final unreadCount = ref.watch(totalUnreadCountProvider);
 
     final inProgressTasks = tasks.where((t) => t.isInProgress).toList();
     final idleTasks = tasks.where((t) => t.isIdle).toList();
@@ -45,14 +43,7 @@ class HomePage extends ConsumerWidget {
             onPressed: () {},
           ),
           IconButton(
-            icon: Badge(
-              isLabelVisible: unreadCount > 0,
-              label: Text(
-                unreadCount > 99 ? '99+' : '$unreadCount',
-                style: const TextStyle(fontSize: 10),
-              ),
-              child: const Icon(Icons.notifications_outlined),
-            ),
+            icon: const Icon(Icons.notifications_outlined),
             onPressed: () {},
           ),
         ],

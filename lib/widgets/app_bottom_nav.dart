@@ -12,7 +12,6 @@ class AppBottomNav extends StatelessWidget {
   static const _selectedColors = [
     Color(0xFF5B8FD4), // 首页 - 柔和蓝
     Color(0xFF55B882), // 订单 - 柔和绿
-    Color(0xFFE8A850), // 消息 - 柔和橙
     Color(0xFF8B7EC8), // 我的 - 柔和紫
   ];
 
@@ -20,8 +19,7 @@ class AppBottomNav extends StatelessWidget {
     final location = GoRouterState.of(context).uri.path;
     if (location.startsWith('/home')) return 0;
     if (location.startsWith('/orders')) return 1;
-    if (location.startsWith('/messages')) return 2;
-    if (location.startsWith('/profile')) return 3;
+    if (location.startsWith('/profile')) return 2;
     return 0;
   }
 
@@ -37,8 +35,7 @@ class AppBottomNav extends StatelessWidget {
           switch (i) {
             case 0: context.go('/home');
             case 1: context.go('/orders');
-            case 2: context.go('/messages');
-            case 3: context.go('/profile');
+            case 2: context.go('/profile');
           }
         },
         type: BottomNavigationBarType.fixed,
@@ -57,11 +54,6 @@ class AppBottomNav extends StatelessWidget {
             icon: Transform.scale(scale: _inactiveScale, child: const Icon(Icons.receipt_long_outlined)),
             activeIcon: Transform.scale(scale: _activeScale, child: const Icon(Icons.receipt_long)),
             label: '订单',
-          ),
-          BottomNavigationBarItem(
-            icon: Transform.scale(scale: _inactiveScale, child: const Icon(Icons.chat_bubble_outline)),
-            activeIcon: Transform.scale(scale: _activeScale, child: const Icon(Icons.chat_bubble)),
-            label: '消息',
           ),
           BottomNavigationBarItem(
             icon: Transform.scale(scale: _inactiveScale, child: const Icon(Icons.person_outline)),

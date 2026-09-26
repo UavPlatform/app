@@ -51,6 +51,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       if (isLoggedIn && isAuthPage) {
         return isPilot ? '/pilot/tasks' : '/home';
       }
+      // 一级「消息」Tab 已移除（REQ-APP-002 三 Tab）：旧深链统一落到订单列表。
+      if (state.matchedLocation == '/messages') return '/orders';
       return null;
     },
     routes: [
@@ -125,10 +127,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/orders',
             pageBuilder: (context, state) => const NoTransitionPage(child: OrderListPage()),
-          ),
-          GoRoute(
-            path: '/messages',
-            pageBuilder: (context, state) => const NoTransitionPage(child: MessageListPage()),
           ),
           GoRoute(
             path: '/profile',

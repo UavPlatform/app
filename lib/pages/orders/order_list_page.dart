@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../api/order_api.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/chat_provider.dart';
 import '../../theme/app_colors.dart';
 import '../pay/pay_page.dart';
 
@@ -99,6 +100,10 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
 
   @override
   Widget build(BuildContext context) {
+    // 全局未读占位（REQ-APP-002）：原 Tab/首页徽标移入订单列表项。
+    // 会话与订单尚未按 taskNum 绑定，先挂全局未读；绑定后改按订单红点。
+    final unread = ref.watch(totalUnreadCountProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的订单'),
@@ -133,7 +138,10 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                       child: ListView.builder(
                         padding: const EdgeInsets.all(16),
                         itemCount: filtered.length,
-                        itemBuilder: (_, i) => _buildCard(filtered[i]),
+                        itemBuilder: (_, i) => _buildCard(
+                          filtered[i],
+                          unread: i == 0 ? unread : 0,
+                        ),
                       ),
                     );
                   }).toList(),
@@ -179,7 +187,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     );
   }
 
-  Widget _buildCard(OrderVo order) {
+  Widget _buildCard(OrderVo order, {int unread = 0}) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -193,6 +201,27 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
               Row(
                 children: [
                   _statusTag(order.orderStatus),
+                  if (unread > 0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.error,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        unread > 99 ? '99+' : '$unread',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                   const Spacer(),
                   if (order.totalAmount != null)
                     Text(
