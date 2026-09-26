@@ -2,6 +2,7 @@ import 'http_client.dart';
 import 'generated/openapi_paths.dart';
 import '../models/result_model.dart';
 import '../models/session_vo.dart';
+import '../models/task_chat_session_vo.dart';
 import '../models/message_vo.dart';
 
 class ChatApi {
@@ -27,12 +28,19 @@ class ChatApi {
     required String name,
     required int type,
     required List<int> userIds,
+    String? taskNum,
+    int? applicationId,
   }) async {
-    final response = await _client.dio.post(ApiPaths.chatSessionCreate, data: {
+    // 订单内会话绑定（ADR-0003 决定 1）：同 taskNum + 飞手由服务端去重。
+    final body = <String, dynamic>{
       'name': name,
       'type': type,
       'userIds': userIds,
-    });
+    };
+    if (taskNum != null) body['taskNum'] = taskNum;
+    if (applicationId != null) body['applicationId'] = applicationId;
+    final response =
+        await _client.dio.post(ApiPaths.chatSessionCreate, data: body);
     final data = response.data as Map<String, dynamic>;
     if (data['success'] == true && data['data'] != null) {
       return Result(
@@ -41,7 +49,27 @@ class ChatApi {
         data: SessionVo.fromJson(data['data'] as Map<String, dynamic>),
       );
     }
-    return Result(success: data['success'] == true, code: data['code'], message: data['message'] as String?);
+    return Result(success: false, code: data['code'], message: data['message'] as String?);
+  }
+
+  /// 任务内嵌会话聚合（GET /task/{taskNum}/chat-sessions）：
+  /// 返回该任务下与各意向飞手的一对一会话（含 applicationId、未读数、最后一条消息）。
+  Future<Result<List<TaskChatSessionVo>>> listTaskChatSessions(
+      String taskNum) async {
+    final response =
+        await _client.dio.get(ApiPaths.taskChatSessionsPath(taskNum));
+    final data = response.data as Map<String, dynamic>;
+    if (data['success'] == true && data['data'] != null) {
+      final list = (data['data'] as List<dynamic>)
+          .map((e) => TaskChatSessionVo.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return Result(success: true, code: 200, data: list);
+    }
+    return Result(
+      success: false,
+      code: data['code'] as int?,
+      message: data['message'] as String?,
+    );
   }
 
   // ==================== 消息 ====================

@@ -3,9 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uav_pilot_app/api/http_client.dart';
 import 'package:uav_pilot_app/api/order_api.dart';
+import 'package:uav_pilot_app/pages/orders/order_detail_page.dart';
 import 'package:uav_pilot_app/pages/orders/order_list_page.dart';
 import 'package:uav_pilot_app/pages/pay/pay_page.dart';
 import 'package:uav_pilot_app/providers/auth_provider.dart';
@@ -198,5 +200,132 @@ void main() {
     expect(find.textContaining('ORD-2'), findsOneWidget);
     expect(find.text('¥99.00'), findsOneWidget);
     expect(find.text('订单金额'), findsOneWidget);
+  });
+
+  testWidgets('订单详情提供「应征飞手与订单聊天」入口（按 orderNum 反查 taskNum）', (tester) async {
+    final adapter = StubAdapter((options) async {
+      final path = options.uri.path;
+      if (path == '/order/list') {
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': {
+            'orders': [
+              {
+                'orderNum': 'ORD-3',
+                'totalAmount': 980,
+                'taskName': '山顶基站建材吊运',
+                'orderStatus': OrderStatusCode.paid,
+              },
+            ],
+            'currentPage': 0,
+            'totalPages': 1,
+            'totalElements': 1,
+          },
+        });
+      }
+      if (path == '/order/detail') {
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': {
+            'orderNum': 'ORD-3',
+            'totalAmount': 980,
+            'orderStatus': OrderStatusCode.paid,
+          },
+        });
+      }
+      if (path == '/task/list') {
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': {
+            'tasks': [
+              {
+                'id': 3,
+                'taskNum': 'T-3',
+                'taskName': '山顶基站建材吊运',
+                'userId': 7,
+                'taskType': 'TRANSPORT',
+                'taskStatus': 'IDLE',
+                'matchStatus': 'SEEKING_RIDER',
+                'orderNum': 'ORD-3',
+              },
+            ],
+            'currentPage': 0,
+            'totalPages': 1,
+            'totalElements': 1,
+          },
+        });
+      }
+      if (path == '/task/detail') {
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': {
+            'id': 3,
+            'taskNum': 'T-3',
+            'taskName': '山顶基站建材吊运',
+            'userId': 7,
+            'taskType': 'TRANSPORT',
+            'taskStatus': 'IDLE',
+            'matchStatus': 'SEEKING_RIDER',
+            'actionHint': '等待飞手应征，选定后下单支付',
+            'orderNum': 'ORD-3',
+            'orderStatus': 'PAID',
+            'totalAmount': 980,
+          },
+        });
+      }
+      if (path == '/task/T-3/applications' || path == '/task/T-3/chat-sessions') {
+        return jsonResponse(200, {'success': true, 'code': 200, 'data': []});
+      }
+      return jsonResponse(200, {'success': false, 'message': 'stub'});
+    });
+
+    SharedPreferences.setMockInitialValues({
+      'jwt_token': makeJwt(userId: 7),
+      'server_url': 'http://stub.local:8081',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    final router = GoRouter(
+      initialLocation: '/orders',
+      routes: [
+        GoRoute(path: '/orders', builder: (_, _) => const OrderListPage()),
+        GoRoute(
+          path: '/order/:taskNum',
+          builder: (_, state) =>
+              OrderDetailPage(taskNum: state.pathParameters['taskNum']!),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          httpClientProvider.overrideWithValue(
+            HttpClient(TokenStorage(prefs), adapter: adapter),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 订单卡片 → 订单详情视图（订单本身没有 taskNum，经任务列表反查）
+    await tester.tap(find.textContaining('ORD-3'));
+    await tester.pumpAndSettle();
+    expect(find.text('应征飞手与订单聊天'), findsOneWidget);
+
+    // 入口 → 任务详情（撮合中心：应征列表 + 订单内聊天）
+    await tester.tap(find.text('应征飞手与订单聊天'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OrderDetailPage), findsOneWidget);
+    expect(find.text('等待飞手接单'), findsOneWidget, reason: '撮合中心空状态');
+    expect(find.text('等待飞手应征，选定后下单支付'), findsOneWidget,
+        reason: '文案来自服务端 actionHint');
   });
 }

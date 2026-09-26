@@ -13,6 +13,10 @@ class SessionVo {
   final int? lastMessageTime;
   final int unreadCount;
 
+  /// 订单内会话绑定（ADR-0003）：该会话归属的任务编号与应征记录。
+  final String? taskNum;
+  final int? applicationId;
+
   SessionVo({
     required this.id,
     required this.name,
@@ -25,6 +29,8 @@ class SessionVo {
     this.lastMessage,
     this.lastMessageTime,
     this.unreadCount = 0,
+    this.taskNum,
+    this.applicationId,
   });
 
   factory SessionVo.fromJson(Map<String, dynamic> json) {
@@ -41,6 +47,8 @@ class SessionVo {
       lastMessage: c.lastMessage,
       lastMessageTime: c.lastMessageTime,
       unreadCount: c.unreadCount ?? 0,
+      taskNum: c.taskNum,
+      applicationId: c.applicationId,
     );
   }
 
@@ -63,6 +71,8 @@ class SessionVo {
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageTime: lastMessageTime ?? this.lastMessageTime,
       unreadCount: unreadCount ?? this.unreadCount,
+      taskNum: taskNum,
+      applicationId: applicationId,
     );
   }
 }

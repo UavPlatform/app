@@ -3,7 +3,7 @@
 // 覆盖：
 //   1. 登录后底部导航仅三 Tab（首页/订单/我的），且可依次切换；
 //   2. `/messages` 旧深链重定向到 `/orders`，不再进入 MessageListPage；
-//   3. 全局未读徽标从首页移入订单列表项（占位实现）。
+//   3. 订单列表未读按单红点（会话 taskNum → 订单，替换 APP-001 的首项全局占位）。
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -170,11 +170,12 @@ void main() {
     expect(nav.currentIndex, 1);
   });
 
-  testWidgets('全局未读从首页徽标移入订单列表项（占位）', (tester) async {
+  testWidgets('订单列表按单红点：会话未读经 taskNum 归到对应订单', (tester) async {
     await pumpLoggedInApp(
       tester,
       handler: (options) async {
-        if (options.uri.path == '/chat/session/list') {
+        final path = options.uri.path;
+        if (path == '/chat/session/list') {
           return jsonResponse(200, {
             'success': true,
             'code': 200,
@@ -185,11 +186,65 @@ void main() {
                 'type': 0,
                 'userIds': [1, 7],
                 'otherUserName': '飞手A',
+                'taskNum': 'T-1',
                 'lastMessage': '收到',
                 'createTime': 1,
                 'unreadCount': 7,
               },
+              {
+                'id': 12,
+                'name': '会话B',
+                'type': 0,
+                'userIds': [1, 7],
+                'otherUserName': '飞手B',
+                'taskNum': 'T-2',
+                'lastMessage': '好的',
+                'createTime': 2,
+                'unreadCount': 2,
+              },
+              {
+                // 未绑定任务的会话不归属任何订单
+                'id': 13,
+                'name': '私聊C',
+                'type': 0,
+                'userIds': [1, 7],
+                'otherUserName': '好友C',
+                'lastMessage': '在吗',
+                'createTime': 3,
+                'unreadCount': 5,
+              },
             ],
+          });
+        }
+        if (path == '/task/list') {
+          return jsonResponse(200, {
+            'success': true,
+            'code': 200,
+            'data': {
+              'tasks': [
+                {
+                  'id': 1,
+                  'taskNum': 'T-1',
+                  'taskName': '任务一',
+                  'userId': 7,
+                  'taskType': 'TRANSPORT',
+                  'taskStatus': 'IDLE',
+                  'orderNum': 'ORD-1',
+                },
+                {
+                  'id': 2,
+                  'taskNum': 'T-2',
+                  'taskName': '任务二',
+                  'userId': 7,
+                  'taskType': 'TRANSPORT',
+                  'taskStatus': 'IDLE',
+                  'orderNum': 'ORD-2',
+                },
+              ],
+              'currentPage': 0,
+              'totalPages': 1,
+              'totalElements': 2,
+            },
           });
         }
         return _orderListStub(options);
@@ -200,7 +255,7 @@ void main() {
     expect(find.byType(HomePage), findsOneWidget);
     expect(find.byType(Badge), findsNothing);
 
-    // 进入订单列表：未读占位徽标挂在首条订单项上
+    // 进入订单列表：未读按订单归属展示红点
     await tester.tap(
       find.descendant(
         of: find.byType(BottomNavigationBar),
@@ -210,7 +265,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(OrderListPage), findsOneWidget);
-    expect(find.text('7'), findsOneWidget, reason: '订单列表项展示未读数占位');
-    expect(find.textContaining('ORD-2'), findsOneWidget);
+    final ord1Card = find.ancestor(
+      of: find.textContaining('ORD-1'),
+      matching: find.byType(Card),
+    );
+    final ord2Card = find.ancestor(
+      of: find.textContaining('ORD-2'),
+      matching: find.byType(Card),
+    );
+    expect(
+      find.descendant(of: ord1Card, matching: find.text('7')),
+      findsOneWidget,
+      reason: 'T-1 的任务会话未读挂到 ORD-1',
+    );
+    expect(
+      find.descendant(of: ord2Card, matching: find.text('2')),
+      findsOneWidget,
+      reason: 'T-2 的任务会话未读挂到 ORD-2',
+    );
+    expect(
+      find.descendant(of: ord2Card, matching: find.text('7')),
+      findsNothing,
+      reason: '红点按单隔离，不落错订单',
+    );
+    expect(find.text('5'), findsNothing,
+        reason: '未绑定任务的会话不计入订单红点');
   });
 }

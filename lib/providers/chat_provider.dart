@@ -6,8 +6,10 @@ import '../api/generated/openapi_paths.dart';
 import '../api/http_client.dart';
 import '../models/session_vo.dart';
 import '../models/message_vo.dart';
+import '../models/task_chat_session_vo.dart';
 import '../services/chat_websocket_service.dart';
 import 'auth_provider.dart';
+import 'task_provider.dart';
 
 final chatApiProvider = Provider<ChatApi>(
   (ref) => ChatApi(ref.watch(httpClientProvider)),
@@ -146,6 +148,8 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
   Future<SessionVo?> createDirectSession({
     required String name,
     required int userId,
+    String? taskNum,
+    int? applicationId,
   }) async {
     state = state.copyWith(creatingSession: true, error: null);
     try {
@@ -153,6 +157,8 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
         name: name,
         type: 0,
         userIds: [userId],
+        taskNum: taskNum,
+        applicationId: applicationId,
       );
       if (!mounted) return null;
       if (!result.success || result.data == null) {
@@ -214,6 +220,70 @@ final sessionListProvider =
         );
       },
     );
+
+// ==================== 任务内嵌会话（订单详情） ====================
+
+class TaskChatSessionsState {
+  final List<TaskChatSessionVo> sessions;
+  final bool loading;
+  final String? error;
+
+  const TaskChatSessionsState({
+    this.sessions = const [],
+    this.loading = true,
+    this.error,
+  });
+
+  TaskChatSessionsState copyWith({
+    List<TaskChatSessionVo>? sessions,
+    bool? loading,
+    String? error,
+  }) {
+    return TaskChatSessionsState(
+      sessions: sessions ?? this.sessions,
+      loading: loading ?? this.loading,
+      error: error,
+    );
+  }
+}
+
+/// GET /task/{taskNum}/chat-sessions：详情页据此判断应征项是否已有会话、
+/// 展示订单内红点未读（进入会话读后重新 load 对齐服务端）。
+class TaskChatSessionsNotifier extends StateNotifier<TaskChatSessionsState> {
+  final ChatApi _api;
+  final String taskNum;
+
+  TaskChatSessionsNotifier(this._api, this.taskNum)
+      : super(const TaskChatSessionsState()) {
+    load();
+  }
+
+  Future<void> load() async {
+    state = state.copyWith(loading: true, error: null);
+    try {
+      final result = await _api.listTaskChatSessions(taskNum);
+      if (!mounted) return;
+      if (result.success && result.data != null) {
+        state = state.copyWith(loading: false, sessions: result.data!);
+      } else {
+        state = state.copyWith(
+          loading: false,
+          error: result.message ?? '获取任务会话失败',
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      state = state.copyWith(loading: false, error: '网络请求失败');
+    }
+  }
+}
+
+/// 任务内嵌会话：autoDispose，每次进入详情页重新对齐服务端未读与会话归属。
+final taskChatSessionsProvider = StateNotifierProvider.autoDispose.family<
+    TaskChatSessionsNotifier, TaskChatSessionsState, String>(
+  (ref, taskNum) =>
+      TaskChatSessionsNotifier(ref.watch(chatApiProvider), taskNum),
+);
 
 // ==================== 消息列表（单个会话） ====================
 
@@ -347,4 +417,31 @@ final chatResyncProvider = StreamProvider<void>(
 final totalUnreadCountProvider = Provider<int>((ref) {
   final sessions = ref.watch(sessionListProvider).sessions;
   return sessions.fold<int>(0, (sum, s) => sum + s.unreadCount);
+});
+
+/// 按订单聚合的未读（订单列表「按单红点」，替换 APP-001 的首项全局占位）：
+/// 会话 `taskNum` → 任务 `orderNum`，同一订单下多会话未读求和；
+/// 未绑定任务的会话不计入任何订单。
+final orderUnreadProvider = Provider<Map<String, int>>((ref) {
+  final sessions = ref.watch(sessionListProvider).sessions;
+  final tasks = ref.watch(taskListProvider).tasks;
+
+  final unreadByTask = <String, int>{};
+  for (final session in sessions) {
+    final taskNum = session.taskNum;
+    if (taskNum == null || taskNum.isEmpty || session.unreadCount <= 0) {
+      continue;
+    }
+    unreadByTask[taskNum] = (unreadByTask[taskNum] ?? 0) + session.unreadCount;
+  }
+  if (unreadByTask.isEmpty) return const <String, int>{};
+
+  final unreadByOrder = <String, int>{};
+  for (final task in tasks) {
+    final orderNum = task.orderNum;
+    final unread = unreadByTask[task.taskNum];
+    if (orderNum == null || orderNum.isEmpty || unread == null) continue;
+    unreadByOrder[orderNum] = (unreadByOrder[orderNum] ?? 0) + unread;
+  }
+  return unreadByOrder;
 });

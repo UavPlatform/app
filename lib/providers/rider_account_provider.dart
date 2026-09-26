@@ -95,9 +95,12 @@ class DroneListNotifier extends StateNotifier<DroneListState> {
     }
   }
 
-  Future<bool> bindDrone(String djiId) async {
+  Future<bool> bindDrone(String djiId, {required int aircraftModelId}) async {
     try {
-      final result = await _api.bindDrone(djiId);
+      final result = await _api.bindDrone(
+        djiId,
+        aircraftModelId: aircraftModelId,
+      );
       if (!result.success) {
         state = state.copyWith(error: result.message ?? '绑定失败');
         return false;

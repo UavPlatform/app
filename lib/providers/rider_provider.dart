@@ -51,23 +51,6 @@ class TaskSquareNotifier extends StateNotifier<TaskSquareState> {
     }
   }
 
-  Future<bool> acceptTask(String taskNum) async {
-    try {
-      final result = await _api.acceptTask(taskNum);
-      if (!result.success) {
-        state = state.copyWith(error: result.message ?? '接单失败');
-        return false;
-      }
-      state = state.copyWith(
-        tasks: state.tasks.where((t) => t.taskNum != taskNum).toList(),
-      );
-      return true;
-    } catch (_) {
-      state = state.copyWith(error: '接单失败');
-      return false;
-    }
-  }
-
   void clearError() => state = state.copyWith(error: null);
 }
 
@@ -198,22 +181,6 @@ class RiderTaskDetailNotifier extends StateNotifier<RiderTaskDetailState> {
   final RiderApi _api;
 
   RiderTaskDetailNotifier(this._api) : super(const RiderTaskDetailState());
-
-  Future<bool> acceptTask(String taskNum) async {
-    state = state.copyWith(loading: true, error: null);
-    try {
-      final result = await _api.acceptTask(taskNum);
-      if (!result.success) {
-        state = state.copyWith(loading: false, error: result.message ?? '接单失败');
-        return false;
-      }
-      state = state.copyWith(loading: false);
-      return true;
-    } catch (_) {
-      state = state.copyWith(loading: false, error: '接单失败');
-      return false;
-    }
-  }
 
   Future<bool> cancelTask(String taskNum) async {
     try {

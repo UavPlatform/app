@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../models/task_vo.dart';
 import '../../providers/rider_provider.dart';
@@ -175,19 +174,6 @@ class _TaskHallPageState extends ConsumerState<TaskHallPage> {
             ],
             const SizedBox(height: 6),
             _infoRow(Icons.access_time, task.formattedCreateTime),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => _onAccept(context, task),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                child: const Text('立即接单', style: TextStyle(fontSize: 15)),
-              ),
-            ),
           ],
         ),
       ),
@@ -208,29 +194,6 @@ class _TaskHallPageState extends ConsumerState<TaskHallPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Future<void> _onAccept(BuildContext context, TaskVo task) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('确认接单'),
-        content: Text('确定要接「${task.taskName}」这个任务吗？'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('确定接单')),
-        ],
-      ),
-    );
-
-    if (confirm != true || !context.mounted) return;
-
-    final ok = await ref.read(taskSquareProvider.notifier).acceptTask(task.taskNum);
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? '接单成功' : ref.read(taskSquareProvider).error ?? '接单失败')),
     );
   }
 }

@@ -45,6 +45,11 @@ class TaskVo {
   /// 服务端统一计算的任务×订单操作提示（1B-9a 状态矩阵，直接渲染不端上拼装）
   final String? actionHint;
 
+  /// 撮合子状态（ADR-0003 决定 6：SEEKING_RIDER/NEGOTIATING/AWAITING_PAYMENT/
+  /// AWAITING_RIDER_CONFIRM/CONFIRMED/PENDING_ACCEPTANCE/CLOSED）。
+  /// 仅用于决定详情页撮合区域显隐，文案仍以 actionHint 为唯一来源。
+  final String? matchStatus;
+
   /// 任务关联的作业设备（t41：接单飞手绑定设备中在线的一台；无在线设备为 null）
   final String? deviceId;
 
@@ -72,6 +77,7 @@ class TaskVo {
     this.taskTime,
     this.completeNote,
     this.actionHint,
+    this.matchStatus,
     this.deviceId,
     this.liveState,
     this.riderId,
@@ -99,6 +105,7 @@ class TaskVo {
       taskTime: c.taskTime,
       completeNote: c.completeNote,
       actionHint: c.actionHint,
+      matchStatus: c.matchStatus,
       deviceId: c.deviceId,
       liveState: c.liveState,
       riderId: c.riderId,
@@ -140,6 +147,12 @@ class TaskVo {
   bool get isInProgress => taskStatus == 'IN_PROGRESS';
   bool get isCompleted => taskStatus == 'COMPLETED';
   bool get isWaitingConfirm => orderStatus == 'WAITING_CONFIRM';
+
+  /// 是否处于招募/洽谈阶段（未选定飞手）：决定详情页应征区块的空状态是否展示。
+  bool get isInMatchingStage =>
+      matchStatus == null ||
+      matchStatus == 'SEEKING_RIDER' ||
+      matchStatus == 'NEGOTIATING';
 
   String get priceText {
     if (totalAmount != null && totalAmount! > 0) {

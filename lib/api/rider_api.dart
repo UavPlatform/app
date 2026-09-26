@@ -1,5 +1,3 @@
-import 'package:dio/dio.dart';
-
 import 'http_client.dart';
 import 'generated/openapi_paths.dart';
 import '../models/result_model.dart';
@@ -16,36 +14,6 @@ class RiderApi {
   Future<Result<TaskPageVo>> listAvailableTasks() async {
     final response = await _client.dio.get(ApiPaths.riderSquare);
     return TaskPageVo.parseResult(response.data);
-  }
-
-  /// 接受任务
-  /// 后端业务失败以非 2xx 返回（如 t22 TASK_NOT_PAID：任务订单未支付），
-  /// 此处捕获并映射为 Result，保留 errorCode 供上层展示明确提示。
-  Future<Result<void>> acceptTask(String taskNum) async {
-    try {
-      final response = await _client.dio.post(
-        ApiPaths.riderAccept,
-        queryParameters: ApiPaths.riderAcceptQuery(taskNum: taskNum),
-      );
-      final data = response.data as Map<String, dynamic>;
-      return Result(
-        success: data['success'] == true,
-        code: data['code'] as int?,
-        errorCode: data['errorCode'] as String?,
-        message: data['message'] as String?,
-      );
-    } on DioException catch (e) {
-      final data = e.response?.data;
-      if (data is Map<String, dynamic>) {
-        return Result(
-          success: data['success'] == true,
-          code: data['code'] as int?,
-          errorCode: data['errorCode'] as String?,
-          message: data['message'] as String? ?? '接单失败，请稍后重试',
-        );
-      }
-      return Result(success: false, message: '接单失败，请检查网络后重试');
-    }
   }
 
   /// 进行中的任务

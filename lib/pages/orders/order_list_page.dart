@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../api/order_api.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/task_provider.dart';
 import '../../theme/app_colors.dart';
 import '../pay/pay_page.dart';
 
@@ -100,9 +101,9 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
 
   @override
   Widget build(BuildContext context) {
-    // 全局未读占位（REQ-APP-002）：原 Tab/首页徽标移入订单列表项。
-    // 会话与订单尚未按 taskNum 绑定，先挂全局未读；绑定后改按订单红点。
-    final unread = ref.watch(totalUnreadCountProvider);
+    // 按单未读红点（REQ-APP-002 场景 2）：会话未读按 taskNum → 订单聚合，
+    // 替换 APP-001 的「首项全局占位」；未绑定任务的会话不计入。
+    final unreadByOrder = ref.watch(orderUnreadProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -140,7 +141,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                         itemCount: filtered.length,
                         itemBuilder: (_, i) => _buildCard(
                           filtered[i],
-                          unread: i == 0 ? unread : 0,
+                          unread: unreadByOrder[filtered[i].orderNum] ?? 0,
                         ),
                       ),
                     );
@@ -371,6 +372,14 @@ class _OrderDetailViewState extends ConsumerState<_OrderDetailView> {
     }
   }
 
+  /// 订单 → 任务编号（本人任务列表按 orderNum 反查；仅在 build 期访问）。
+  String? get _taskNumForOrder {
+    for (final task in ref.watch(taskListProvider).tasks) {
+      if (task.orderNum == widget.orderNum) return task.taskNum;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -413,10 +422,35 @@ class _OrderDetailViewState extends ConsumerState<_OrderDetailView> {
 
   Widget _buildBody() {
     final order = _order!;
+    final taskNum = _taskNumForOrder;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _statusFlow(order.orderStatus),
+        // 订单 → 任务详情（撮合中心：应征列表 + 订单内聊天），
+        // 订单本身不携带 taskNum，经本人任务列表按 orderNum 反查。
+        if (taskNum != null) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => context.push('/order/$taskNum'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: const Icon(Icons.forum_outlined, size: 18),
+              label: const Text(
+                '应征飞手与订单聊天',
+                style: TextStyle(fontSize: 15),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         _buildSection('订单信息', [
           _infoRow('订单编号', order.orderNum),

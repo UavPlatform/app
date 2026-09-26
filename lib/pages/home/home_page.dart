@@ -12,7 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../models/create_task_request.dart';
+import '../../api/generated/openapi_models.dart';
 import '../../models/task_vo.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/task_provider.dart';
@@ -209,13 +209,13 @@ class _HomePageState extends ConsumerState<HomePage> {
     setState(() => _submitting = true);
     // 发单不支付（ADR-0003）：仅创建 TRANSPORT 任务，不携带任何客户端价格，
     // 不触发任何支付/下单接口；支付发生在用户选定飞手并下单时。
-    final request = CreateTaskRequest(
+    final request = ApiTaskDto(
       taskName: '$categoryLabel吊运',
       type: kTransportTaskType,
       description: descriptionParts.join('\n'),
       waypoints: [
-        WaypointRequest(orderIndex: 0, longitude: startLng, latitude: startLat),
-        WaypointRequest(
+        ApiWaypointDto(orderIndex: 0, longitude: startLng, latitude: startLat),
+        ApiWaypointDto(
           orderIndex: 1,
           longitude: _destination!.longitude,
           latitude: _destination!.latitude,

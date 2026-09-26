@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../api/generated/openapi_models.dart';
 import '../api/task_api.dart';
-import '../models/create_task_request.dart';
+import '../models/task_application_vo.dart';
 import '../models/task_vo.dart';
 import 'auth_provider.dart';
 
@@ -33,7 +34,7 @@ class TaskNotifier extends StateNotifier<CreateTaskState> {
 
   TaskNotifier(this._api) : super(const CreateTaskState());
 
-  Future<bool> createTask(CreateTaskRequest request) async {
+  Future<bool> createTask(ApiTaskDto request) async {
     state = state.copyWith(loading: true, error: null);
     try {
       final result = await _api.createTask(request);
@@ -207,4 +208,69 @@ final taskDetailProvider =
     StateNotifierProvider.family<TaskDetailNotifier, TaskDetailState, String>(
   (ref, taskNum) => TaskDetailNotifier(ref.watch(taskApiProvider))
     ..loadDetail(taskNum),
+);
+
+// ============================================================
+// 应征列表（订单详情 = 撮合中心，ADR-0003）
+// ============================================================
+
+class TaskApplicationsState {
+  final List<TaskApplicationVo> applications;
+  final bool loading;
+  final String? error;
+
+  const TaskApplicationsState({
+    this.applications = const [],
+    this.loading = true,
+    this.error,
+  });
+
+  TaskApplicationsState copyWith({
+    List<TaskApplicationVo>? applications,
+    bool? loading,
+    String? error,
+  }) {
+    return TaskApplicationsState(
+      applications: applications ?? this.applications,
+      loading: loading ?? this.loading,
+      error: error,
+    );
+  }
+}
+
+class TaskApplicationsNotifier extends StateNotifier<TaskApplicationsState> {
+  final TaskApi _api;
+  final String taskNum;
+
+  TaskApplicationsNotifier(this._api, this.taskNum)
+      : super(const TaskApplicationsState()) {
+    load();
+  }
+
+  Future<void> load() async {
+    state = state.copyWith(loading: true, error: null);
+    try {
+      final result = await _api.listApplications(taskNum);
+      if (!mounted) return;
+      if (result.success && result.data != null) {
+        state = state.copyWith(loading: false, applications: result.data!);
+      } else {
+        state = state.copyWith(
+          loading: false,
+          error: result.message ?? '获取应征列表失败',
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      state = state.copyWith(loading: false, error: '网络请求失败');
+    }
+  }
+}
+
+/// 撮合应征列表：autoDispose 保证每次进入详情页都重新拉取，
+/// 飞手应征后用户重进页面即可看到新应征（配合页内下拉刷新）。
+final taskApplicationsProvider = StateNotifierProvider.autoDispose.family<
+    TaskApplicationsNotifier, TaskApplicationsState, String>(
+  (ref, taskNum) =>
+      TaskApplicationsNotifier(ref.watch(taskApiProvider), taskNum),
 );

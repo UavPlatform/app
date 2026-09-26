@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uav_pilot_app/api/generated/openapi_models.dart';
 import 'package:uav_pilot_app/api/http_client.dart';
 import 'package:uav_pilot_app/pages/home/home_page.dart';
 import 'package:uav_pilot_app/pages/home/map_picker_page.dart';
@@ -247,12 +248,16 @@ void main() {
     expect(body.containsKey('reward'), isFalse, reason: 'ADR-0003：客户端不得提交价格');
     expect(body['description'], '体积：2.5 m³\n吊点在山顶基站');
 
-    final waypoints = body['waypoints'] as List;
+    // 发单请求体走契约生成模型 ApiTaskDto：适配器拿到的 waypoint 还是
+    // 契约对象（dio 在 JSON 编码时才调用 toJson），断言前先归一成 Map。
+    final waypoints = (body['waypoints'] as List)
+        .map((w) => w is Map ? w : (w as ApiWaypointDto).toJson())
+        .toList();
     expect(waypoints, hasLength(2));
-    expect((waypoints[0] as Map)['orderIndex'], 0);
-    expect((waypoints[0] as Map)['latitude'], 27.9);
-    expect((waypoints[0] as Map)['longitude'], 112.9);
-    expect((waypoints[1] as Map)['orderIndex'], 1);
+    expect(waypoints[0]['orderIndex'], 0);
+    expect(waypoints[0]['latitude'], 27.9);
+    expect(waypoints[0]['longitude'], 112.9);
+    expect(waypoints[1]['orderIndex'], 1);
 
     // 发单不支付：全程不触碰支付/订单接口
     final paths = adapter.requests.map((r) => r.uri.path).toList();

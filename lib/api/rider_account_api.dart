@@ -26,11 +26,14 @@ class RiderAccountApi {
     return LoginResponse.parseResult(response.data);
   }
 
-  /// 绑定无人机
-  Future<Result<void>> bindDrone(String djiId) async {
+  /// 绑定无人机（契约要求同时提交机型 ID，机型取自 GET /api/aircraft-models）
+  Future<Result<void>> bindDrone(String djiId, {required int aircraftModelId}) async {
     final response = await _client.dio.post(
       ApiPaths.riderDroneBind,
-      queryParameters: ApiPaths.riderDroneBindQuery(djiId: djiId),
+      queryParameters: ApiPaths.riderDroneBindQuery(
+        djiId: djiId,
+        aircraftModelId: aircraftModelId,
+      ),
     );
     final data = response.data as Map<String, dynamic>;
     return Result(

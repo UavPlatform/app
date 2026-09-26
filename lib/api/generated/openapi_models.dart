@@ -1,7 +1,7 @@
 // GENERATED — DO NOT EDIT.
 // 契约模型：后端 components.schemas 的 Dart 映射。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: 649c3f3e02243ba7e828cd225e84f117f18a498515312774f75bd0f66376f7da)
+// 事实源：openapi/drone-backend.openapi.json (sha256: 7ef96d3c116827927ef42f143e779fb8f9ab313b8c114ebe4557a8969a45b816)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端统一返回体 Result<T> 的契约映射。
@@ -29,6 +29,50 @@ class ApiResult<T> {
       message: json["message"] as String?,
       data: raw == null ? null : parseData(raw as Map<String, dynamic>),
     );
+  }
+}
+
+/// 契约 components.schemas.AircraftModelVO
+class ApiAircraftModelVO {
+  final double? coefficient;
+  final String? displayName;
+  final int? id;
+  final double? maxPayloadKg;
+  final String? modelCode;
+  final bool? transportEnabled;
+
+  const ApiAircraftModelVO({this.coefficient, this.displayName, this.id, this.maxPayloadKg, this.modelCode, this.transportEnabled});
+
+  factory ApiAircraftModelVO.fromJson(Map<String, dynamic> json) => ApiAircraftModelVO(
+    coefficient: (json['coefficient'] as num?)?.toDouble(),
+    displayName: json['displayName'] as String?,
+    id: (json['id'] as num?)?.toInt(),
+    maxPayloadKg: (json['maxPayloadKg'] as num?)?.toDouble(),
+    modelCode: json['modelCode'] as String?,
+    transportEnabled: json['transportEnabled'] as bool?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (coefficient != null) {
+      json['coefficient'] = coefficient;
+    }
+    if (displayName != null) {
+      json['displayName'] = displayName;
+    }
+    if (id != null) {
+      json['id'] = id;
+    }
+    if (maxPayloadKg != null) {
+      json['maxPayloadKg'] = maxPayloadKg;
+    }
+    if (modelCode != null) {
+      json['modelCode'] = modelCode;
+    }
+    if (transportEnabled != null) {
+      json['transportEnabled'] = transportEnabled;
+    }
+    return json;
   }
 }
 
@@ -298,13 +342,15 @@ class ApiRegisterVo {
 
 /// 契约 components.schemas.RiderRegisterDto
 class ApiRiderRegisterDto {
+  final int? aircraftModelId;
   final String? djiId;
   final String? password;
   final String? userName;
 
-  const ApiRiderRegisterDto({this.djiId, this.password, this.userName});
+  const ApiRiderRegisterDto({this.aircraftModelId, this.djiId, this.password, this.userName});
 
   factory ApiRiderRegisterDto.fromJson(Map<String, dynamic> json) => ApiRiderRegisterDto(
+    aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
     djiId: json['djiId'] as String?,
     password: json['password'] as String?,
     userName: json['userName'] as String?,
@@ -312,6 +358,9 @@ class ApiRiderRegisterDto {
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> json = <String, dynamic>{};
+    if (aircraftModelId != null) {
+      json['aircraftModelId'] = aircraftModelId;
+    }
     if (djiId != null) {
       json['djiId'] = djiId;
     }
@@ -366,14 +415,16 @@ class ApiRiderStatsVO {
 
 /// 契约 components.schemas.RiderUav
 class ApiRiderUav {
+  final int? aircraftModelId;
   final String? createTime;
   final String? djiId;
   final int? id;
   final int? userId;
 
-  const ApiRiderUav({this.createTime, this.djiId, this.id, this.userId});
+  const ApiRiderUav({this.aircraftModelId, this.createTime, this.djiId, this.id, this.userId});
 
   factory ApiRiderUav.fromJson(Map<String, dynamic> json) => ApiRiderUav(
+    aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
     createTime: json['createTime'] as String?,
     djiId: json['djiId'] as String?,
     id: (json['id'] as num?)?.toInt(),
@@ -382,6 +433,9 @@ class ApiRiderUav {
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> json = <String, dynamic>{};
+    if (aircraftModelId != null) {
+      json['aircraftModelId'] = aircraftModelId;
+    }
     if (createTime != null) {
       json['createTime'] = createTime;
     }
@@ -400,24 +454,31 @@ class ApiRiderUav {
 
 /// 契约 components.schemas.SessionDTO
 class ApiSessionDTO {
+  final int? applicationId;
   final String? avatar;
   final String? description;
   final String name;
+  final String? taskNum;
   final int type;
   final List<int> userIds;
 
-  const ApiSessionDTO({this.avatar, this.description, required this.name, required this.type, required this.userIds});
+  const ApiSessionDTO({this.applicationId, this.avatar, this.description, required this.name, this.taskNum, required this.type, required this.userIds});
 
   factory ApiSessionDTO.fromJson(Map<String, dynamic> json) => ApiSessionDTO(
+    applicationId: (json['applicationId'] as num?)?.toInt(),
     avatar: json['avatar'] as String?,
     description: json['description'] as String?,
     name: ((json['name'] as String?) ?? ""),
+    taskNum: json['taskNum'] as String?,
     type: ((json['type'] as num?)?.toInt() ?? 0),
     userIds: ((json['userIds'] as List<dynamic>?)?.map((dynamic e) => (e as num).toInt()).toList() ?? <int>[]),
   );
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> json = <String, dynamic>{};
+    if (applicationId != null) {
+      json['applicationId'] = applicationId;
+    }
     if (avatar != null) {
       json['avatar'] = avatar;
     }
@@ -425,6 +486,9 @@ class ApiSessionDTO {
       json['description'] = description;
     }
     json['name'] = name;
+    if (taskNum != null) {
+      json['taskNum'] = taskNum;
+    }
     json['type'] = type;
     json['userIds'] = userIds;
     return json;
@@ -433,6 +497,7 @@ class ApiSessionDTO {
 
 /// 契约 components.schemas.SessionVO
 class ApiSessionVO {
+  final int? applicationId;
   final String? avatar;
   final int? createTime;
   final String? description;
@@ -442,13 +507,15 @@ class ApiSessionVO {
   final String? name;
   final String? otherUserName;
   final int? ownerId;
+  final String? taskNum;
   final int? type;
   final int? unreadCount;
   final List<int>? userIds;
 
-  const ApiSessionVO({this.avatar, this.createTime, this.description, this.id, this.lastMessage, this.lastMessageTime, this.name, this.otherUserName, this.ownerId, this.type, this.unreadCount, this.userIds});
+  const ApiSessionVO({this.applicationId, this.avatar, this.createTime, this.description, this.id, this.lastMessage, this.lastMessageTime, this.name, this.otherUserName, this.ownerId, this.taskNum, this.type, this.unreadCount, this.userIds});
 
   factory ApiSessionVO.fromJson(Map<String, dynamic> json) => ApiSessionVO(
+    applicationId: (json['applicationId'] as num?)?.toInt(),
     avatar: json['avatar'] as String?,
     createTime: (json['createTime'] as num?)?.toInt(),
     description: json['description'] as String?,
@@ -458,6 +525,7 @@ class ApiSessionVO {
     name: json['name'] as String?,
     otherUserName: json['otherUserName'] as String?,
     ownerId: (json['ownerId'] as num?)?.toInt(),
+    taskNum: json['taskNum'] as String?,
     type: (json['type'] as num?)?.toInt(),
     unreadCount: (json['unreadCount'] as num?)?.toInt(),
     userIds: (json['userIds'] as List<dynamic>?)?.map((dynamic e) => (e as num).toInt()).toList(),
@@ -465,6 +533,9 @@ class ApiSessionVO {
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> json = <String, dynamic>{};
+    if (applicationId != null) {
+      json['applicationId'] = applicationId;
+    }
     if (avatar != null) {
       json['avatar'] = avatar;
     }
@@ -492,6 +563,9 @@ class ApiSessionVO {
     if (ownerId != null) {
       json['ownerId'] = ownerId;
     }
+    if (taskNum != null) {
+      json['taskNum'] = taskNum;
+    }
     if (type != null) {
       json['type'] = type;
     }
@@ -505,8 +579,168 @@ class ApiSessionVO {
   }
 }
 
+/// 契约 components.schemas.TaskApplicationVO
+class ApiTaskApplicationVO {
+  final int? aircraftModelId;
+  final String? aircraftModelName;
+  final int? applicationId;
+  final String? appliedAt;
+  final String? matchStatus;
+  final double? maxPayloadKg;
+  final String? modelCode;
+  final double? quotedAmount;
+  final int? riderId;
+  final String? riderName;
+  final String? status;
+  final String? taskNum;
+
+  const ApiTaskApplicationVO({this.aircraftModelId, this.aircraftModelName, this.applicationId, this.appliedAt, this.matchStatus, this.maxPayloadKg, this.modelCode, this.quotedAmount, this.riderId, this.riderName, this.status, this.taskNum});
+
+  factory ApiTaskApplicationVO.fromJson(Map<String, dynamic> json) => ApiTaskApplicationVO(
+    aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
+    aircraftModelName: json['aircraftModelName'] as String?,
+    applicationId: (json['applicationId'] as num?)?.toInt(),
+    appliedAt: json['appliedAt'] as String?,
+    matchStatus: json['matchStatus'] as String?,
+    maxPayloadKg: (json['maxPayloadKg'] as num?)?.toDouble(),
+    modelCode: json['modelCode'] as String?,
+    quotedAmount: (json['quotedAmount'] as num?)?.toDouble(),
+    riderId: (json['riderId'] as num?)?.toInt(),
+    riderName: json['riderName'] as String?,
+    status: json['status'] as String?,
+    taskNum: json['taskNum'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (aircraftModelId != null) {
+      json['aircraftModelId'] = aircraftModelId;
+    }
+    if (aircraftModelName != null) {
+      json['aircraftModelName'] = aircraftModelName;
+    }
+    if (applicationId != null) {
+      json['applicationId'] = applicationId;
+    }
+    if (appliedAt != null) {
+      json['appliedAt'] = appliedAt;
+    }
+    if (matchStatus != null) {
+      json['matchStatus'] = matchStatus;
+    }
+    if (maxPayloadKg != null) {
+      json['maxPayloadKg'] = maxPayloadKg;
+    }
+    if (modelCode != null) {
+      json['modelCode'] = modelCode;
+    }
+    if (quotedAmount != null) {
+      json['quotedAmount'] = quotedAmount;
+    }
+    if (riderId != null) {
+      json['riderId'] = riderId;
+    }
+    if (riderName != null) {
+      json['riderName'] = riderName;
+    }
+    if (status != null) {
+      json['status'] = status;
+    }
+    if (taskNum != null) {
+      json['taskNum'] = taskNum;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.TaskChatSessionVO
+class ApiTaskChatSessionVO {
+  final int? applicationId;
+  final int? createTime;
+  final String? lastMessage;
+  final int? lastMessageTime;
+  final String? name;
+  final int? otherUserId;
+  final String? otherUserName;
+  final int? ownerId;
+  final int? riderId;
+  final String? riderName;
+  final int? sessionId;
+  final String? taskNum;
+  final int? type;
+  final int? unreadCount;
+
+  const ApiTaskChatSessionVO({this.applicationId, this.createTime, this.lastMessage, this.lastMessageTime, this.name, this.otherUserId, this.otherUserName, this.ownerId, this.riderId, this.riderName, this.sessionId, this.taskNum, this.type, this.unreadCount});
+
+  factory ApiTaskChatSessionVO.fromJson(Map<String, dynamic> json) => ApiTaskChatSessionVO(
+    applicationId: (json['applicationId'] as num?)?.toInt(),
+    createTime: (json['createTime'] as num?)?.toInt(),
+    lastMessage: json['lastMessage'] as String?,
+    lastMessageTime: (json['lastMessageTime'] as num?)?.toInt(),
+    name: json['name'] as String?,
+    otherUserId: (json['otherUserId'] as num?)?.toInt(),
+    otherUserName: json['otherUserName'] as String?,
+    ownerId: (json['ownerId'] as num?)?.toInt(),
+    riderId: (json['riderId'] as num?)?.toInt(),
+    riderName: json['riderName'] as String?,
+    sessionId: (json['sessionId'] as num?)?.toInt(),
+    taskNum: json['taskNum'] as String?,
+    type: (json['type'] as num?)?.toInt(),
+    unreadCount: (json['unreadCount'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (applicationId != null) {
+      json['applicationId'] = applicationId;
+    }
+    if (createTime != null) {
+      json['createTime'] = createTime;
+    }
+    if (lastMessage != null) {
+      json['lastMessage'] = lastMessage;
+    }
+    if (lastMessageTime != null) {
+      json['lastMessageTime'] = lastMessageTime;
+    }
+    if (name != null) {
+      json['name'] = name;
+    }
+    if (otherUserId != null) {
+      json['otherUserId'] = otherUserId;
+    }
+    if (otherUserName != null) {
+      json['otherUserName'] = otherUserName;
+    }
+    if (ownerId != null) {
+      json['ownerId'] = ownerId;
+    }
+    if (riderId != null) {
+      json['riderId'] = riderId;
+    }
+    if (riderName != null) {
+      json['riderName'] = riderName;
+    }
+    if (sessionId != null) {
+      json['sessionId'] = sessionId;
+    }
+    if (taskNum != null) {
+      json['taskNum'] = taskNum;
+    }
+    if (type != null) {
+      json['type'] = type;
+    }
+    if (unreadCount != null) {
+      json['unreadCount'] = unreadCount;
+    }
+    return json;
+  }
+}
+
 /// 契约 components.schemas.TaskDto
 class ApiTaskDto {
+  final String? cargoCategory;
+  final double? cargoWeightKg;
   final String? description;
   final double? reward;
   final String? taskName;
@@ -514,9 +748,11 @@ class ApiTaskDto {
   final String? type;
   final List<ApiWaypointDto>? waypoints;
 
-  const ApiTaskDto({this.description, this.reward, this.taskName, this.taskTime, this.type, this.waypoints});
+  const ApiTaskDto({this.cargoCategory, this.cargoWeightKg, this.description, this.reward, this.taskName, this.taskTime, this.type, this.waypoints});
 
   factory ApiTaskDto.fromJson(Map<String, dynamic> json) => ApiTaskDto(
+    cargoCategory: json['cargoCategory'] as String?,
+    cargoWeightKg: (json['cargoWeightKg'] as num?)?.toDouble(),
     description: json['description'] as String?,
     reward: (json['reward'] as num?)?.toDouble(),
     taskName: json['taskName'] as String?,
@@ -527,6 +763,12 @@ class ApiTaskDto {
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> json = <String, dynamic>{};
+    if (cargoCategory != null) {
+      json['cargoCategory'] = cargoCategory;
+    }
+    if (cargoWeightKg != null) {
+      json['cargoWeightKg'] = cargoWeightKg;
+    }
     if (description != null) {
       json['description'] = description;
     }
@@ -587,16 +829,25 @@ class ApiTaskPageVO {
 class ApiTaskVo {
   final String? acceptTime;
   final String? actionHint;
+  final int? aircraftModelId;
+  final String? aircraftModelName;
+  final String? cargoCategory;
+  final double? cargoWeightKg;
   final String? completeNote;
   final String? createTime;
   final String? description;
   final String? deviceId;
   final int? id;
   final String? liveState;
+  final String? matchStatus;
+  final String? modelCode;
   final String? orderNum;
   final String? orderStatus;
+  final double? quotedAmount;
+  final String? riderConfirmedAt;
   final int? riderId;
   final String? riderName;
+  final String? scheduledTime;
   final String? taskName;
   final String? taskNum;
   final String? taskStatus;
@@ -605,24 +856,34 @@ class ApiTaskVo {
   final double? totalAmount;
   final double? totalDistance;
   final String? updateTime;
+  final String? userConfirmedAt;
   final int? userId;
   final List<ApiWaypointVo>? waypoints;
 
-  const ApiTaskVo({this.acceptTime, this.actionHint, this.completeNote, this.createTime, this.description, this.deviceId, this.id, this.liveState, this.orderNum, this.orderStatus, this.riderId, this.riderName, this.taskName, this.taskNum, this.taskStatus, this.taskTime, this.taskType, this.totalAmount, this.totalDistance, this.updateTime, this.userId, this.waypoints});
+  const ApiTaskVo({this.acceptTime, this.actionHint, this.aircraftModelId, this.aircraftModelName, this.cargoCategory, this.cargoWeightKg, this.completeNote, this.createTime, this.description, this.deviceId, this.id, this.liveState, this.matchStatus, this.modelCode, this.orderNum, this.orderStatus, this.quotedAmount, this.riderConfirmedAt, this.riderId, this.riderName, this.scheduledTime, this.taskName, this.taskNum, this.taskStatus, this.taskTime, this.taskType, this.totalAmount, this.totalDistance, this.updateTime, this.userConfirmedAt, this.userId, this.waypoints});
 
   factory ApiTaskVo.fromJson(Map<String, dynamic> json) => ApiTaskVo(
     acceptTime: json['acceptTime'] as String?,
     actionHint: json['actionHint'] as String?,
+    aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
+    aircraftModelName: json['aircraftModelName'] as String?,
+    cargoCategory: json['cargoCategory'] as String?,
+    cargoWeightKg: (json['cargoWeightKg'] as num?)?.toDouble(),
     completeNote: json['completeNote'] as String?,
     createTime: json['createTime'] as String?,
     description: json['description'] as String?,
     deviceId: json['deviceId'] as String?,
     id: (json['id'] as num?)?.toInt(),
     liveState: json['liveState'] as String?,
+    matchStatus: json['matchStatus'] as String?,
+    modelCode: json['modelCode'] as String?,
     orderNum: json['orderNum'] as String?,
     orderStatus: json['orderStatus'] as String?,
+    quotedAmount: (json['quotedAmount'] as num?)?.toDouble(),
+    riderConfirmedAt: json['riderConfirmedAt'] as String?,
     riderId: (json['riderId'] as num?)?.toInt(),
     riderName: json['riderName'] as String?,
+    scheduledTime: json['scheduledTime'] as String?,
     taskName: json['taskName'] as String?,
     taskNum: json['taskNum'] as String?,
     taskStatus: json['taskStatus'] as String?,
@@ -631,6 +892,7 @@ class ApiTaskVo {
     totalAmount: (json['totalAmount'] as num?)?.toDouble(),
     totalDistance: (json['totalDistance'] as num?)?.toDouble(),
     updateTime: json['updateTime'] as String?,
+    userConfirmedAt: json['userConfirmedAt'] as String?,
     userId: (json['userId'] as num?)?.toInt(),
     waypoints: (json['waypoints'] as List<dynamic>?)?.map((dynamic e) => ApiWaypointVo.fromJson(e as Map<String, dynamic>)).toList(),
   );
@@ -642,6 +904,18 @@ class ApiTaskVo {
     }
     if (actionHint != null) {
       json['actionHint'] = actionHint;
+    }
+    if (aircraftModelId != null) {
+      json['aircraftModelId'] = aircraftModelId;
+    }
+    if (aircraftModelName != null) {
+      json['aircraftModelName'] = aircraftModelName;
+    }
+    if (cargoCategory != null) {
+      json['cargoCategory'] = cargoCategory;
+    }
+    if (cargoWeightKg != null) {
+      json['cargoWeightKg'] = cargoWeightKg;
     }
     if (completeNote != null) {
       json['completeNote'] = completeNote;
@@ -661,17 +935,32 @@ class ApiTaskVo {
     if (liveState != null) {
       json['liveState'] = liveState;
     }
+    if (matchStatus != null) {
+      json['matchStatus'] = matchStatus;
+    }
+    if (modelCode != null) {
+      json['modelCode'] = modelCode;
+    }
     if (orderNum != null) {
       json['orderNum'] = orderNum;
     }
     if (orderStatus != null) {
       json['orderStatus'] = orderStatus;
     }
+    if (quotedAmount != null) {
+      json['quotedAmount'] = quotedAmount;
+    }
+    if (riderConfirmedAt != null) {
+      json['riderConfirmedAt'] = riderConfirmedAt;
+    }
     if (riderId != null) {
       json['riderId'] = riderId;
     }
     if (riderName != null) {
       json['riderName'] = riderName;
+    }
+    if (scheduledTime != null) {
+      json['scheduledTime'] = scheduledTime;
     }
     if (taskName != null) {
       json['taskName'] = taskName;
@@ -696,6 +985,9 @@ class ApiTaskVo {
     }
     if (updateTime != null) {
       json['updateTime'] = updateTime;
+    }
+    if (userConfirmedAt != null) {
+      json['userConfirmedAt'] = userConfirmedAt;
     }
     if (userId != null) {
       json['userId'] = userId;

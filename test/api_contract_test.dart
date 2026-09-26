@@ -19,7 +19,7 @@ import '../tool/sha256.dart';
 
 /// 本端实际调用的后端端点（method, path）。
 ///
-/// 33 条为既有调用点清单；第 34 条 POST /user/refresh 是 http_client.dart 的
+/// 35 条为既有调用点清单；第 36 条 POST /user/refresh 是 http_client.dart 的
 /// token 刷新调用——契约里存在该路径，因此必须登记并走 ApiPaths.userRefresh，
 /// 不能残留字面量。
 const List<List<String>> calledEndpoints = <List<String>>[
@@ -29,6 +29,8 @@ const List<List<String>> calledEndpoints = <List<String>>[
   <String>['get', '/task/detail'],
   <String>['delete', '/task/delete'],
   <String>['post', '/task/confirm'],
+  <String>['get', '/task/{taskNum}/applications'],
+  <String>['get', '/task/{taskNum}/chat-sessions'],
   <String>['get', '/chat/session/list'],
   <String>['post', '/chat/session/create'],
   <String>['get', '/chat/Message/messages/{sessionId}'],
@@ -39,7 +41,6 @@ const List<List<String>> calledEndpoints = <List<String>>[
   <String>['get', '/rider/recommended'],
   <String>['get', '/rider/my-tasks'],
   <String>['get', '/rider/my-tasks/history'],
-  <String>['post', '/rider/accept'],
   <String>['post', '/rider/cancel'],
   <String>['post', '/rider/complete'],
   <String>['post', '/rider/register'],
@@ -47,6 +48,7 @@ const List<List<String>> calledEndpoints = <List<String>>[
   <String>['get', '/rider/drone/list'],
   <String>['post', '/rider/drone/bind'],
   <String>['delete', '/rider/drone/unbind'],
+  <String>['get', '/api/aircraft-models'],
   <String>['post', '/user/login'],
   <String>['post', '/user/register'],
   <String>['post', '/user/refresh'],
@@ -116,7 +118,7 @@ void main() {
 
   group('调用端点登记表', () {
     test('每条登记端点都存在于 vendored 规格（method + path）', () {
-      expect(calledEndpoints, hasLength(34));
+      expect(calledEndpoints, hasLength(36));
       for (final List<String> endpoint in calledEndpoints) {
         final String method = endpoint[0].toLowerCase();
         final String path = endpoint[1];
@@ -138,10 +140,10 @@ void main() {
       );
     });
 
-    test('登记表无重复（33 条既有端点 + /user/refresh = 34）', () {
+    test('登记表无重复（35 条既有端点 + /user/refresh = 36）', () {
       String key(List<String> endpoint) =>
           '${endpoint[0].toLowerCase()} ${endpoint[1]}';
-      expect(calledEndpoints.map(key).toSet(), hasLength(34));
+      expect(calledEndpoints.map(key).toSet(), hasLength(36));
     });
   });
 

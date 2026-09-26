@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:uav_pilot_app/models/create_task_request.dart';
+import 'package:uav_pilot_app/api/generated/openapi_models.dart';
 import 'package:uav_pilot_app/pages/home/home_page.dart';
 
 void main() {
@@ -29,17 +29,17 @@ void main() {
     });
   });
 
-  test('CreateTaskRequest 提交体携带相同 taskTime 字符串', () {
+  test('发单提交体（ApiTaskDto）携带相同 taskTime 字符串', () {
     final built = buildTaskTimeString(
       DateTime(2026, 9, 15),
       const TimeOfDay(hour: 14, minute: 30),
     );
-    final request = CreateTaskRequest(
+    final request = ApiTaskDto(
       taskName: '建材吊运',
       type: kTransportTaskType,
       description: '山顶基站建材',
       waypoints: [
-        WaypointRequest(orderIndex: 0, longitude: 112.9193, latitude: 27.8981),
+        ApiWaypointDto(orderIndex: 0, longitude: 112.9193, latitude: 27.8981),
       ],
       taskTime: built,
       cargoWeightKg: 12.5,

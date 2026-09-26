@@ -10,6 +10,7 @@ import '../../providers/rider_provider.dart';
 import '../live/live_watch_page.dart';
 import '../pay/pay_page.dart';
 import 'deliverables_section.dart';
+import 'widgets/applications_section.dart';
 
 class OrderDetailPage extends ConsumerWidget {
   final String taskNum;
@@ -93,12 +94,24 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
           ),
       ],
     ),
-    body: ListView(
-      children: [
+    // 下拉刷新（REQ-APP-002 场景 2「有应征后刷新」）：任务详情 + 应征列表 +
+    // 任务会话一起对齐服务端。
+    body: RefreshIndicator(
+      onRefresh: () => _refreshDetail(ref, task, isPilot: isPilot),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
           _buildStatusHeader(task),
           // t42：操作提示矩阵（t32 服务端统一计算，直接渲染不端上拼装）
           if (task.actionHint != null && task.actionHint!.isNotEmpty)
             _buildActionHintBanner(task.actionHint!),
+          // 撮合中心（TASK-APP-003 / ADR-0003）：应征飞手列表 + 订单内聊天，
+          // 系统报价只读展示，无任何议价/调价入口。
+          if (!isPilot)
+            ApplicationsSection(
+              taskNum: task.taskNum,
+              inMatching: task.isInMatchingStage,
+            ),
           _buildSection('任务信息', [
             _infoRow('任务编号', task.taskNum),
             _infoRow('任务名称', task.taskName),
@@ -172,8 +185,19 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
           const SizedBox(height: 80),
         ],
       ),
+    ),
     bottomNavigationBar: isPilot ? _buildPilotBottom(context, ref, task) : _buildUserBottom(context, ref, task),
   );
+}
+
+/// 详情页下拉刷新：任务详情始终刷新；用户侧同时刷新应征列表与任务内会话，
+/// 使空状态「等待飞手接单」在飞手应征后能被拉到最新数据。
+Future<void> _refreshDetail(WidgetRef ref, TaskVo task,
+    {required bool isPilot}) async {
+  await ref.read(taskDetailProvider(task.taskNum).notifier).loadDetail(task.taskNum);
+  if (isPilot) return;
+  await ref.read(taskApplicationsProvider(task.taskNum).notifier).load();
+  await ref.read(taskChatSessionsProvider(task.taskNum).notifier).load();
 }
 
 /// t42：操作提示横幅（t32 服务端统一计算的 actionHint，直接渲染）
@@ -333,7 +357,8 @@ Future<void> _onPayUser(
 }
 
 /// 用户侧「联系飞手」（t34，P1-6）：创建直连会话并跳转聊天详情。
-/// 复用既有 /chat/session/create 与 t28 聊天链路（WS 重连/补拉/4001）。
+/// 复用既有 /chat/session/create 与 t28 聊天链路（WS 重连/补拉/4001）；
+/// 会话带 taskNum 绑定到本任务（ADR-0003 订单内聊天，同任务 + 飞手去重）。
 Future<void> _onContactRider(
   BuildContext context,
   WidgetRef ref,
@@ -343,7 +368,11 @@ Future<void> _onContactRider(
   if (riderId == null) return;
   final session = await ref
       .read(sessionListProvider.notifier)
-      .createDirectSession(name: task.riderName ?? '飞手', userId: riderId);
+      .createDirectSession(
+        name: task.riderName ?? '飞手',
+        userId: riderId,
+        taskNum: task.taskNum,
+      );
   if (!context.mounted) return;
   if (session == null) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -572,34 +601,6 @@ class _WatchLiveEntry extends StatelessWidget {
 
 /// 飞手端底部按钮
 Widget? _buildPilotBottom(BuildContext context, WidgetRef ref, TaskVo task) {
-  if (task.isIdle) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        child: FilledButton(
-          onPressed: () => _onAccept(context, ref, task),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          child: const Text('立即接单', style: TextStyle(fontSize: 16)),
-        ),
-      ),
-    );
-  }
-
   if (task.isInProgress) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -645,30 +646,6 @@ Widget? _buildPilotBottom(BuildContext context, WidgetRef ref, TaskVo task) {
   }
 
   return null;
-}
-
-Future<void> _onAccept(BuildContext context, WidgetRef ref, TaskVo task) async {
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('确认接单'),
-      content: Text('确定要接「${task.taskName}」这个任务吗？'),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
-        FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('确定接单')),
-      ],
-    ),
-  );
-
-  if (confirm != true || !context.mounted) return;
-
-  final ok = await ref.read(taskSquareProvider.notifier).acceptTask(task.taskNum);
-  if (!context.mounted) return;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(ok ? '接单成功' : ref.read(taskSquareProvider).error ?? '接单失败')),
-  );
-  if (ok) WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/pilot/jobs'));
 }
 
 Future<void> _onCancel(BuildContext context, WidgetRef ref, TaskVo task) async {
