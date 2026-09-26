@@ -179,7 +179,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () => context.push('/publish'),
+            onPressed: () => context.go('/home'),
             child: const Text('去发布任务'),
           ),
         ],

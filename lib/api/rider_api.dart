@@ -104,19 +104,6 @@ class RiderApi {
     return Result(success: false, code: data['code'], message: data['message'] as String?);
   }
 
-  /// 推荐飞手列表
-  Future<Result<List<RiderStatsVo>>> getRecommendedRiders() async {
-    final response = await _client.dio.get(ApiPaths.riderRecommended);
-    final data = response.data as Map<String, dynamic>;
-    if (data['success'] == true) {
-      final list = (data['data'] as List<dynamic>)
-          .map((e) => RiderStatsVo.fromJson(e as Map<String, dynamic>))
-          .toList();
-      return Result(success: true, code: 200, data: list);
-    }
-    return Result(success: false, code: data['code'], message: data['message'] as String?);
-  }
-
   /// 推荐飞手（远端并行功能线：首页热门飞手）
   Future<Result<List<RiderVo>>> getRecommended() async {
     final response = await _client.dio.get(ApiPaths.riderRecommended);

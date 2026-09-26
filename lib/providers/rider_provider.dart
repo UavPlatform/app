@@ -318,53 +318,6 @@ final riderStatsProvider =
   (ref) => RiderStatsNotifier(ref.watch(riderApiProvider)),
 );
 
-// ============================================================
-// 推荐飞手列表（首页用）
-// ============================================================
-
-class RecommendedRidersState {
-  final List<RiderStatsVo> riders;
-  final bool loading;
-  final String? error;
-
-  const RecommendedRidersState({this.riders = const [], this.loading = true, this.error});
-
-  RecommendedRidersState copyWith({List<RiderStatsVo>? riders, bool? loading, String? error}) {
-    return RecommendedRidersState(
-      riders: riders ?? this.riders,
-      loading: loading ?? this.loading,
-      error: error,
-    );
-  }
-}
-
-class RecommendedRidersNotifier extends StateNotifier<RecommendedRidersState> {
-  final RiderApi _api;
-
-  RecommendedRidersNotifier(this._api) : super(const RecommendedRidersState()) {
-    load();
-  }
-
-  Future<void> load() async {
-    state = state.copyWith(loading: true, error: null);
-    try {
-      final result = await _api.getRecommendedRiders();
-      if (result.success && result.data != null) {
-        state = state.copyWith(loading: false, riders: result.data!);
-      } else {
-        state = state.copyWith(loading: false, error: result.message ?? '加载失败');
-      }
-    } catch (_) {
-      state = state.copyWith(loading: false, error: '加载失败');
-    }
-  }
-}
-
-final recommendedRidersProvider =
-    StateNotifierProvider<RecommendedRidersNotifier, RecommendedRidersState>(
-  (ref) => RecommendedRidersNotifier(ref.watch(riderApiProvider)),
-);
-
 // ==== 远端并行功能线：推荐飞手列表（RiderList） ====
 class RiderListState {
   final List<RiderVo> riders;

@@ -13,8 +13,7 @@ import '../pages/messages/message_list_page.dart';
 import '../pages/profile/profile_page.dart';
 import '../pages/profile/address_list_page.dart';
 import '../pages/profile/address_edit_page.dart';
-import '../pages/publish/publish_page.dart';
-import '../pages/publish/map_picker_page.dart';
+import '../pages/home/map_picker_page.dart';
 import '../pages/pilot/task_hall_page.dart';
 import '../pages/pilot/my_jobs_page.dart';
 import '../pages/pilot/pilot_profile_page.dart';
@@ -73,11 +72,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterPage(),
       ),
       GoRoute(
-        path: '/publish',
-        builder: (context, state) => const PublishPage(),
-      ),
-      GoRoute(
-        path: '/publish/map',
+        path: '/map/pick',
         builder: (context, state) => const MapPickerPage(),
       ),
       GoRoute(

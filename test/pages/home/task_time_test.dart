@@ -1,9 +1,9 @@
-// 发布向导 taskTime 组装测试（t19：确认步展示与提交同源，t15 契约格式）。
+// 首页发单 taskTime 组装测试（t19：展示与提交同源，t15 契约格式）。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uav_pilot_app/models/create_task_request.dart';
-import 'package:uav_pilot_app/pages/publish/publish_page.dart';
+import 'package:uav_pilot_app/pages/home/home_page.dart';
 
 void main() {
   group('buildTaskTimeString（t15 契约 "yyyy-MM-dd HH:mm:ss"）', () {
@@ -35,15 +35,18 @@ void main() {
       const TimeOfDay(hour: 14, minute: 30),
     );
     final request = CreateTaskRequest(
-      taskName: '航拍摄影',
-      type: 'AERIAL_PHOTO',
-      description: '活动跟拍',
+      taskName: '建材吊运',
+      type: kTransportTaskType,
+      description: '山顶基站建材',
       waypoints: [
         WaypointRequest(orderIndex: 0, longitude: 112.9193, latitude: 27.8981),
       ],
-      reward: 300,
       taskTime: built,
+      cargoWeightKg: 12.5,
+      cargoCategory: 'CONSTRUCTION',
     );
     expect(request.toJson()['taskTime'], '2026-09-15 14:30:00');
+    expect(request.toJson()['type'], 'TRANSPORT');
+    expect(request.toJson().containsKey('reward'), isFalse);
   });
 }
