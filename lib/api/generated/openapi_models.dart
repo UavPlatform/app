@@ -1,7 +1,7 @@
 // GENERATED — DO NOT EDIT.
 // 契约模型：后端 components.schemas 的 Dart 映射。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: 7ef96d3c116827927ef42f143e779fb8f9ab313b8c114ebe4557a8969a45b816)
+// 事实源：openapi/drone-backend.openapi.json (sha256: f9b0e1130982cb2af458693901e3a93de7c9b8394b6ab8bd256c96e15c27d22a)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端统一返回体 Result<T> 的契约映射。
