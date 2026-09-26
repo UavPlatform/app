@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'price_detail.dart';
 import 'result_model.dart';
 
 class WaypointVo {
@@ -52,6 +55,18 @@ class TaskVo {
   final double? totalAmount;
   final double? totalDistance;
   final String? orderStatus;
+
+  /// 货物重量（kg，计费输入）
+  final double? weight;
+
+  /// 平台参考价 = 起步价 + 里程费 + 重量阶梯费 + 夜间附加费（服务端按 bill_config 计算）
+  final double? referencePrice;
+
+  /// 计费明细 JSON（PriceDetailVO 序列化，展示用）
+  final String? priceDetail;
+
+  /// 超重等场景：true = 需平台人工报价
+  final bool? needManualQuote;
   final String? createTime;
   final String? updateTime;
   final List<WaypointVo>? waypoints;
@@ -76,6 +91,10 @@ class TaskVo {
     this.totalAmount,
     this.totalDistance,
     this.orderStatus,
+    this.weight,
+    this.referencePrice,
+    this.priceDetail,
+    this.needManualQuote,
     this.createTime,
     this.updateTime,
     this.waypoints,
@@ -102,6 +121,10 @@ class TaskVo {
       totalAmount: (json['totalAmount'] as num?)?.toDouble(),
       totalDistance: (json['totalDistance'] as num?)?.toDouble(),
       orderStatus: json['orderStatus'] as String?,
+      weight: (json['weight'] as num?)?.toDouble(),
+      referencePrice: (json['referencePrice'] as num?)?.toDouble(),
+      priceDetail: json['priceDetail'] as String?,
+      needManualQuote: json['needManualQuote'] as bool?,
       createTime: json['createTime'] as String?,
       updateTime: json['updateTime'] as String?,
       waypoints: (json['waypoints'] as List<dynamic>?)
@@ -139,6 +162,21 @@ class TaskVo {
       return '¥${totalAmount!.toStringAsFixed(0)}';
     }
     return '面议';
+  }
+
+  /// 计费明细 items（解析 priceDetail JSON，失败则返回空列表）
+  List<PriceDetailItem> get priceDetailItems {
+    final raw = priceDetail;
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      final list = (map['items'] as List<dynamic>?) ?? const [];
+      return list
+          .map((e) => PriceDetailItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   String get formattedCreateTime {

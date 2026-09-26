@@ -118,7 +118,44 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
             if (task.totalDistance != null && task.totalDistance! > 0)
               _infoRow('总距离', '${task.totalDistance!.toStringAsFixed(0)} m'),
             if (task.orderNum != null) _infoRow('订单号', task.orderNum!),
+            // 计费字段（bill_config 阶梯计价：起步价 + 里程费 + 重量费 + 夜间费）
+            if (task.referencePrice != null && task.referencePrice! > 0)
+              _infoRow('参考价', '¥${task.referencePrice!.toStringAsFixed(2)}'),
+            if (task.weight != null && task.weight! > 0)
+              _infoRow('货物重量', '${task.weight!.toStringAsFixed(1)} kg'),
           ]),
+          // 超重等场景：提示需平台人工报价
+          if (task.needManualQuote == true) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(children: [
+                Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.warning),
+                SizedBox(width: 6),
+                Expanded(child: Text('该任务需平台人工报价，请留意协商结果',
+                    style: TextStyle(fontSize: 13, color: AppColors.warning))),
+              ]),
+            ),
+          ],
+          // 计费明细（TaskVo.priceDetail → PriceDetailVO.items）
+          if (task.priceDetailItems.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildSection('计费明细', [
+              ...task.priceDetailItems.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(children: [
+                  Expanded(child: Text(item.name,
+                      style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant))),
+                  Text('¥${item.amount.toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                ]),
+              )),
+            ]),
+          ],
           // t42：飞手完成说明（/rider/complete note 经 TaskVo.completeNote 下发）
           if (task.completeNote != null && task.completeNote!.isNotEmpty) ...[
             const SizedBox(height: 8),
