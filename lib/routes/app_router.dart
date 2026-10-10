@@ -19,6 +19,7 @@ import '../pages/pilot/task_hall_page.dart';
 import '../pages/pilot/my_jobs_page.dart';
 import '../pages/pilot/pilot_profile_page.dart';
 import '../pages/pilot/drone_manage_page.dart';
+import '../pages/pilot/pilot_info_page.dart';
 import '../pages/auth/rider_register_page.dart';
 import '../pages/chat/chat_detail_page.dart';
 import '../widgets/app_bottom_nav.dart';
@@ -108,6 +109,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/addresses',
         builder: (context, state) => const AddressListPage(),
+      ),
+      GoRoute(
+        path: '/pilot/info',
+        builder: (context, state) => const PilotInfoPage(),
       ),
       GoRoute(
         path: '/pilot/drones',

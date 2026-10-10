@@ -186,4 +186,10 @@ class ApiPaths {
   static const String reviewMy = '/review/my';
   static Map<String, dynamic> reviewMyQuery({int? page, int? size}) =>
       <String, dynamic>{'page': page, 'size': size};
+
+  /// GET /rider/info
+  static const String riderInfo = '/rider/info';
+
+  /// PATCH /rider/info
+  static const String patchRiderInfo = '/rider/info';
 }

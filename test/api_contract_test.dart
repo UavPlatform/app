@@ -67,6 +67,8 @@ const List<List<String>> calledEndpoints = <List<String>>[
   <String>['post', '/review/submit'],
   <String>['get', '/review/{orderNum}'],
   <String>['get', '/review/my'],
+  <String>['get', '/rider/info'],
+  <String>['patch', '/rider/info'],
 ];
 
 /// GoRouter 页面路由与契约路径同名时的白名单。
@@ -126,7 +128,7 @@ void main() {
 
   group('调用端点登记表', () {
     test('每条登记端点都存在于 vendored 规格（method + path）', () {
-      expect(calledEndpoints, hasLength(43));
+      expect(calledEndpoints, hasLength(45));
       for (final List<String> endpoint in calledEndpoints) {
         final String method = endpoint[0].toLowerCase();
         final String path = endpoint[1];
@@ -151,7 +153,7 @@ void main() {
     test('登记表无重复（38 条既有端点 + /user/refresh + select-rider + 订单评价 3 条 = 43）', () {
       String key(List<String> endpoint) =>
           '${endpoint[0].toLowerCase()} ${endpoint[1]}';
-      expect(calledEndpoints.map(key).toSet(), hasLength(43));
+      expect(calledEndpoints.map(key).toSet(), hasLength(45));
     });
   });
 
