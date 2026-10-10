@@ -28,6 +28,18 @@ const Map<String, String> kCargoCategoryLabels = {
   'AGRICULTURAL': '农产品',
 };
 
+/// 首页标题城市文案：定位中 / 城市名 / 定位不可用（点击重试）。
+String cityTitle(LocationState location) {
+  if (location.loading) return '定位中...';
+  return hasKnownCity(location) ? location.city : '定位不可用';
+}
+
+/// 是否拿到了可展示的城市名（原生定位不可用时 city 为「未知城市」等占位）。
+bool hasKnownCity(LocationState location) {
+  const placeholders = {'未知城市', '服务暂不可用', '定位中...', ''};
+  return !placeholders.contains(location.city);
+}
+
 /// 组装提交给后端的 taskTime（t15 契约："yyyy-MM-dd HH:mm:ss"，空格分隔）。
 String? buildTaskTimeString(DateTime? date, TimeOfDay? time) {
   if (date == null || time == null) return null;
@@ -62,6 +74,10 @@ class _HomePageState extends ConsumerState<HomePage> {
   DateTime? _expectedDate;
   TimeOfDay? _expectedTime;
   LatLng? _destination;
+
+  /// 手动选择的起吊点：定位不可用（无权限/室内/桌面端）或用户想改起吊位置时，
+  /// 可在地图上手动选；非空时优先于当前定位。
+  LatLng? _manualStart;
   bool _submitting = false;
   bool _mapReady = false;
   late final MapController _mapController;
@@ -109,6 +125,35 @@ class _HomePageState extends ConsumerState<HomePage> {
     _recenter(point);
   }
 
+  /// 打开全屏地图手动选择起吊点（复用同一选点组件）。
+  Future<void> _pickStartManually() async {
+    final result = await context.push<String>('/map/pick?point=start');
+    if (result == null || !mounted) return;
+    final first = result.split(';').first.split(',');
+    if (first.length != 2) return;
+    final lat = double.tryParse(first[0]);
+    final lng = double.tryParse(first[1]);
+    if (lat == null || lng == null) return;
+    final point = LatLng(lat, lng);
+    setState(() => _manualStart = point);
+    _recenter(point);
+  }
+
+  /// 改回使用当前定位作为起吊点（清除手动起吊点并重新定位）。
+  void _useCurrentLocation() {
+    setState(() => _manualStart = null);
+    ref.read(locationProvider.notifier).refresh();
+  }
+
+  /// 实际用于发单的起吊点：手动选点优先，否则当前定位。
+  LatLng? _effectiveStart(LocationState location) {
+    if (_manualStart != null) return _manualStart;
+    if (location.latitude != null && location.longitude != null) {
+      return LatLng(location.latitude!, location.longitude!);
+    }
+    return null;
+  }
+
   void _setDestination(LatLng point) {
     setState(() => _destination = point);
   }
@@ -153,6 +198,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       _expectedDate = null;
       _expectedTime = null;
       _destination = null;
+      _manualStart = null;
     });
   }
 
@@ -191,13 +237,13 @@ class _HomePageState extends ConsumerState<HomePage> {
       _showError('请选择卸货点');
       return;
     }
-    final location = ref.read(locationProvider);
-    final startLat = location.latitude;
-    final startLng = location.longitude;
-    if (startLat == null || startLng == null) {
-      _showError('无法获取当前位置作为起吊点，请稍后重试');
+    final start = _effectiveStart(ref.read(locationProvider));
+    if (start == null) {
+      _showError('无法获取当前位置，请点击「起吊点」在地图上手动选择');
       return;
     }
+    final startLat = start.latitude;
+    final startLng = start.longitude;
 
     final categoryLabel = kCargoCategoryLabels[_category]!;
     final descriptionParts = <String>[
@@ -258,10 +304,13 @@ class _HomePageState extends ConsumerState<HomePage> {
               const Icon(Icons.location_on, color: AppColors.primary, size: 20),
               const SizedBox(width: 4),
               Text(
-                location.loading ? '定位中...' : location.city,
+                cityTitle(location),
                 style: const TextStyle(fontSize: 16),
               ),
-              const Icon(Icons.arrow_drop_down, size: 20),
+              if (!location.loading && !hasKnownCity(location)) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.refresh, size: 18),
+              ],
             ],
           ),
         ),
@@ -314,9 +363,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// 地图区：固定在滚动区之外（避免与列表滚动手势冲突）。
   /// 起吊点=当前定位（蓝），点击地图任意位置=设置卸货点（红）。
   Widget _buildMap(LocationState location) {
-    final LatLng? start = (location.latitude != null && location.longitude != null)
-        ? LatLng(location.latitude!, location.longitude!)
-        : null;
+    final LatLng? start = _effectiveStart(location);
     final LatLng center = _destination ?? start ?? _fallbackCenter;
 
     return SizedBox(
@@ -402,18 +449,27 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// 起吊点（当前定位）与卸货点（地图选点）信息卡。
+  /// 起吊点（当前定位 / 手动选点）与卸货点（地图选点）信息卡。
   Widget _buildPointCard(LocationState location) {
-    final bool hasStart =
+    final manual = _manualStart;
+    final bool hasLocated =
         location.latitude != null && location.longitude != null;
+    final String startTitle;
     final String startText;
-    if (location.loading) {
+    if (manual != null) {
+      startTitle = '起吊点（手动选择）';
+      startText =
+          '${manual.latitude.toStringAsFixed(5)}, ${manual.longitude.toStringAsFixed(5)}';
+    } else if (location.loading) {
+      startTitle = '起吊点（当前定位）';
       startText = '定位中...';
-    } else if (hasStart) {
+    } else if (hasLocated) {
+      startTitle = '起吊点（当前定位）';
       startText =
           '${location.latitude!.toStringAsFixed(5)}, ${location.longitude!.toStringAsFixed(5)}';
     } else {
-      startText = '定位不可用，点击右侧重试';
+      startTitle = '起吊点';
+      startText = '定位不可用，点击在地图上选择起吊点';
     }
 
     return Card(
@@ -421,13 +477,16 @@ class _HomePageState extends ConsumerState<HomePage> {
       child: Column(
         children: [
           ListTile(
+            key: const ValueKey('home-start-point-tile'),
             leading: const Icon(Icons.my_location, color: Colors.blue),
-            title: const Text('起吊点（当前定位）'),
+            title: Text(startTitle),
             subtitle: Text(startText),
             trailing: IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () => ref.read(locationProvider.notifier).refresh(),
+              icon: const Icon(Icons.gps_fixed),
+              tooltip: manual != null ? '改用当前定位' : '重新定位',
+              onPressed: _useCurrentLocation,
             ),
+            onTap: _pickStartManually,
           ),
           const Divider(height: 1),
           ListTile(

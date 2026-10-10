@@ -84,7 +84,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/map/pick',
-        builder: (context, state) => const MapPickerPage(),
+        builder: (context, state) =>
+            state.uri.queryParameters['point'] == 'start'
+                ? const MapPickerPage.start()
+                : const MapPickerPage(),
       ),
       GoRoute(
         path: '/chat/:sessionId',

@@ -11,9 +11,21 @@ import '../../providers/location_provider.dart';
 import '../../theme/app_colors.dart';
 
 class MapPickerPage extends ConsumerStatefulWidget {
-  const MapPickerPage({super.key, this.title = '选择卸货点'});
+  const MapPickerPage({
+    super.key,
+    this.title = '选择卸货点',
+    this.pointLabel = '卸货点',
+  });
+
+  /// 起吊点选点：首页定位不可用时手动选择起吊点（`/map/pick?point=start`）。
+  const MapPickerPage.start({super.key})
+      : title = '选择起吊点',
+        pointLabel = '起吊点';
 
   final String title;
+
+  /// 选点含义（卸货点 / 起吊点），用于提示与结果卡片文案。
+  final String pointLabel;
 
   @override
   ConsumerState<MapPickerPage> createState() => _MapPickerPageState();
@@ -47,7 +59,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
     final point = _point;
     if (point == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先在地图上选择卸货点')),
+        SnackBar(content: Text('请先在地图上选择${widget.pointLabel}')),
       );
       return;
     }
@@ -142,7 +154,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
                 Icon(Icons.touch_app, size: 16, color: Colors.grey.shade600),
                 const SizedBox(width: 4),
                 Text(
-                  _point == null ? '点击地图选择卸货点' : '再次点击可更改选择',
+                  _point == null ? '点击地图选择${widget.pointLabel}' : '再次点击可更改选择',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
               ],
@@ -155,7 +167,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
             child: Center(
               child: _point == null
                   ? Text(
-                      '尚未选择卸货点',
+                      '尚未选择${widget.pointLabel}',
                       style:
                           TextStyle(color: Colors.grey.shade400, fontSize: 14),
                     )
@@ -165,7 +177,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
                         child: ListTile(
                           leading: const Icon(Icons.location_on,
                               color: Colors.red),
-                          title: const Text('卸货点'),
+                          title: Text(widget.pointLabel),
                           subtitle: Text(
                             '${_point!.latitude.toStringAsFixed(6)}, '
                             '${_point!.longitude.toStringAsFixed(6)}',
