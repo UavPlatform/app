@@ -146,7 +146,7 @@ class ProfilePage extends ConsumerWidget {
   void _showAbout(BuildContext context) {
     showAboutDialog(
       context: context,
-      applicationName: '低空吊运',
+      applicationName: '飞翼通',
       applicationVersion: '1.0.0',
       applicationIcon: const Icon(Icons.flight, size: 40, color: AppColors.primary),
       children: const [
