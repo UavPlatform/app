@@ -112,6 +112,7 @@ void main() {
     Map<String, dynamic>? confirmedDetail,
     List<Map<String, dynamic>> square = const [],
     List<Map<String, dynamic>> myTasks = const [],
+    List<Map<String, dynamic>> history = const [],
     List<Map<String, dynamic>> drones = const [],
     Map<String, dynamic>? applyData,
     String applyMessage = '货物重量 50 kg 超过机型最大载重 30 kg',
@@ -137,7 +138,7 @@ void main() {
         return jsonResponse(200, {'success': true, 'code': 200, 'data': page(myTasks)});
       }
       if (path == '/rider/my-tasks/history') {
-        return jsonResponse(200, {'success': true, 'code': 200, 'data': page(const [])});
+        return jsonResponse(200, {'success': true, 'code': 200, 'data': page(history)});
       }
       if (path == '/rider/drone/list') {
         return jsonResponse(200, {'success': true, 'code': 200, 'data': drones});
@@ -575,7 +576,24 @@ void main() {
       quotedAmount: 264.65,
       totalAmount: 264.65,
     );
-    final adapter = pilotAdapter(detail: confirmed, myTasks: [confirmed]);
+    final adapter = pilotAdapter(detail: confirmed, myTasks: [confirmed], history: [
+      taskJson(
+        num: 'T20260926-020',
+        name: '已交付待验收的吊运',
+        taskStatus: 'COMPLETED',
+        matchStatus: 'PENDING_ACCEPTANCE',
+        actionHint: '待验收：飞手已完成，请确认验收',
+        totalAmount: 300,
+      ),
+      taskJson(
+        num: 'T20260926-021',
+        name: '已结案的吊运',
+        taskStatus: 'COMPLETED',
+        matchStatus: 'CLOSED',
+        actionHint: '已完成：感谢使用',
+        totalAmount: 200,
+      ),
+    ]);
     await tester.pumpWidget(
       ProviderScope(
         overrides: await buildOverrides(adapter),
@@ -596,6 +614,13 @@ void main() {
     expect(find.textContaining('交付成果'), findsOneWidget, reason: '提示先上传吊运照片/视频');
     expect(find.text('操作失败'), findsNothing);
     expect(find.text('已确认待执飞 (1)'), findsOneWidget, reason: '失败时任务仍留在进行中');
+
+    // 已完成页：交付后待用户验收的单显示「待验收」，结案的显示「已完成」
+    await tester.pump(const Duration(seconds: 5));
+    await tester.tap(find.widgetWithText(Tab, '已完成'));
+    await tester.pumpAndSettle();
+    expect(find.text('待验收'), findsOneWidget);
+    expect(find.text('已结案的吊运'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();

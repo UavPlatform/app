@@ -179,7 +179,12 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
     final String badgeText;
     final Color badgeBg;
     final Color badgeFg;
-    if (task.isCompleted) {
+    if (task.isCompleted && task.matchStatus == 'PENDING_ACCEPTANCE') {
+      // 已交付、等用户验收：不要提前显示「已完成」
+      badgeText = '待验收';
+      badgeBg = AppColors.statusPending;
+      badgeFg = AppColors.statusPendingText;
+    } else if (task.isCompleted) {
       badgeText = '已完成';
       badgeBg = AppColors.statusCompleted;
       badgeFg = AppColors.statusCompletedText;
