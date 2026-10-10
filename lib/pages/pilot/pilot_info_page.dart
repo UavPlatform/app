@@ -231,17 +231,20 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
                 return null;
               },
             ),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _location,
               decoration: const InputDecoration(labelText: '所在地'),
               maxLength: 255,
             ),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _intro,
               decoration: const InputDecoration(labelText: '自我介绍', hintText: '飞行经验、擅长场景等'),
               maxLength: 255,
               maxLines: 3,
             ),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _idNumber,
               decoration: InputDecoration(
