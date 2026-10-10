@@ -9,7 +9,9 @@ import '../../api/order_api.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/task_provider.dart';
+import '../../models/task_vo.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/stage_tag.dart';
 import '../pay/pay_page.dart';
 
 class OrderListPage extends ConsumerStatefulWidget {
@@ -22,9 +24,12 @@ class OrderListPage extends ConsumerStatefulWidget {
 class _OrderListPageState extends ConsumerState<OrderListPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final _tabs = const ['全部', '待支付', '已支付', '待验收', '已完成'];
+  // 分栏与撮合阶段对齐（REQ-APP-002）：发单即生成 MATCHING 草稿订单，
+  // 原分栏缺这一档，招募/洽谈中的订单只能在「全部」里以「未知状态」出现。
+  final _tabs = const ['全部', '洽谈中', '待支付', '进行中', '待验收', '已完成'];
   static const _statusFilters = <int?>[
     null,
+    OrderStatusCode.matching,
     OrderStatusCode.pending,
     OrderStatusCode.paid,
     OrderStatusCode.waitingConfirm,
@@ -56,7 +61,12 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
       _error = null;
     });
     try {
+      // 同时刷新本人任务列表：订单卡片的阶段文案与跳转都依赖 orderNum → 任务反查。
+      // 推迟到下一事件循环：_loadOrders 会在 initState 中被调用，此时不得同步修改 provider。
+      final tasksFuture =
+          Future(() => ref.read(taskListProvider.notifier).loadTasks());
       final result = await _orderApi.listOrders();
+      await tasksFuture;
       if (!mounted) return;
       if (result.success && result.data != null) {
         setState(() {
@@ -91,12 +101,28 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     }
   }
 
-  void _openDetail(OrderVo order) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => _OrderDetailView(orderNum: order.orderNum),
-      ),
-    );
+  /// 订单 → 本人任务（订单本身不带 taskNum，按 orderNum 在本人任务列表反查）。
+  TaskVo? _taskFor(OrderVo order, List<TaskVo> tasks) {
+    for (final task in tasks) {
+      if (task.orderNum == order.orderNum) return task;
+    }
+    return null;
+  }
+
+  /// 点订单直达撮合中心（任务详情：应征/聊天/支付/确认/验收都在这里）；
+  /// 反查不到任务（如任务列表尚未加载）时退回订单详情视图。返回后刷新列表。
+  Future<void> _openDetail(OrderVo order, TaskVo? task) async {
+    if (task != null) {
+      await context.push('/order/${task.taskNum}');
+    } else {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _OrderDetailView(orderNum: order.orderNum),
+        ),
+      );
+    }
+    if (!mounted) return;
+    _loadOrders();
   }
 
   @override
@@ -104,12 +130,15 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     // 按单未读红点（REQ-APP-002 场景 2）：会话未读按 taskNum → 订单聚合，
     // 替换 APP-001 的「首项全局占位」；未绑定任务的会话不计入。
     final unreadByOrder = ref.watch(orderUnreadProvider);
+    final tasks = ref.watch(taskListProvider).tasks;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的订单'),
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: _tabs.map((t) => Tab(text: t)).toList(),
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.onSurfaceVariant,
@@ -141,6 +170,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                         itemCount: filtered.length,
                         itemBuilder: (_, i) => _buildCard(
                           filtered[i],
+                          task: _taskFor(filtered[i], tasks),
                           unread: unreadByOrder[filtered[i].orderNum] ?? 0,
                         ),
                       ),
@@ -188,11 +218,15 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     );
   }
 
-  Widget _buildCard(OrderVo order, {int unread = 0}) {
+  Widget _buildCard(OrderVo order, {TaskVo? task, int unread = 0}) {
+    // 撮合阶段（招募/洽谈）尚未锁价：草稿订单金额为 0，不展示「¥0.00」。
+    final priceLocked = order.orderStatus != OrderStatusCode.matching &&
+        order.totalAmount != null &&
+        order.totalAmount! > 0;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        onTap: () => _openDetail(order),
+        onTap: () => _openDetail(order, task),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -201,7 +235,10 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
             children: [
               Row(
                 children: [
-                  _statusTag(order.orderStatus),
+                  if (task != null)
+                    StageTag(task: task)
+                  else
+                    _statusTag(order.orderStatus),
                   if (unread > 0) ...[
                     const SizedBox(width: 8),
                     Container(
@@ -224,13 +261,21 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                     ),
                   ],
                   const Spacer(),
-                  if (order.totalAmount != null)
+                  if (priceLocked)
                     Text(
                       '¥${order.totalAmount!.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,
+                      ),
+                    )
+                  else if (order.orderStatus == OrderStatusCode.matching)
+                    const Text(
+                      '选定飞手后锁价',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.onSurfaceVariant,
                       ),
                     ),
                 ],
@@ -278,6 +323,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     Color text;
     switch (status) {
       case OrderStatusCode.pending:
+      case OrderStatusCode.matching:
         bg = AppColors.statusPending;
         text = AppColors.statusPendingText;
         break;

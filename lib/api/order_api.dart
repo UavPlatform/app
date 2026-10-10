@@ -15,6 +15,10 @@ class OrderStatusCode {
   static const int refunded = 3;
   static const int completed = 4;
   static const int waitingConfirm = 5;
+  static const int disputed = 6;
+
+  /// 发单即生成的草稿订单（招募/洽谈阶段，未锁价，不需支付）。
+  static const int matching = 7;
 
   /// 状态中文标签（WAITING_CONFIRM 按验收口径展示为「待验收」）。
   static String labelOf(int code) {
@@ -31,6 +35,10 @@ class OrderStatusCode {
         return '已完成';
       case waitingConfirm:
         return '待验收';
+      case disputed:
+        return '争议中';
+      case matching:
+        return '撮合中';
       default:
         return '未知状态';
     }

@@ -17,6 +17,7 @@ import '../../models/task_vo.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/task_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/stage_tag.dart';
 
 /// 吊运任务类型（后端 TaskType.TRANSPORT；C 端唯一品类，REQ-APP-002 验收 1）。
 const String kTransportTaskType = 'TRANSPORT';
@@ -26,6 +27,8 @@ const Map<String, String> kCargoCategoryLabels = {
   'CONSTRUCTION': '建材',
   'EQUIPMENT': '设备',
   'AGRICULTURAL': '农产品',
+  'DAILY_SUPPLIES': '生活物资',
+  'FURNITURE': '家具家居',
 };
 
 /// 组装提交给后端的 taskTime（t15 契约："yyyy-MM-dd HH:mm:ss"，空格分隔）。
@@ -246,7 +249,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final location = ref.watch(locationProvider);
     final taskState = ref.watch(taskListProvider);
     final activeTasks =
-        taskState.tasks.where((t) => !t.isCompleted).toList(growable: false);
+        taskState.tasks.where((t) => !t.isStageClosed).toList(growable: false);
 
     return Scaffold(
       appBar: AppBar(
@@ -645,7 +648,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             children: [
               Row(
                 children: [
-                  _buildStatusTag(task.taskStatus),
+                  StageTag(task: task),
                   const Spacer(),
                   Text(
                     task.formattedCreateTime,
@@ -691,39 +694,6 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildStatusTag(String status) {
-    Color bgColor;
-    Color textColor;
-    String label;
-    switch (status) {
-      case 'IDLE':
-        bgColor = AppColors.statusPending;
-        textColor = AppColors.statusPendingText;
-        label = '空闲中';
-        break;
-      case 'IN_PROGRESS':
-        bgColor = AppColors.statusInProgress;
-        textColor = AppColors.statusInProgressText;
-        label = '执行中';
-        break;
-      case 'COMPLETED':
-        bgColor = AppColors.statusCompleted;
-        textColor = AppColors.statusCompletedText;
-        label = '已完成';
-        break;
-      default:
-        bgColor = AppColors.statusCancelled;
-        textColor = AppColors.statusCancelledText;
-        label = status;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-          color: bgColor, borderRadius: BorderRadius.circular(4)),
-      child: Text(label, style: TextStyle(fontSize: 12, color: textColor)),
     );
   }
 }

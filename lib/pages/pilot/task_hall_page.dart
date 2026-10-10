@@ -13,11 +13,11 @@ class TaskHallPage extends ConsumerStatefulWidget {
 }
 
 class _TaskHallPageState extends ConsumerState<TaskHallPage> {
-  // ADR-0003 / REQ-APP-002：本端收敛为吊运单一品类，大厅默认只看「调运」，
+  // ADR-0003 / REQ-APP-002：本端收敛为吊运单一品类，大厅默认只看「吊运」，
   // 保留「全部」供切换查看历史品类任务。
   String? _selectedType = 'TRANSPORT';
 
-  static const _typeOptions = ['全部', '航拍', '调运', '测绘', '监测'];
+  static const _typeOptions = ['全部', '航拍', '吊运', '测绘', '监测'];
   static const _typeKeys = [null, 'AERIAL_PHOTO', 'TRANSPORT', 'SURVEY', 'MONITORING'];
 
   @override

@@ -297,14 +297,28 @@ void main() {
         'taskStatus': 'COMPLETED',
         'createTime': '2026-09-20 10:00:00',
       },
+      {
+        'id': 3,
+        'taskNum': 'T-3',
+        'taskName': '待验收吊运',
+        'userId': 7,
+        'taskType': 'TRANSPORT',
+        'taskStatus': 'COMPLETED',
+        'matchStatus': 'PENDING_ACCEPTANCE',
+        'orderStatus': 'WAITING_CONFIRM',
+        'createTime': '2026-09-25 10:00:00',
+      },
     ]);
     await pumpHome(tester, adapter);
 
     expect(find.text('建材吊运'), findsOneWidget);
-    expect(find.text('空闲中'), findsOneWidget);
+    expect(find.text('招募飞手中'), findsOneWidget, reason: '阶段文案与订单列表/详情一致');
     expect(find.text('等待飞手应征'), findsOneWidget);
     expect(find.text('山顶基站建材'), findsOneWidget);
     expect(find.text('已完成吊运'), findsNothing, reason: '完成态不在首页摘要展示');
+    // 待验收需要用户「确认完成」，必须留在首页（REQ-APP-002 首页展示「待确认」等任务）。
+    expect(find.text('待验收吊运'), findsOneWidget);
+    expect(find.text('待验收'), findsOneWidget);
   });
 
   testWidgets('首页收敛：无服务四宫格/推荐飞手/任务广场', (tester) async {
@@ -316,6 +330,9 @@ void main() {
     expect(find.text('物流吊运'), findsNothing);
     expect(find.text('发布吊运需求'), findsOneWidget);
     expect(find.textContaining('货物类别'), findsOneWidget);
+    for (final label in ['建材', '设备', '农产品', '生活物资', '家具家居']) {
+      expect(find.widgetWithText(ChoiceChip, label), findsOneWidget, reason: label);
+    }
     expect(find.text('我发布的任务'), findsOneWidget);
   });
 

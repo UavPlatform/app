@@ -166,22 +166,114 @@ class TaskVo {
 
   String get taskTypeName {
     switch (taskType) {
-      case 'AERIAL_PHOTO': return '航拍';
-      case 'TRANSPORT': return '调运';
-      case 'SURVEY': return '测绘';
-      case 'MONITORING': return '监测';
-      default: return taskType;
+      case 'AERIAL_PHOTO':
+        return '航拍';
+      case 'TRANSPORT':
+        return '吊运';
+      case 'SURVEY':
+        return '测绘';
+      case 'MONITORING':
+        return '监测';
+      default:
+        return taskType;
     }
   }
 
   String get taskStatusName {
     switch (taskStatus) {
-      case 'IDLE': return '空闲中';
-      case 'IN_PROGRESS': return '执行中';
-      case 'COMPLETED': return '已完成';
-      default: return taskStatus;
+      case 'IDLE':
+        return '空闲中';
+      case 'IN_PROGRESS':
+        return '执行中';
+      case 'COMPLETED':
+        return '已完成';
+      default:
+        return taskStatus;
     }
   }
+
+  // ==================== 用户侧撮合阶段（REQ-APP-002「各阶段文案在首页卡片、订单列表、详情页必须一致」） ====================
+
+  /// 订单旁路终态（取消/退款/争议）优先于撮合子状态展示。
+  String? get _orderSideLabel {
+    switch (orderStatus) {
+      case 'CANCELLED':
+        return '已取消';
+      case 'REFUNDED':
+        return '已退款';
+      case 'DISPUTED':
+        return '争议中';
+      default:
+        return null;
+    }
+  }
+
+  /// 统一阶段名：首页卡片 / 订单列表 / 详情页头部与「撮合状态」区块共用，
+  /// 与后端 MatchStatus 描述及 REQ-APP-002 用户侧状态机一一对应。
+  String get stageLabel {
+    final side = _orderSideLabel;
+    if (side != null) return side;
+    switch (matchStatus) {
+      case 'SEEKING_RIDER':
+        return '招募飞手中';
+      case 'NEGOTIATING':
+        return '洽谈中';
+      case 'AWAITING_PAYMENT':
+        return '待支付';
+      case 'AWAITING_RIDER_CONFIRM':
+        return '待飞手确认';
+      case 'CONFIRMED':
+        return isInProgress ? '进行中' : '已确认';
+      case 'PENDING_ACCEPTANCE':
+        return '待验收';
+      case 'CLOSED':
+        return '已完成';
+    }
+    // 撮合改版前的旧任务没有 matchStatus：按任务状态兜底。
+    if (isInProgress) return '进行中';
+    if (isCompleted) return orderStatus == 'WAITING_CONFIRM' ? '待验收' : '已完成';
+    return '招募飞手中';
+  }
+
+  /// 阶段进度（详情页步骤条）：0 洽谈 · 1 支付 · 2 确认 · 3 作业 · 4 验收 · 5 全部完成。
+  int get stageStep {
+    switch (matchStatus) {
+      case 'SEEKING_RIDER':
+      case 'NEGOTIATING':
+        return 0;
+      case 'AWAITING_PAYMENT':
+        return 1;
+      case 'AWAITING_RIDER_CONFIRM':
+        return 2;
+      case 'CONFIRMED':
+        return 3;
+      case 'PENDING_ACCEPTANCE':
+        return 4;
+      case 'CLOSED':
+        return 5;
+    }
+    if (isInProgress) return 3;
+    if (isCompleted) return orderStatus == 'WAITING_CONFIRM' ? 4 : 5;
+    return 0;
+  }
+
+  /// 阶段语义分组（决定标签配色）：待办 / 履约中 / 已完成 / 已终止。
+  StageTone get stageTone {
+    if (_orderSideLabel != null) return StageTone.stopped;
+    final step = stageStep;
+    if (step >= 5) return StageTone.done;
+    if (step >= 3) return StageTone.active;
+    if (matchStatus == 'AWAITING_RIDER_CONFIRM') return StageTone.active;
+    return StageTone.todo;
+  }
+
+  /// 是否已结案（首页「我的需求」不再展示）：撮合 CLOSED，或订单已完成/退款。
+  /// 注意：待验收（taskStatus=COMPLETED + 订单 WAITING_CONFIRM）仍需用户操作，不算结案。
+  bool get isStageClosed =>
+      matchStatus == 'CLOSED' ||
+      orderStatus == 'COMPLETED' ||
+      orderStatus == 'REFUNDED' ||
+      (matchStatus == null && isCompleted && orderStatus != 'WAITING_CONFIRM');
 
   bool get isIdle => taskStatus == 'IDLE';
   bool get isInProgress => taskStatus == 'IN_PROGRESS';
@@ -251,10 +343,18 @@ class TaskVo {
 
   static String _cargoCategoryName(String code) {
     switch (code) {
-      case 'CONSTRUCTION': return '建材';
-      case 'EQUIPMENT': return '设备';
-      case 'AGRICULTURAL': return '农产品';
-      default: return code;
+      case 'CONSTRUCTION':
+        return '建材';
+      case 'EQUIPMENT':
+        return '设备';
+      case 'AGRICULTURAL':
+        return '农产品';
+      case 'DAILY_SUPPLIES':
+        return '生活物资';
+      case 'FURNITURE':
+        return '家具家居';
+      default:
+        return code;
     }
   }
 
@@ -317,3 +417,6 @@ class TaskPageVo {
     return Result.fromJson(json, (data) => TaskPageVo.fromJson(data));
   }
 }
+
+/// 阶段标签配色分组。
+enum StageTone { todo, active, done, stopped }

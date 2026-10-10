@@ -26,6 +26,8 @@ void main() {
       expect(OrderStatusCode.labelOf(OrderStatusCode.refunded), '已退款');
       expect(OrderStatusCode.labelOf(OrderStatusCode.completed), '已完成');
       expect(OrderStatusCode.labelOf(OrderStatusCode.waitingConfirm), '待验收');
+      expect(OrderStatusCode.labelOf(OrderStatusCode.matching), '撮合中');
+      expect(OrderStatusCode.labelOf(OrderStatusCode.disputed), '争议中');
       expect(OrderStatusCode.labelOf(99), '未知状态');
     });
   });

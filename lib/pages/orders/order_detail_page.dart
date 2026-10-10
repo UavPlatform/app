@@ -205,7 +205,7 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
           ],
           if (task.waypoints != null && task.waypoints!.isNotEmpty) ...[
             const SizedBox(height: 8),
-            _buildSection('航点', [
+            _buildSection('吊运路线', [
               ...task.waypoints!.asMap().entries.map((e) {
                 final wp = e.value;
                 return Container(
@@ -228,9 +228,27 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        '${wp.latitude.toStringAsFixed(6)}, ${wp.longitude.toStringAsFixed(6)}',
-                        style: const TextStyle(fontSize: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              waypointRoleLabel(e.key, task.waypoints!.length),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${wp.latitude.toStringAsFixed(6)}, ${wp.longitude.toStringAsFixed(6)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -289,7 +307,22 @@ Widget _buildActionHintBanner(String hint) {
   );
 }
 
+/// 详情页头部步骤条：按撮合阶段（REQ-APP-002 用户侧状态机）而非 TaskStatus 展示，
+/// 「当前状态」文案与首页卡片、订单列表共用 [TaskVo.stageLabel]。
+const List<String> kStageSteps = ['洽谈', '支付', '确认', '作业', '验收'];
+
 Widget _buildStatusHeader(TaskVo task) {
+  final step = task.stageStep;
+  final stopped = task.stageTone == StageTone.stopped;
+  final dots = <Widget>[];
+  for (var i = 0; i < kStageSteps.length; i++) {
+    if (i > 0) dots.add(_stepLine(!stopped && step >= i));
+    dots.add(_stepDot(
+      kStageSteps[i],
+      active: !stopped && step >= i,
+      done: !stopped && step > i,
+    ));
+  }
   return Container(
     padding: const EdgeInsets.all(24),
     decoration: const BoxDecoration(
@@ -299,17 +332,12 @@ Widget _buildStatusHeader(TaskVo task) {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _stepDot('空闲', true),
-            _stepLine(task.taskStatus != 'IDLE'),
-            _stepDot('执行中', task.isInProgress || task.isCompleted),
-            _stepLine(task.isCompleted),
-            _stepDot('完成', task.isCompleted),
-          ],
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: dots,
         ),
         const SizedBox(height: 16),
         Text(
-          '当前状态: ${task.taskStatusName}',
+          '当前状态: ${task.stageLabel}',
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ],
@@ -317,7 +345,7 @@ Widget _buildStatusHeader(TaskVo task) {
   );
 }
 
-Widget _stepDot(String label, bool active) {
+Widget _stepDot(String label, {required bool active, required bool done}) {
   return Column(
     children: [
       Container(
@@ -326,7 +354,22 @@ Widget _stepDot(String label, bool active) {
           shape: BoxShape.circle,
           color: active ? Colors.white : Colors.white38,
         ),
-        child: active ? const Icon(Icons.check, size: 14, color: AppColors.primary) : null,
+        child: done
+            ? const Icon(Icons.check, size: 14, color: AppColors.primary)
+            : active
+                ? const Center(
+                    child: SizedBox(
+                      width: 8,
+                      height: 8,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  )
+                : null,
       ),
       const SizedBox(height: 4),
       Text(label, style: TextStyle(fontSize: 12, color: active ? Colors.white : Colors.white54)),
@@ -335,7 +378,12 @@ Widget _stepDot(String label, bool active) {
 }
 
 Widget _stepLine(bool active) {
-  return Container(width: 40, height: 2, color: active ? Colors.white : Colors.white38);
+  return Container(
+    width: 28,
+    height: 2,
+    margin: const EdgeInsets.only(top: 9),
+    color: active ? Colors.white : Colors.white38,
+  );
 }
 
 Widget _buildSection(String title, List<Widget> children) {
@@ -402,26 +450,8 @@ Widget _buildMatchStatusSection(TaskVo task) {
   );
 }
 
-/// 撮合状态名：执行/完成态优先看 TaskStatus，否则按 matchStatus 映射。
-/// 仅作状态名展示，阶段描述文案仍以 actionHint 为准。
-String _matchStatusLabel(TaskVo task) {
-  if (task.isInProgress) return '进行中';
-  if (task.isCompleted) return '已完成';
-  switch (task.matchStatus) {
-    case 'AWAITING_PAYMENT':
-      return '待支付';
-    case 'AWAITING_RIDER_CONFIRM':
-      return '待飞手确认';
-    case 'CONFIRMED':
-      return '已确认';
-    case 'PENDING_ACCEPTANCE':
-      return '待验收';
-    case 'CLOSED':
-      return '已关闭';
-    default:
-      return task.taskStatusName;
-  }
-}
+/// 撮合状态名：与头部、首页卡片、订单列表共用 [TaskVo.stageLabel]（REQ-APP-002 文案一致）。
+String _matchStatusLabel(TaskVo task) => task.stageLabel;
 
 /// 后端 OrderStatus 枚举名 → 中文标签（/task/detail 返回枚举名字符串）。
 String? _orderStatusLabel(String? orderStatus) {
@@ -441,6 +471,13 @@ String? _orderStatusLabel(String? orderStatus) {
     default:
       return null;
   }
+}
+
+/// 吊运航点角色：首个为起吊点、末个为卸货点，其余为途经点。
+String waypointRoleLabel(int index, int total) {
+  if (index == 0) return '起吊点';
+  if (index == total - 1) return '卸货点';
+  return '途经点 $index';
 }
 
 /// 待支付订单支付入口（TASK-APP-004：先做锁价校验 totalAmount == quotedAmount，

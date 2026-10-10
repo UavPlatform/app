@@ -202,7 +202,7 @@ void main() {
     expect(find.text('订单金额'), findsOneWidget);
   });
 
-  testWidgets('订单详情提供「应征飞手与订单聊天」入口（按 orderNum 反查 taskNum）', (tester) async {
+  testWidgets('订单卡片按 orderNum 反查任务：阶段文案与首页一致，点击直达撮合中心', (tester) async {
     final adapter = StubAdapter((options) async {
       final path = options.uri.path;
       if (path == '/order/list') {
@@ -314,18 +314,71 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 订单卡片 → 订单详情视图（订单本身没有 taskNum，经任务列表反查）
+    // 卡片阶段标签取任务撮合阶段（REQ-APP-002 文案一致），而不是订单码的「已支付」。
+    expect(find.text('招募飞手中'), findsOneWidget);
+
+    // 订单卡片 → 直达任务详情（撮合中心：应征列表 + 订单内聊天），不再经过中间页。
     await tester.tap(find.textContaining('ORD-3'));
     await tester.pumpAndSettle();
-    expect(find.text('应征飞手与订单聊天'), findsOneWidget);
-
-    // 入口 → 任务详情（撮合中心：应征列表 + 订单内聊天）
-    await tester.tap(find.text('应征飞手与订单聊天'));
-    await tester.pumpAndSettle();
+    expect(find.text('应征飞手与订单聊天'), findsNothing);
 
     expect(find.byType(OrderDetailPage), findsOneWidget);
     expect(find.text('等待飞手接单'), findsOneWidget, reason: '撮合中心空状态');
     expect(find.text('等待飞手应征，选定后下单支付'), findsOneWidget,
         reason: '文案来自服务端 actionHint');
+  });
+
+  testWidgets('撮合中草稿订单：有「洽谈中」分栏，不显示 ¥0.00 与「未知状态」', (tester) async {
+    final adapter = StubAdapter((options) async {
+      final path = options.uri.path;
+      if (path == '/order/list') {
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': {
+            'orders': [
+              {
+                'orderNum': 'ORD-7',
+                'totalAmount': 0,
+                'taskName': '基站备用电池吊运',
+                'orderStatus': OrderStatusCode.matching,
+              },
+            ],
+            'currentPage': 0,
+            'totalPages': 1,
+            'totalElements': 1,
+          },
+        });
+      }
+      return jsonResponse(200, {'success': false, 'message': 'stub'});
+    });
+
+    SharedPreferences.setMockInitialValues({
+      'jwt_token': makeJwt(userId: 7),
+      'server_url': 'http://stub.local:8081',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          httpClientProvider.overrideWithValue(
+            HttpClient(TokenStorage(prefs), adapter: adapter),
+          ),
+        ],
+        child: const MaterialApp(home: OrderListPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('洽谈中'), findsOneWidget, reason: '新增分栏');
+    expect(find.text('未知状态'), findsNothing);
+    expect(find.text('撮合中'), findsOneWidget, reason: '任务反查不到时按订单码兜底');
+    expect(find.text('¥0.00'), findsNothing);
+    expect(find.text('选定飞手后锁价'), findsOneWidget);
+
+    await tester.tap(find.text('洽谈中'));
+    await tester.pumpAndSettle();
+    expect(find.text('基站备用电池吊运'), findsOneWidget);
   });
 }
