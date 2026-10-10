@@ -327,13 +327,19 @@ class _ApplicationTile extends ConsumerWidget {
       application: application,
     );
     if (selected != true || !context.mounted) return;
-    await ref.read(taskApplicationsProvider(taskNum).notifier).load();
-    if (!context.mounted) return;
-    await openPayEntry(
-      context,
-      ref,
+    // 在任何 await 之前抓取页面级句柄：刷新应征列表后本卡片可能被重建卸载，
+    // 不能再依赖本卡片的 context 进入收银台。
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final container = ProviderScope.containerOf(context, listen: false);
+    final quoted = application.quotedAmount;
+    await container.read(taskApplicationsProvider(taskNum).notifier).load();
+    await openPayEntryWith(
+      navigator: navigator,
+      messenger: messenger,
+      container: container,
       taskNum: taskNum,
-      quotedAmount: application.quotedAmount,
+      quotedAmount: quoted,
     );
   }
 
