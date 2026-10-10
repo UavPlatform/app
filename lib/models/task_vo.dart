@@ -265,7 +265,8 @@ class TaskVo {
 
   String get priceText {
     if (totalAmount != null && totalAmount! > 0) {
-      return '¥${totalAmount!.toStringAsFixed(0)}';
+      // 与用户端订单/收银台一致保留两位小数（¥264.65，而不是四舍五入成 ¥265）
+      return '¥${totalAmount!.toStringAsFixed(2)}';
     }
     return '面议';
   }

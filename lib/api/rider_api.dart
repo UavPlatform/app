@@ -131,19 +131,37 @@ class RiderApi {
   }
 
   /// 完成任务
+  /// 失败保留服务端 errorCode/message：交付门禁 DELIVERY_EVIDENCE_REQUIRED（400）
+  /// 需要明确提示「先上传履约证据」，而不是笼统的「操作失败」。
   Future<Result<void>> completeTask(String taskNum) async {
-    final response = await _client.dio.post(
-      ApiPaths.riderComplete,
-      // 契约 builder 含可选 note；本端不传 note，剔除 null 键以保持既有请求 query 不变。
-      queryParameters: ApiPaths.riderCompleteQuery(taskNum: taskNum)
-        ..removeWhere((key, value) => value == null),
-    );
-    final data = response.data as Map<String, dynamic>;
-    return Result(
-      success: data['success'] == true,
-      code: data['code'] as int?,
-      message: data['message'] as String?,
-    );
+    try {
+      final response = await _client.dio.post(
+        ApiPaths.riderComplete,
+        // 契约 builder 含可选 note；本端不传 note，剔除 null 键以保持既有请求 query 不变。
+        queryParameters: ApiPaths.riderCompleteQuery(taskNum: taskNum)
+          ..removeWhere((key, value) => value == null),
+      );
+      final data = response.data as Map<String, dynamic>;
+      return Result(
+        success: data['success'] == true,
+        code: data['code'] as int?,
+        errorCode: data['errorCode'] as String?,
+        message: data['message'] as String?,
+      );
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      if (body is Map<String, dynamic>) {
+        return Result(
+          success: false,
+          code: body['code'] as int?,
+          errorCode: body['errorCode'] as String?,
+          message: body['errorCode'] == 'DELIVERY_EVIDENCE_REQUIRED'
+              ? '请先在任务详情「交付成果」上传吊运照片/视频，再点完成'
+              : body['message'] as String? ?? '操作失败，请稍后重试',
+        );
+      }
+      return Result(success: false, message: '操作失败，请检查网络后重试');
+    }
   }
 
   /// 飞手统计

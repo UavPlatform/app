@@ -169,6 +169,14 @@ void main() {
           'data': confirmedDetail ?? detail ?? taskJson(matchStatus: 'CONFIRMED'),
         });
       }
+      if (path == '/rider/complete') {
+        return jsonResponse(400, {
+          'success': false,
+          'code': 400,
+          'errorCode': 'DELIVERY_EVIDENCE_REQUIRED',
+          'message': '请先上传履约证据',
+        });
+      }
       if (path == '/chat/session/list') {
         return jsonResponse(200, {'success': true, 'code': 200, 'data': []});
       }
@@ -547,6 +555,48 @@ void main() {
     expectNoPriceInputs();
 
     // 排干 SnackBar 计时器后结束
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('已确认待执飞：有「上传交付凭证」入口，未传证据点完成提示先上传（不再笼统「操作失败」），成交价保留两位小数',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final confirmed = taskJson(
+      num: 'T20260926-013',
+      name: '山顶设备吊运',
+      matchStatus: 'CONFIRMED',
+      taskStatus: 'IN_PROGRESS',
+      actionHint: '双方已确认，可以开始作业',
+      scheduledTime: '2026-09-29T14:00:00',
+      quotedAmount: 264.65,
+      totalAmount: 264.65,
+    );
+    final adapter = pilotAdapter(detail: confirmed, myTasks: [confirmed]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: await buildOverrides(adapter),
+        child: const MaterialApp(home: MyJobsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('¥264.65'), findsOneWidget, reason: '与用户端金额一致，不四舍五入成 ¥265');
+    expect(find.text('上传交付凭证'), findsOneWidget);
+
+    await tester.tap(find.text('完成任务'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确认完成'));
+    await tester.pumpAndSettle();
+
+    expect(adapter.requests.where((r) => r.uri.path == '/rider/complete'), isNotEmpty);
+    expect(find.textContaining('交付成果'), findsOneWidget, reason: '提示先上传吊运照片/视频');
+    expect(find.text('操作失败'), findsNothing);
+    expect(find.text('已确认待执飞 (1)'), findsOneWidget, reason: '失败时任务仍留在进行中');
+
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
   });

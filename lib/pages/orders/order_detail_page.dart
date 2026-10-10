@@ -183,7 +183,7 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
             if (task.formattedCreateTime.isNotEmpty)
               _infoRow('创建时间', task.formattedCreateTime),
             if (task.totalAmount != null && task.totalAmount! > 0)
-              _infoRow('酬劳', '¥${task.totalAmount!.toStringAsFixed(0)}'),
+              _infoRow('酬劳', '¥${task.totalAmount!.toStringAsFixed(2)}'),
             if (task.totalDistance != null && task.totalDistance! > 0)
               _infoRow('总距离', '${task.totalDistance!.toStringAsFixed(0)} m'),
             if (task.orderNum != null) _infoRow('订单号', task.orderNum!),
