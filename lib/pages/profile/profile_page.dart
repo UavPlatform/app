@@ -98,10 +98,7 @@ class ProfilePage extends ConsumerWidget {
           // 功能菜单
           _buildMenuItem(context, icon: Icons.location_on_outlined, title: '地址管理', onTap: () => context.push('/addresses')),
           _buildMenuItem(context, icon: Icons.star_outline, title: '我的评价', onTap: () => context.push('/reviews')),
-          _buildMenuItem(context, icon: Icons.headset_mic_outlined, title: '联系客服'),
-          _buildMenuItem(context, icon: Icons.help_outline, title: '帮助与反馈'),
-          _buildMenuItem(context, icon: Icons.settings_outlined, title: '设置'),
-          _buildMenuItem(context, icon: Icons.info_outline, title: '关于我们'),
+          _buildMenuItem(context, icon: Icons.info_outline, title: '关于我们', onTap: () => _showAbout(context)),
 
           const SizedBox(height: 24),
 
@@ -141,6 +138,21 @@ class ProfilePage extends ConsumerWidget {
           Text(label, style: const TextStyle(fontSize: 12)),
         ],
       ),
+    );
+  }
+
+  // 演示版不放无响应的菜单项：联系客服 / 帮助与反馈 / 设置 暂无后端与内容支撑，先移除，
+  // 待对应需求立项后再加回（订单内沟通走「联系飞手」）。
+  void _showAbout(BuildContext context) {
+    showAboutDialog(
+      context: context,
+      applicationName: '低空吊运',
+      applicationVersion: '1.0.0',
+      applicationIcon: const Icon(Icons.flight, size: 40, color: AppColors.primary),
+      children: const [
+        Text('面向山区、林场、屋顶等场景的无人机吊运撮合平台：发布任务、与飞手洽谈报价、'
+            '在线支付、飞行直播与交付验收一站完成。'),
+      ],
     );
   }
 
