@@ -172,4 +172,18 @@ class ApiPaths {
   static String tasksAttachmentsUploadUrlPath(String taskNum) => '/tasks/' + Uri.encodeComponent(taskNum) + '/attachments/upload-url';
   static Map<String, dynamic> tasksAttachmentsUploadUrlQuery({required String contentType, required String fileName, required int sizeBytes}) =>
       <String, dynamic>{'contentType': contentType, 'fileName': fileName, 'sizeBytes': sizeBytes};
+
+  /// POST /review/submit
+  static const String reviewSubmit = '/review/submit';
+  static Map<String, dynamic> reviewSubmitQuery({String? content, required String orderNum, required int rating}) =>
+      <String, dynamic>{'content': content, 'orderNum': orderNum, 'rating': rating};
+
+  /// GET /review/{orderNum}
+  static const String review = '/review/{orderNum}';
+  static String reviewPath(String orderNum) => '/review/' + Uri.encodeComponent(orderNum);
+
+  /// GET /review/my
+  static const String reviewMy = '/review/my';
+  static Map<String, dynamic> reviewMyQuery({int? page, int? size}) =>
+      <String, dynamic>{'page': page, 'size': size};
 }

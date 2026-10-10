@@ -97,7 +97,7 @@ class ProfilePage extends ConsumerWidget {
 
           // 功能菜单
           _buildMenuItem(context, icon: Icons.location_on_outlined, title: '地址管理', onTap: () => context.push('/addresses')),
-          _buildMenuItem(context, icon: Icons.star_outline, title: '我的评价'),
+          _buildMenuItem(context, icon: Icons.star_outline, title: '我的评价', onTap: () => context.push('/reviews')),
           _buildMenuItem(context, icon: Icons.headset_mic_outlined, title: '联系客服'),
           _buildMenuItem(context, icon: Icons.help_outline, title: '帮助与反馈'),
           _buildMenuItem(context, icon: Icons.settings_outlined, title: '设置'),

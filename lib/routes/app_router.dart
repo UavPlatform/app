@@ -10,6 +10,7 @@ import '../pages/home/home_page.dart';
 import '../pages/orders/order_list_page.dart';
 import '../pages/orders/order_detail_page.dart';
 import '../pages/messages/message_list_page.dart';
+import '../pages/profile/my_reviews_page.dart';
 import '../pages/profile/profile_page.dart';
 import '../pages/profile/address_list_page.dart';
 import '../pages/profile/address_edit_page.dart';
@@ -99,6 +100,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => OrderDetailPage(
           taskNum: state.pathParameters['taskNum']!,
         ),
+      ),
+      GoRoute(
+        path: '/reviews',
+        builder: (context, state) => const MyReviewsPage(),
       ),
       GoRoute(
         path: '/addresses',

@@ -169,6 +169,50 @@ class ApiOrderListVO {
   }
 }
 
+/// 契约 components.schemas.OrderReview
+class ApiOrderReview {
+  final String? content;
+  final String? createTime;
+  final int? id;
+  final String? orderNum;
+  final int? rating;
+  final int? userId;
+
+  const ApiOrderReview({this.content, this.createTime, this.id, this.orderNum, this.rating, this.userId});
+
+  factory ApiOrderReview.fromJson(Map<String, dynamic> json) => ApiOrderReview(
+    content: json['content'] as String?,
+    createTime: json['createTime'] as String?,
+    id: (json['id'] as num?)?.toInt(),
+    orderNum: json['orderNum'] as String?,
+    rating: (json['rating'] as num?)?.toInt(),
+    userId: (json['userId'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (content != null) {
+      json['content'] = content;
+    }
+    if (createTime != null) {
+      json['createTime'] = createTime;
+    }
+    if (id != null) {
+      json['id'] = id;
+    }
+    if (orderNum != null) {
+      json['orderNum'] = orderNum;
+    }
+    if (rating != null) {
+      json['rating'] = rating;
+    }
+    if (userId != null) {
+      json['userId'] = userId;
+    }
+    return json;
+  }
+}
+
 /// 契约 components.schemas.OrderVO
 class ApiOrderVO {
   final String? deviceId;
@@ -335,6 +379,40 @@ class ApiRegisterVo {
     }
     if (userName != null) {
       json['userName'] = userName;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.ReviewListVO
+class ApiReviewListVO {
+  final int? currentPage;
+  final List<ApiOrderReview>? reviews;
+  final int? totalElements;
+  final int? totalPages;
+
+  const ApiReviewListVO({this.currentPage, this.reviews, this.totalElements, this.totalPages});
+
+  factory ApiReviewListVO.fromJson(Map<String, dynamic> json) => ApiReviewListVO(
+    currentPage: (json['currentPage'] as num?)?.toInt(),
+    reviews: (json['reviews'] as List<dynamic>?)?.map((dynamic e) => ApiOrderReview.fromJson(e as Map<String, dynamic>)).toList(),
+    totalElements: (json['totalElements'] as num?)?.toInt(),
+    totalPages: (json['totalPages'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (currentPage != null) {
+      json['currentPage'] = currentPage;
+    }
+    if (reviews != null) {
+      json['reviews'] = reviews;
+    }
+    if (totalElements != null) {
+      json['totalElements'] = totalElements;
+    }
+    if (totalPages != null) {
+      json['totalPages'] = totalPages;
     }
     return json;
   }
@@ -618,6 +696,30 @@ class ApiSessionVO {
     }
     if (userIds != null) {
       json['userIds'] = userIds;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.SubmitReviewVO
+class ApiSubmitReviewVO {
+  final String? orderNum;
+  final int? rating;
+
+  const ApiSubmitReviewVO({this.orderNum, this.rating});
+
+  factory ApiSubmitReviewVO.fromJson(Map<String, dynamic> json) => ApiSubmitReviewVO(
+    orderNum: json['orderNum'] as String?,
+    rating: (json['rating'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (orderNum != null) {
+      json['orderNum'] = orderNum;
+    }
+    if (rating != null) {
+      json['rating'] = rating;
     }
     return json;
   }

@@ -14,6 +14,7 @@ import '../live/live_watch_page.dart';
 import 'deliverables_section.dart';
 import 'pay_entry.dart';
 import 'widgets/applications_section.dart';
+import 'widgets/review_section.dart';
 
 class OrderDetailPage extends ConsumerWidget {
   final String taskNum;
@@ -198,6 +199,9 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
               ),
             ]),
           ],
+          // 订单评价：用户确认完成（订单 COMPLETED）后评价飞手，一单一评。
+          if (!isPilot && task.orderStatus == 'COMPLETED' && task.orderNum != null)
+            ReviewSection(orderNum: task.orderNum!, riderName: task.riderName),
           // t44：交付成果（t42 占位区块填充真实附件列表与上传）
           if (task.riderId != null) ...[
             const SizedBox(height: 8),
