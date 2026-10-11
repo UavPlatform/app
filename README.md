@@ -36,7 +36,7 @@ tool/openapi_gen.dart                 # 生成（--check 只校验漂移）
 | 生成契约代码 | `dart run tool/openapi_gen.dart` |
 | 校验生成物未过期（CI/门禁） | `dart run tool/openapi_gen.dart --check` |
 | 契约门禁 + 全量测试 | `flutter test`（含 `test/api_contract_test.dart`） |
-| 类型/静态门禁 | `flutter analyze` |
+| 类型/静态门禁 | `flutter analyze`；CI 用 `dart run tool/analyze_gate.dart`（ERROR 即失败，WARNING/INFO 不得超出 `tool/analyze_baseline.txt`；问题减少后 `--update` 收紧基线） |
 
 写调用点的固定动作：
 
@@ -44,3 +44,8 @@ tool/openapi_gen.dart                 # 生成（--check 只校验漂移）
 2. **响应只允许经 `Api<Schema>` 解析**：`lib/models/**` 保留面向 UI 的模型（字段名/可空性/默认值不变），但 `fromJson` 必须从生成的契约模型取值，后端改字段名会在这里编译失败；
 3. 新增调用点时先在 `tool/openapi_gen.dart` 的 `endpoints` 登记并重跑生成器，门禁会核对「登记表 ↔ 代码」双向一致；
 4. 契约与代码不一致时**先改后端注解并重新导出**，不要在端上绕过。
+
+## CI
+
+`.github/workflows/ci.yml`（job 名 `app-tests`，pull_request → main 与 push → main 触发）：Flutter 3.47.7 → `flutter pub get` → 规格 sha256 对账 → `dart run tool/openapi_gen.dart --check` → `dart run tool/analyze_gate.dart` → `flutter test`（含 `test/api_contract_test.dart`），失败时上传 `build/reports/flutter-test.json`。分支保护的必需检查请勾选 `app-tests`。
+

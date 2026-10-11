@@ -1,0 +1,73 @@
+# App PR / main 测试门禁。
+#
+# 必需状态检查（Branch protection → Require status checks）请勾选：app-tests
+#
+# 执行内容（与 README「OpenAPI 契约（消费侧）」表格中的门禁命令同口径）：
+#   1. flutter pub get（main 上已提交的 pubspec.lock 与 pubspec.yaml 不同步，--enforce-lockfile 会失败，暂不强制，见 PR 说明）。
+#   2. OpenAPI 契约：vendored 规格与 openapi/drone-backend.openapi.sha256 对账；
+#      dart run tool/openapi_gen.dart --check 校验生成物（ApiPaths / Api<Schema>）未过期。
+#   3. 静态检查：dart run tool/analyze_gate.dart —— ERROR 一律失败；WARNING/INFO 与
+#      tool/analyze_baseline.txt（引入门禁时 main 的既有问题）比较，任何新增即失败，只减不增。
+#   4. flutter test（含 test/api_contract_test.dart 契约门禁），失败时上传 JSON 测试报告。
+# Flutter 版本固定为 3.47.7（Dart 3.13.x，满足 pubspec environment.sdk ^3.12.0；与本地验证所用版本一致）。
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: app-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter 3.47.7
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Show toolchain versions
+        run: flutter --version
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: OpenAPI vendored spec sha256
+        working-directory: openapi
+        run: sha256sum -c drone-backend.openapi.sha256
+
+      - name: OpenAPI generated code is up to date
+        run: dart run tool/openapi_gen.dart --check
+
+      - name: Analyze (no errors, no new warnings/infos vs baseline)
+        run: dart run tool/analyze_gate.dart
+
+      - name: Test (incl. api_contract_test)
+        run: |
+          mkdir -p build/reports
+          flutter test --reporter expanded --file-reporter json:build/reports/flutter-test.json
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-test-report
+          path: build/reports/
+          if-no-files-found: ignore
+          retention-days: 14
