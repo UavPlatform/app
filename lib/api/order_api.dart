@@ -38,7 +38,9 @@ class OrderStatusCode {
       case disputed:
         return '争议中';
       case matching:
-        return '撮合中';
+        // 草稿订单（发单即生成）的初始阶段；与 REQ-APP-002 状态机及任务阶段名一致。
+        // 反查到任务时列表用任务阶段（可能已是「洽谈中」），这里只是兜底。
+        return '招募飞手中';
       default:
         return '未知状态';
     }

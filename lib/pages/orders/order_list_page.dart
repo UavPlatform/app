@@ -24,16 +24,19 @@ class OrderListPage extends ConsumerStatefulWidget {
 class _OrderListPageState extends ConsumerState<OrderListPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  // 分栏与撮合阶段对齐（REQ-APP-002）：发单即生成 MATCHING 草稿订单，
-  // 原分栏缺这一档，招募/洽谈中的订单只能在「全部」里以「未知状态」出现。
-  final _tabs = const ['全部', '洽谈中', '待支付', '进行中', '待验收', '已完成'];
-  static const _statusFilters = <int?>[
-    null,
-    OrderStatusCode.matching,
-    OrderStatusCode.pending,
-    OrderStatusCode.paid,
-    OrderStatusCode.waitingConfirm,
-    OrderStatusCode.completed,
+  // 分栏 = REQ-APP-002 用户侧状态机的阶段名，并且按卡片自身的阶段标签筛选：
+  // 分栏名、卡片标签、详情页头部永远是同一个词（REQ-APP-002「各阶段文案必须一致」）。
+  // 不再按订单码分栏——MATCHING 同时覆盖「招募飞手中」「洽谈中」，PAID 同时覆盖
+  // 「待飞手确认」「进行中」，按码分栏必然出现分栏名与卡片标签不一致。
+  static const _tabs = <(String, Set<String>?)>[
+    ('全部', null),
+    ('招募飞手中', {'招募飞手中'}),
+    ('洽谈中', {'洽谈中'}),
+    ('待支付', {'待支付'}),
+    ('待飞手确认', {'待飞手确认'}),
+    ('进行中', {'进行中', '已确认'}),
+    ('待验收', {'待验收'}),
+    ('已完成', {'已完成'}),
   ];
 
   List<OrderVo>? _orders;
@@ -101,6 +104,11 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     }
   }
 
+  /// 卡片阶段标签：反查到任务用任务阶段（与首页/详情同源），否则按订单码兜底。
+  /// 分栏筛选也用它，保证分栏名与卡片标签一致。
+  static String stageLabelOf(OrderVo order, TaskVo? task) =>
+      task?.stageLabel ?? OrderStatusCode.labelOf(order.orderStatus);
+
   /// 订单 → 本人任务（订单本身不带 taskNum，按 orderNum 在本人任务列表反查）。
   TaskVo? _taskFor(OrderVo order, List<TaskVo> tasks) {
     for (final task in tasks) {
@@ -139,7 +147,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
           controller: _tabController,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          tabs: _tabs.map((t) => Tab(text: t)).toList(),
+          tabs: _tabs.map((t) => Tab(text: t.$1)).toList(),
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.onSurfaceVariant,
           indicatorColor: AppColors.primary,
@@ -155,12 +163,14 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
               ? _buildErrorView()
               : TabBarView(
                   controller: _tabController,
-                  children: _statusFilters.map((status) {
+                  children: _tabs.map((tab) {
                     final orders = _orders ?? const <OrderVo>[];
-                    final filtered = status == null
+                    final labels = tab.$2;
+                    final filtered = labels == null
                         ? orders
                         : orders
-                            .where((o) => o.orderStatus == status)
+                            .where((o) => labels
+                                .contains(stageLabelOf(o, _taskFor(o, tasks))))
                             .toList();
                     if (filtered.isEmpty) return _buildEmpty();
                     return RefreshIndicator(

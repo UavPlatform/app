@@ -315,7 +315,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // 卡片阶段标签取任务撮合阶段（REQ-APP-002 文案一致），而不是订单码的「已支付」。
-    expect(find.text('招募飞手中'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(Card), matching: find.text('招募飞手中')),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(Tab, '招募飞手中'), findsOneWidget, reason: '分栏同名');
 
     // 订单卡片 → 直达任务详情（撮合中心：应征列表 + 订单内聊天），不再经过中间页。
     await tester.tap(find.textContaining('ORD-3'));
@@ -328,7 +332,7 @@ void main() {
         reason: '文案来自服务端 actionHint');
   });
 
-  testWidgets('撮合中草稿订单：有「洽谈中」分栏，不显示 ¥0.00 与「未知状态」', (tester) async {
+  testWidgets('草稿订单：分栏名与卡片标签同为 REQ-APP-002 阶段名，不显示 ¥0.00 与「未知状态」', (tester) async {
     final adapter = StubAdapter((options) async {
       final path = options.uri.path;
       if (path == '/order/list') {
@@ -371,13 +375,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('洽谈中'), findsOneWidget, reason: '新增分栏');
     expect(find.text('未知状态'), findsNothing);
-    expect(find.text('撮合中'), findsOneWidget, reason: '任务反查不到时按订单码兜底');
+    expect(find.text('撮合中'), findsNothing, reason: '同一阶段只用 REQ-APP-002 的一个名字');
+    // 分栏「招募飞手中」+ 卡片兜底标签「招募飞手中」（任务反查不到时按订单码 MATCHING）
+    expect(find.text('招募飞手中'), findsNWidgets(2));
     expect(find.text('¥0.00'), findsNothing);
     expect(find.text('选定飞手后锁价'), findsOneWidget);
 
-    await tester.tap(find.text('洽谈中'));
+    await tester.tap(find.widgetWithText(Tab, '洽谈中'));
+    await tester.pumpAndSettle();
+    expect(find.text('基站备用电池吊运'), findsNothing, reason: '分栏按卡片阶段筛选');
+
+    await tester.tap(find.widgetWithText(Tab, '招募飞手中'));
     await tester.pumpAndSettle();
     expect(find.text('基站备用电池吊运'), findsOneWidget);
   });
