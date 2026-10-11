@@ -150,8 +150,9 @@ class ProfilePage extends ConsumerWidget {
       applicationVersion: '1.0.0',
       applicationIcon: const Icon(Icons.flight, size: 40, color: AppColors.primary),
       children: const [
-        Text('面向山区、林场、屋顶等场景的无人机吊运撮合平台：发布任务、与飞手洽谈报价、'
-            '在线支付、飞行直播与交付验收一站完成。'),
+        // ADR-0003：平台按规则统一计价、不议价，洽谈只谈作业细节——文案不得出现「洽谈报价」。
+        Text('面向山区、林场、屋顶等场景的无人机吊运撮合平台：发布吊运需求，平台按距离、'
+            '重量与机型统一计价；选定飞手并沟通作业细节后在线支付，作业直播与交付验收一站完成。'),
       ],
     );
   }

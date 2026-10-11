@@ -21,5 +21,9 @@ void main() {
     await tester.tap(find.text('关于我们'));
     await tester.pumpAndSettle();
     expect(find.textContaining('无人机吊运撮合平台'), findsOneWidget);
+    // ADR-0003：平台统一计价、不议价
+    expect(find.textContaining('平台按距离、重量与机型统一计价'), findsOneWidget);
+    expect(find.textContaining('报价'), findsNothing);
+    expect(find.textContaining('议价'), findsNothing);
   });
 }
