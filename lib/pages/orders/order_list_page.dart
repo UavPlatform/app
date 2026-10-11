@@ -37,10 +37,29 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     ('进行中', {'进行中'}),
     ('待验收', {'待验收'}),
     ('已完成', {'已完成'}),
-    // REQ-APP-002 主状态机之外的旁路终态（后端 OrderStatus：取消/退款/争议），单独一栏，
-    // 保证每张卡片都落在某个分栏里，而不是只出现在「全部」。
-    ('取消/售后', {'已取消', '已退款', '争议中'}),
+    // REQ-APP-002 主状态机之外的旁路终态（后端 OrderStatus：取消/退款/争议）单独一栏；
+    // 这一栏同时兜底：任何不属于前面各栏的阶段（如未来新增或未知的订单码）也归入这里，
+    // 保证每张卡片都落在某个具体分栏里，而不是只出现在「全部」。
+    (_fallbackTab, {'已取消', '已退款', '争议中'}),
   ];
+
+  static const _fallbackTab = '售后/其他';
+
+  /// 前面各具体分栏覆盖的阶段名（不含兜底栏）。
+  static final Set<String> _coveredLabels = {
+    for (final t in _tabs)
+      if (t.$2 != null && t.$1 != _fallbackTab) ...t.$2!,
+  };
+
+  /// 卡片是否属于该分栏：「全部」全收；兜底栏收旁路终态与所有未被具体分栏覆盖的阶段。
+  static bool tabAccepts((String, Set<String>?) tab, String stage) {
+    final labels = tab.$2;
+    if (labels == null) return true;
+    if (tab.$1 == _fallbackTab) {
+      return labels.contains(stage) || !_coveredLabels.contains(stage);
+    }
+    return labels.contains(stage);
+  }
 
   List<OrderVo>? _orders;
   bool _loading = true;
@@ -168,13 +187,10 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                   controller: _tabController,
                   children: _tabs.map((tab) {
                     final orders = _orders ?? const <OrderVo>[];
-                    final labels = tab.$2;
-                    final filtered = labels == null
-                        ? orders
-                        : orders
-                            .where((o) => labels
-                                .contains(stageLabelOf(o, _taskFor(o, tasks))))
-                            .toList();
+                    final filtered = orders
+                        .where((o) => tabAccepts(
+                            tab, stageLabelOf(o, _taskFor(o, tasks))))
+                        .toList();
                     if (filtered.isEmpty) return _buildEmpty();
                     return RefreshIndicator(
                       onRefresh: _loadOrders,

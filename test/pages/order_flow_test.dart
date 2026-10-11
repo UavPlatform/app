@@ -399,7 +399,9 @@ void main() {
     expect(find.text('基站备用电池吊运'), findsOneWidget);
   });
 
-  testWidgets('每张卡片都落在某个分栏：已付款（反查不到任务）→「待飞手确认」，已取消 →「取消/售后」', (tester) async {
+  testWidgets('每张卡片都落在某个具体分栏：已付款（反查不到任务）→「待飞手确认」，已取消/已退款/争议中/未知订单码 →「售后/其他」', (
+    tester,
+  ) async {
     final adapter = StubAdapter((options) async {
       final path = options.uri.path;
       if (path == '/order/list') {
@@ -419,6 +421,24 @@ void main() {
                 'totalAmount': 120.0,
                 'taskName': '已取消的吊运单',
                 'orderStatus': OrderStatusCode.cancelled,
+              },
+              {
+                'orderNum': 'ORD-10',
+                'totalAmount': 130.0,
+                'taskName': '已退款的吊运单',
+                'orderStatus': OrderStatusCode.refunded,
+              },
+              {
+                'orderNum': 'ORD-11',
+                'totalAmount': 140.0,
+                'taskName': '争议中的吊运单',
+                'orderStatus': OrderStatusCode.disputed,
+              },
+              {
+                'orderNum': 'ORD-12',
+                'totalAmount': 150.0,
+                'taskName': '未知状态码的吊运单',
+                'orderStatus': 99,
               },
             ],
             'currentPage': 0,
@@ -455,13 +475,21 @@ void main() {
     expect(find.text('已取消的吊运单'), findsNothing);
 
     await tester.dragUntilVisible(
-      find.widgetWithText(Tab, '取消/售后'),
+      find.widgetWithText(Tab, '售后/其他'),
       find.byType(TabBar),
       const Offset(-200, 0),
     );
-    await tester.tap(find.widgetWithText(Tab, '取消/售后'));
+    await tester.tap(find.widgetWithText(Tab, '售后/其他'));
     await tester.pumpAndSettle();
-    expect(find.text('已取消的吊运单'), findsOneWidget);
+    // 旁路终态（已取消 / 已退款 / 争议中）与未知订单码都落在兜底栏
+    for (final name in ['已取消的吊运单', '已退款的吊运单', '争议中的吊运单', '未知状态码的吊运单']) {
+      await tester.dragUntilVisible(
+        find.text(name),
+        find.byType(ListView).last,
+        const Offset(0, -200),
+      );
+      expect(find.text(name), findsOneWidget, reason: '$name 应在「售后/其他」');
+    }
     expect(find.text('已付款的吊运单'), findsNothing);
   });
 }
