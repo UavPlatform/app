@@ -484,6 +484,8 @@ void main() {
       name: '仓库钢材吊运',
       matchStatus: 'NEGOTIATING',
       actionHint: '已应征，等待用户选定下单',
+      // 尚未锁价：后端下发本人应征的系统报价（backend「我的接单」批量装配）
+      quotedAmount: 356.4,
     );
     final awaiting = taskJson(
       num: 'T20260926-012',
@@ -528,6 +530,8 @@ void main() {
     expect(find.text('已确认待执飞 (1)'), findsOneWidget);
     expect(find.text('已应征，等待用户选定下单'), findsOneWidget,
         reason: '文案以服务端 actionHint 为准');
+    expect(find.text('¥356.40'), findsOneWidget, reason: '应征中卡片显示本人系统报价而不是「面议」');
+    expect(find.text('面议'), findsNothing);
     expect(find.text('已支付，等待你确认约定作业时间'), findsOneWidget);
     expect(find.text('约定作业时间: 2026-09-28 09:00'), findsOneWidget);
     expect(find.text('打开 djifly'), findsOneWidget,
