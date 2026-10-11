@@ -150,7 +150,7 @@ void main() {
       );
     });
 
-    test('登记表无重复（38 条既有端点 + /user/refresh + select-rider + 订单评价 3 条 = 43）', () {
+    test('登记表无重复（38 条既有端点 + /user/refresh + select-rider + 订单评价 3 条 + /rider/info GET/PATCH 2 条 = 45）', () {
       String key(List<String> endpoint) =>
           '${endpoint[0].toLowerCase()} ${endpoint[1]}';
       expect(calledEndpoints.map(key).toSet(), hasLength(45));

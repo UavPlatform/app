@@ -33,7 +33,10 @@ class PilotInfoPage extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('$e', style: const TextStyle(color: AppColors.onSurfaceVariant)),
+              Text(
+                '$e',
+                style: const TextStyle(color: AppColors.onSurfaceVariant),
+              ),
               const SizedBox(height: 12),
               OutlinedButton(
                 onPressed: () => ref.invalidate(riderInfoProvider),
@@ -68,17 +71,27 @@ class PilotInfoPage extends ConsumerWidget {
                 if ((vo.qualifications ?? const []).isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text('还没有登记资质，点右上角「编辑」添加机型与执照等级',
-                        style: TextStyle(color: AppColors.onSurfaceVariant)),
+                    child: Text(
+                      '还没有登记资质，点右上角「编辑」添加机型与执照等级',
+                      style: TextStyle(color: AppColors.onSurfaceVariant),
+                    ),
                   ),
                 ...(vo.qualifications ?? const []).map(
                   (q) => ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.verified_outlined, color: AppColors.success),
-                    title: Text(q.modelName ?? q.modelCode ?? '机型 ${q.aircraftModelId}'),
+                    leading: const Icon(
+                      Icons.verified_outlined,
+                      color: AppColors.success,
+                    ),
+                    title: Text(
+                      q.modelName ?? q.modelCode ?? '机型 ${q.aircraftModelId}',
+                    ),
                     subtitle: q.modelCode != null ? Text(q.modelCode!) : null,
                     trailing: _Tag(
-                      q.licenseGradeLabel ?? kLicenseGradeLabels[q.licenseGrade] ?? q.licenseGrade ?? '',
+                      q.licenseGradeLabel ??
+                          kLicenseGradeLabels[q.licenseGrade] ??
+                          q.licenseGrade ??
+                          '',
                       AppColors.primary,
                     ),
                   ),
@@ -91,9 +104,14 @@ class PilotInfoPage extends ConsumerWidget {
     );
   }
 
-  static String _orDash(String? v) => (v == null || v.trim().isEmpty) ? '未填写' : v;
+  static String _orDash(String? v) =>
+      (v == null || v.trim().isEmpty) ? '未填写' : v;
 
-  Future<void> _openEdit(BuildContext context, WidgetRef ref, ApiRiderInfoVO vo) async {
+  Future<void> _openEdit(
+    BuildContext context,
+    WidgetRef ref,
+    ApiRiderInfoVO vo,
+  ) async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => PilotInfoEditPage(initial: vo)),
     );
@@ -110,7 +128,10 @@ class PilotInfoPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 8),
           ...children,
         ],
@@ -126,7 +147,10 @@ class PilotInfoPage extends ConsumerWidget {
         children: [
           SizedBox(
             width: 80,
-            child: Text(label, style: const TextStyle(color: AppColors.onSurfaceVariant)),
+            child: Text(
+              label,
+              style: const TextStyle(color: AppColors.onSurfaceVariant),
+            ),
           ),
           Expanded(child: Text(value)),
           ?trailing,
@@ -183,8 +207,12 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
     _idExpiry = vo.idExpiryDate;
     _quals = (vo.qualifications ?? const [])
         .where((q) => q.aircraftModelId != null && q.licenseGrade != null)
-        .map((q) => ApiRiderQualificationDto(
-            aircraftModelId: q.aircraftModelId!, licenseGrade: q.licenseGrade!))
+        .map(
+          (q) => ApiRiderQualificationDto(
+            aircraftModelId: q.aircraftModelId!,
+            licenseGrade: q.licenseGrade!,
+          ),
+        )
         .toList();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(aircraftModelsProvider.notifier).load();
@@ -207,7 +235,9 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
       for (final m in models) {
         if (m.id == id) return m.displayName ?? m.modelCode ?? '机型 $id';
       }
-      for (final q in widget.initial.qualifications ?? const <ApiRiderQualificationVO>[]) {
+      for (final q
+          in widget.initial.qualifications ??
+              const <ApiRiderQualificationVO>[]) {
         if (q.aircraftModelId == id) return q.modelName ?? '机型 $id';
       }
       return '机型 $id';
@@ -227,7 +257,8 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return null;
                 final n = int.tryParse(v.trim());
-                if (n == null || n < 18 || n > 80) return '请输入 18~80 之间的年龄';
+                // 与后端契约一致（RiderInfoDto：@Min(16) @Max(100)）
+                if (n == null || n < 16 || n > 100) return '请输入 16~100 之间的年龄';
                 return null;
               },
             ),
@@ -240,7 +271,10 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _intro,
-              decoration: const InputDecoration(labelText: '自我介绍', hintText: '飞行经验、擅长场景等'),
+              decoration: const InputDecoration(
+                labelText: '自我介绍',
+                hintText: '飞行经验、擅长场景等',
+              ),
               maxLength: 255,
               maxLines: 3,
             ),
@@ -255,7 +289,9 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
               ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return null;
-                return RegExp(r'^\d{17}[\dXx]$').hasMatch(v.trim()) ? null : '身份证号格式不正确';
+                return RegExp(r'^\d{17}[\dXx]$').hasMatch(v.trim())
+                    ? null
+                    : '身份证号格式不正确';
               },
             ),
             ListTile(
@@ -269,17 +305,25 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
             Row(
               children: [
                 const Expanded(
-                  child: Text('驾驶资质', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    '驾驶资质',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                 ),
                 TextButton.icon(
-                  onPressed: models.isEmpty ? null : () => _addQualification(models),
+                  onPressed: models.isEmpty
+                      ? null
+                      : () => _addQualification(models),
                   icon: const Icon(Icons.add),
                   label: const Text('添加'),
                 ),
               ],
             ),
             if (_quals.isEmpty)
-              const Text('暂无资质', style: TextStyle(color: AppColors.onSurfaceVariant)),
+              const Text(
+                '暂无资质',
+                style: TextStyle(color: AppColors.onSurfaceVariant),
+              ),
             ..._quals.asMap().entries.map((e) {
               final q = e.value;
               return ListTile(
@@ -290,12 +334,21 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
                   value: q.licenseGrade,
                   isDense: true,
                   items: kLicenseGradeLabels.entries
-                      .map((g) => DropdownMenuItem(value: g.key, child: Text(g.value)))
+                      .map(
+                        (g) => DropdownMenuItem(
+                          value: g.key,
+                          child: Text(g.value),
+                        ),
+                      )
                       .toList(),
                   onChanged: (v) {
                     if (v == null) return;
-                    setState(() => _quals[e.key] = ApiRiderQualificationDto(
-                        aircraftModelId: q.aircraftModelId, licenseGrade: v));
+                    setState(
+                      () => _quals[e.key] = ApiRiderQualificationDto(
+                        aircraftModelId: q.aircraftModelId,
+                        licenseGrade: v,
+                      ),
+                    );
                   },
                 ),
                 trailing: IconButton(
@@ -318,7 +371,9 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
 
   Future<void> _pickExpiry() async {
     final now = DateTime.now();
-    final initial = DateTime.tryParse(_idExpiry ?? '') ?? now.add(const Duration(days: 365));
+    final initial =
+        DateTime.tryParse(_idExpiry ?? '') ??
+        now.add(const Duration(days: 365));
     final picked = await showDatePicker(
       context: context,
       initialDate: initial.isBefore(now) ? now : initial,
@@ -326,18 +381,22 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
       lastDate: DateTime(now.year + 30),
     );
     if (picked != null) {
-      setState(() => _idExpiry =
-          '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}');
+      setState(
+        () => _idExpiry =
+            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}',
+      );
     }
   }
 
   Future<void> _addQualification(List<ApiAircraftModelVO> models) async {
     final held = _quals.map((q) => q.aircraftModelId).toSet();
-    final candidates = models.where((m) => m.id != null && !held.contains(m.id)).toList();
+    final candidates = models
+        .where((m) => m.id != null && !held.contains(m.id))
+        .toList();
     if (candidates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('所有机型都已登记')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('所有机型都已登记')));
       return;
     }
     final picked = await showModalBottomSheet<ApiAircraftModelVO>(
@@ -346,17 +405,26 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
         child: ListView(
           shrinkWrap: true,
           children: candidates
-              .map((m) => ListTile(
-                    title: Text(m.displayName ?? m.modelCode ?? ''),
-                    subtitle: m.modelCode != null ? Text(m.modelCode!) : null,
-                    onTap: () => Navigator.of(ctx).pop(m),
-                  ))
+              .map(
+                (m) => ListTile(
+                  title: Text(m.displayName ?? m.modelCode ?? ''),
+                  subtitle: m.modelCode != null ? Text(m.modelCode!) : null,
+                  onTap: () => Navigator.of(ctx).pop(m),
+                ),
+              )
               .toList(),
         ),
       ),
     );
     if (picked == null) return;
-    setState(() => _quals.add(ApiRiderQualificationDto(aircraftModelId: picked.id!, licenseGrade: 'VLOS')));
+    setState(
+      () => _quals.add(
+        ApiRiderQualificationDto(
+          aircraftModelId: picked.id!,
+          licenseGrade: 'VLOS',
+        ),
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -365,25 +433,44 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
     String? changed(String now, String? before) =>
         now.trim() == (before ?? '').trim() ? null : now.trim();
     final ageText = _age.text.trim();
+    // 资质：后端 PATCH 按「目标全集」做集合差（增删），所以资质有改动时必须提交完整列表；
+    // 未改动则不提交（null = 不变），避免无意义的全量覆盖。
+    Set<String> keys(Iterable<(int?, String?)> qs) => {
+      for (final q in qs) '${q.$1}:${q.$2}',
+    };
+    final now = keys(_quals.map((q) => (q.aircraftModelId, q.licenseGrade)));
+    final before = keys(
+      (init.qualifications ?? const <ApiRiderQualificationVO>[]).map(
+        (q) => (q.aircraftModelId, q.licenseGrade),
+      ),
+    );
+    final qualsChanged =
+        now.length != before.length || !now.containsAll(before);
     final dto = ApiRiderInfoDto(
-      age: ageText.isEmpty || int.tryParse(ageText) == init.age ? null : int.parse(ageText),
+      age: ageText.isEmpty || int.tryParse(ageText) == init.age
+          ? null
+          : int.parse(ageText),
       location: changed(_location.text, init.location),
       selfIntroduction: changed(_intro.text, init.selfIntroduction),
-      idNumber: _idNumber.text.trim().isEmpty ? null : _idNumber.text.trim().toUpperCase(),
+      idNumber: _idNumber.text.trim().isEmpty
+          ? null
+          : _idNumber.text.trim().toUpperCase(),
       idExpiryDate: _idExpiry == init.idExpiryDate ? null : _idExpiry,
-      qualifications: _quals,
+      qualifications: qualsChanged ? _quals : null,
     );
     setState(() => _saving = true);
     final result = await ref.read(riderInfoApiProvider).editInfo(dto);
     if (!mounted) return;
     setState(() => _saving = false);
     if (result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('保存成功')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('保存成功')));
       Navigator.of(context).pop(true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message ?? '保存失败')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.message ?? '保存失败')));
     }
   }
 }
