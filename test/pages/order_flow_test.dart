@@ -23,7 +23,9 @@ void main() {
       final path = options.uri.path;
       if (path == '/order/list') {
         listCall += 1;
-        final status = listCall == 1 ? OrderStatusCode.pending : OrderStatusCode.paid;
+        final status = listCall == 1
+            ? OrderStatusCode.pending
+            : OrderStatusCode.paid;
         return jsonResponse(200, {
           'success': true,
           'code': 200,
@@ -117,7 +119,7 @@ void main() {
     await tester.tap(find.text('好的'));
     await tester.pumpAndSettle();
     expect(find.byType(PayPage), findsNothing);
-    expect(find.text('已支付'), findsWidgets);
+    expect(find.text('待飞手确认'), findsWidgets);
     expect(find.text('去支付'), findsNothing, reason: '已支付订单不再展示支付入口');
 
     // 清理 SnackBar 自动消退定时器
@@ -190,10 +192,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('订单详情'), findsOneWidget);
-    expect(find.text('当前状态: 已支付'), findsOneWidget);
+    expect(find.text('当前状态: 待飞手确认'), findsOneWidget);
     // 状态流转四步标签齐全
     expect(find.text('待支付'), findsOneWidget);
-    expect(find.text('已支付'), findsWidgets);
+    expect(find.text('待飞手确认'), findsWidgets);
     expect(find.text('待验收'), findsOneWidget);
     expect(find.text('已完成'), findsOneWidget);
     expect(find.text('订单编号'), findsOneWidget);
@@ -277,7 +279,8 @@ void main() {
           },
         });
       }
-      if (path == '/task/T-3/applications' || path == '/task/T-3/chat-sessions') {
+      if (path == '/task/T-3/applications' ||
+          path == '/task/T-3/chat-sessions') {
         return jsonResponse(200, {'success': true, 'code': 200, 'data': []});
       }
       return jsonResponse(200, {'success': false, 'message': 'stub'});
@@ -328,11 +331,16 @@ void main() {
 
     expect(find.byType(OrderDetailPage), findsOneWidget);
     expect(find.text('等待飞手接单'), findsOneWidget, reason: '撮合中心空状态');
-    expect(find.text('等待飞手应征，选定后下单支付'), findsOneWidget,
-        reason: '文案来自服务端 actionHint');
+    expect(
+      find.text('等待飞手应征，选定后下单支付'),
+      findsOneWidget,
+      reason: '文案来自服务端 actionHint',
+    );
   });
 
-  testWidgets('草稿订单：分栏名与卡片标签同为 REQ-APP-002 阶段名，不显示 ¥0.00 与「未知状态」', (tester) async {
+  testWidgets('草稿订单：分栏名与卡片标签同为 REQ-APP-002 阶段名，不显示 ¥0.00 与「未知状态」', (
+    tester,
+  ) async {
     final adapter = StubAdapter((options) async {
       final path = options.uri.path;
       if (path == '/order/list') {
@@ -389,5 +397,71 @@ void main() {
     await tester.tap(find.widgetWithText(Tab, '招募飞手中'));
     await tester.pumpAndSettle();
     expect(find.text('基站备用电池吊运'), findsOneWidget);
+  });
+
+  testWidgets('每张卡片都落在某个分栏：已付款（反查不到任务）→「待飞手确认」，已取消 →「取消/售后」', (tester) async {
+    final adapter = StubAdapter((options) async {
+      final path = options.uri.path;
+      if (path == '/order/list') {
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': {
+            'orders': [
+              {
+                'orderNum': 'ORD-8',
+                'totalAmount': 264.65,
+                'taskName': '已付款的吊运单',
+                'orderStatus': OrderStatusCode.paid,
+              },
+              {
+                'orderNum': 'ORD-9',
+                'totalAmount': 120.0,
+                'taskName': '已取消的吊运单',
+                'orderStatus': OrderStatusCode.cancelled,
+              },
+            ],
+            'currentPage': 0,
+            'totalPages': 1,
+            'totalElements': 1,
+          },
+        });
+      }
+      return jsonResponse(200, {'success': false, 'message': 'stub'});
+    });
+
+    SharedPreferences.setMockInitialValues({
+      'jwt_token': makeJwt(userId: 7),
+      'server_url': 'http://stub.local:8081',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          httpClientProvider.overrideWithValue(
+            HttpClient(TokenStorage(prefs), adapter: adapter),
+          ),
+        ],
+        child: const MaterialApp(home: OrderListPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('已支付'), findsNothing, reason: '不使用 REQ-APP-002 状态机之外的阶段名');
+    await tester.tap(find.widgetWithText(Tab, '待飞手确认'));
+    await tester.pumpAndSettle();
+    expect(find.text('已付款的吊运单'), findsOneWidget);
+    expect(find.text('已取消的吊运单'), findsNothing);
+
+    await tester.dragUntilVisible(
+      find.widgetWithText(Tab, '取消/售后'),
+      find.byType(TabBar),
+      const Offset(-200, 0),
+    );
+    await tester.tap(find.widgetWithText(Tab, '取消/售后'));
+    await tester.pumpAndSettle();
+    expect(find.text('已取消的吊运单'), findsOneWidget);
+    expect(find.text('已付款的吊运单'), findsNothing);
   });
 }

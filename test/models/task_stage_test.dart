@@ -32,7 +32,7 @@ void main() {
       ('IDLE', 'NEGOTIATING', 'MATCHING', '洽谈中', 0),
       ('IDLE', 'AWAITING_PAYMENT', 'PENDING', '待支付', 1),
       ('IDLE', 'AWAITING_RIDER_CONFIRM', 'PAID', '待飞手确认', 2),
-      ('IDLE', 'CONFIRMED', 'PAID', '已确认', 3),
+      ('IDLE', 'CONFIRMED', 'PAID', '进行中', 3),
       ('IN_PROGRESS', 'CONFIRMED', 'PAID', '进行中', 3),
       ('COMPLETED', 'PENDING_ACCEPTANCE', 'WAITING_CONFIRM', '待验收', 4),
       ('COMPLETED', 'CLOSED', 'COMPLETED', '已完成', 5),

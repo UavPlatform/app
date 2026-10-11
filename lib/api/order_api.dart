@@ -26,7 +26,8 @@ class OrderStatusCode {
       case pending:
         return '待支付';
       case paid:
-        return '已支付';
+        // 已付款的第一个阶段（REQ-APP-002 状态机）；反查到任务时列表用任务阶段（可能已是「进行中」）
+        return '待飞手确认';
       case cancelled:
         return '已取消';
       case refunded:

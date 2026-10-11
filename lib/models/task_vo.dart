@@ -223,7 +223,8 @@ class TaskVo {
       case 'AWAITING_RIDER_CONFIRM':
         return '待飞手确认';
       case 'CONFIRMED':
-        return isInProgress ? '进行中' : '已确认';
+        // REQ-APP-002：「双方确认」后即为「进行中」（djifly 执飞），不单列「已确认」
+        return '进行中';
       case 'PENDING_ACCEPTANCE':
         return '待验收';
       case 'CLOSED':

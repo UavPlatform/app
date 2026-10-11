@@ -21,7 +21,7 @@ void main() {
   group('OrderStatusCode 标签映射', () {
     test('0-5 全状态中文标签（WAITING_CONFIRM 展示为待验收）', () {
       expect(OrderStatusCode.labelOf(OrderStatusCode.pending), '待支付');
-      expect(OrderStatusCode.labelOf(OrderStatusCode.paid), '已支付');
+      expect(OrderStatusCode.labelOf(OrderStatusCode.paid), '待飞手确认');
       expect(OrderStatusCode.labelOf(OrderStatusCode.cancelled), '已取消');
       expect(OrderStatusCode.labelOf(OrderStatusCode.refunded), '已退款');
       expect(OrderStatusCode.labelOf(OrderStatusCode.completed), '已完成');
@@ -78,7 +78,7 @@ void main() {
       expect(result.data!.orders[0].statusLabel, '待支付');
       expect(result.data!.orders[0].isPending, true);
       expect(result.data!.orders[1].orderStatus, OrderStatusCode.paid);
-      expect(result.data!.orders[1].statusLabel, '已支付');
+      expect(result.data!.orders[1].statusLabel, '待飞手确认');
       expect(result.data!.totalElements, 2);
     });
   });

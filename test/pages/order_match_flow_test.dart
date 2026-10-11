@@ -438,7 +438,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('双方已确认，可以开始作业'), findsOneWidget);
-    expect(find.text('已确认'), findsOneWidget);
+    expect(find.text('进行中'), findsWidgets, reason: 'REQ-APP-002：双方确认后即「进行中」');
+    expect(find.text('已确认'), findsNothing);
     expect(find.text('用户确认时间'), findsOneWidget);
     expect(find.text('飞手确认时间'), findsOneWidget);
     expect(find.text('2026-09-26 12:00'), findsOneWidget);

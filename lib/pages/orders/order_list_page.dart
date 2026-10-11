@@ -34,9 +34,12 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     ('洽谈中', {'洽谈中'}),
     ('待支付', {'待支付'}),
     ('待飞手确认', {'待飞手确认'}),
-    ('进行中', {'进行中', '已确认'}),
+    ('进行中', {'进行中'}),
     ('待验收', {'待验收'}),
     ('已完成', {'已完成'}),
+    // REQ-APP-002 主状态机之外的旁路终态（后端 OrderStatus：取消/退款/争议），单独一栏，
+    // 保证每张卡片都落在某个分栏里，而不是只出现在「全部」。
+    ('取消/售后', {'已取消', '已退款', '争议中'}),
   ];
 
   List<OrderVo>? _orders;
@@ -522,9 +525,9 @@ class _OrderDetailViewState extends ConsumerState<_OrderDetailView> {
     );
   }
 
-  /// 状态流转：待支付 → 已支付 → 待验收 → 已完成。
+  /// 状态流转（反查不到任务时的兜底视图，按订单码）：待支付 → 待飞手确认 → 待验收 → 已完成。
   Widget _statusFlow(int status) {
-    final steps = const ['待支付', '已支付', '待验收', '已完成'];
+    final steps = const ['待支付', '待飞手确认', '待验收', '已完成'];
     final stepCodes = const [
       OrderStatusCode.pending,
       OrderStatusCode.paid,
