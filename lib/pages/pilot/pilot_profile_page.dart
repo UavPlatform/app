@@ -97,7 +97,9 @@ class PilotProfilePage extends ConsumerWidget {
                     applicationVersion: '1.0.0',
                     applicationIcon: const Icon(Icons.flight, size: 40, color: Color(0xFF2E7D32)),
                     children: const [
-                      Text('无人机吊运撮合平台：在任务大厅应征、与用户在线沟通、按约定时间执飞并上传交付凭证。'),
+                      // ADR-0002：飞行执行在 djifly，App 不执行飞行；ADR-0003：平台统一计价、不议价。
+                      Text('无人机吊运撮合平台：在任务大厅按平台统一报价应征，与用户沟通作业细节；'
+                          '确认订单后在 djifly 中执行飞行，完成后提交交付凭证。'),
                     ],
                   )),
 
