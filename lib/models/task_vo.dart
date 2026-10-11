@@ -272,7 +272,8 @@ class TaskVo {
     if (quotedAmount != null && quotedAmount! > 0) {
       return '¥${quotedAmount!.toStringAsFixed(2)}';
     }
-    return '面议';
+    // ADR-0003：平台按规则统一计价、不议价——不显示「面议」；飞手应征后由平台给出系统报价
+    return '待平台报价';
   }
 
   String get formattedCreateTime {

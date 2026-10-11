@@ -252,6 +252,8 @@ void main() {
     expect(find.text('婚礼航拍跟拍'), findsNothing,
         reason: '默认筛选 TRANSPORT，非吊运任务不展示');
     expect(find.text('25 kg · 建材'), findsOneWidget, reason: '卡片展示货物信息');
+    expect(find.text('待平台报价'), findsOneWidget, reason: 'ADR-0003：未报价时不显示「面议」');
+    expect(find.text('面议'), findsNothing);
     expectNoPriceInputs();
 
     await tester.tap(find.text('全部'));
@@ -530,8 +532,8 @@ void main() {
     expect(find.text('已确认待执飞 (1)'), findsOneWidget);
     expect(find.text('已应征，等待用户选定下单'), findsOneWidget,
         reason: '文案以服务端 actionHint 为准');
-    expect(find.text('¥356.40'), findsOneWidget, reason: '应征中卡片显示本人系统报价而不是「面议」');
-    expect(find.text('面议'), findsNothing);
+    expect(find.text('¥356.40'), findsOneWidget, reason: '应征中卡片显示本人系统报价');
+    expect(find.text('待平台报价'), findsNothing);
     expect(find.text('已支付，等待你确认约定作业时间'), findsOneWidget);
     expect(find.text('约定作业时间: 2026-09-28 09:00'), findsOneWidget);
     expect(find.text('打开 djifly'), findsOneWidget,
