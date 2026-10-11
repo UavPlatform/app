@@ -6,15 +6,6 @@ class AppBottomNav extends StatelessWidget {
 
   const AppBottomNav({super.key, required this.child});
 
-  static const _activeScale = 1.15;
-  static const _inactiveScale = 0.85;
-
-  static const _selectedColors = [
-    Color(0xFF5B8FD4), // 首页 - 柔和蓝
-    Color(0xFF55B882), // 订单 - 柔和绿
-    Color(0xFF8B7EC8), // 我的 - 柔和紫
-  ];
-
   int _currentIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
     if (location.startsWith('/home')) return 0;
@@ -33,35 +24,44 @@ class AppBottomNav extends StatelessWidget {
         currentIndex: idx,
         onTap: (i) {
           switch (i) {
-            case 0: context.go('/home');
-            case 1: context.go('/orders');
-            case 2: context.go('/profile');
+            case 0:
+              context.go('/home');
+            case 1:
+              context.go('/orders');
+            case 2:
+              context.go('/profile');
           }
         },
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        unselectedItemColor: const Color(0xFFAAAAAA),
-        selectedItemColor: _selectedColors[idx],
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        selectedItemColor: Theme.of(context).brightness == Brightness.dark
+            ? Theme.of(context).colorScheme.primary
+            : const Color(0xFF4A8BFF),
         selectedFontSize: 12,
-        unselectedFontSize: 10,
+        iconSize: 24,
+        elevation: 0,
+        unselectedFontSize: 12,
         items: [
           BottomNavigationBarItem(
-            icon: Transform.scale(scale: _inactiveScale, child: const Icon(Icons.home_outlined)),
-            activeIcon: Transform.scale(scale: _activeScale, child: const Icon(Icons.home)),
+            icon: Icon(Icons.home_outlined),
+            activeIcon: _activeIcon(Icons.home),
             label: '首页',
           ),
           BottomNavigationBarItem(
-            icon: Transform.scale(scale: _inactiveScale, child: const Icon(Icons.receipt_long_outlined)),
-            activeIcon: Transform.scale(scale: _activeScale, child: const Icon(Icons.receipt_long)),
+            icon: Icon(Icons.receipt_long_outlined),
+            activeIcon: _activeIcon(Icons.receipt_long),
             label: '订单',
           ),
           BottomNavigationBarItem(
-            icon: Transform.scale(scale: _inactiveScale, child: const Icon(Icons.person_outline)),
-            activeIcon: Transform.scale(scale: _activeScale, child: const Icon(Icons.person)),
+            icon: Icon(Icons.person_outline),
+            activeIcon: _activeIcon(Icons.person),
             label: '我的',
           ),
         ],
       ),
     );
   }
+
+  Widget _activeIcon(IconData icon) => Icon(icon, size: 24);
 }

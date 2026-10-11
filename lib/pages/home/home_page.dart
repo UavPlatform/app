@@ -1,7 +1,9 @@
-// 首页 = 吊运发单主战场（REQ-APP-002 / ADR-0003）：
-//   地图起终点（起吊点=当前定位，卸货点=地图选点） + 物资表单（类别/重量/体积/说明/期望时间）
-//   + 发布 TRANSPORT（发单不支付，支付在选定飞手后） + 本人已发任务摘要。
-// 已移除：服务四宫格、热门飞手推荐、任务广场（多品类公域推荐位）。
+// 首页 = 吊运发单主战场（REQ-APP-002 / ADR-0003，UI 重构版）：
+//   沉浸式地图（起吊点=当前定位，卸货点=地图选点） + 悬浮起终点双竖线卡片
+//   （起吊点展示逆地理编码的「人话」地址，不再暴露经纬度） + 紧凑物资表单
+//   + 发布 TRANSPORT（发单不支付，支付在选定飞手后）。
+// 已移除：服务四宫格、热门飞手推荐、任务广场、本人已发任务列表（任务列表
+//   收敛到「订单」Tab，首页只专注「发单」一件事）。
 
 import 'dart:async';
 
@@ -13,19 +15,31 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../api/generated/openapi_models.dart';
-import '../../models/task_vo.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/task_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/scroll_pickers.dart';
+import '../../widgets/mission_design.dart';
 
 /// 吊运任务类型（后端 TaskType.TRANSPORT；C 端唯一品类，REQ-APP-002 验收 1）。
 const String kTransportTaskType = 'TRANSPORT';
 
-/// 货物类别 → 中文标签（对齐后端 CargoCategory 描述）。
+/// 货物类别 → 中文标签；新增类别需由后端同步支持。
 const Map<String, String> kCargoCategoryLabels = {
   'CONSTRUCTION': '建材',
   'EQUIPMENT': '设备',
   'AGRICULTURAL': '农产品',
+  'DAILY_SUPPLIES': '生活物资',
+  'FURNITURE': '家具家居',
+};
+
+/// 货物类别 → 图标（图标+文字快捷选项，增强点击欲与辨识度）。
+const Map<String, IconData> _cargoCategoryIcons = {
+  'CONSTRUCTION': Icons.construction,
+  'EQUIPMENT': Icons.precision_manufacturing,
+  'AGRICULTURAL': Icons.agriculture,
+  'DAILY_SUPPLIES': Icons.shopping_basket_outlined,
+  'FURNITURE': Icons.chair_outlined,
 };
 
 /// 组装提交给后端的 taskTime（t15 契约："yyyy-MM-dd HH:mm:ss"，空格分隔）。
@@ -50,10 +64,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// 地图默认中心（定位不可用时，沿用仓库既有默认坐标）。
   static const LatLng _fallbackCenter = LatLng(27.8981, 112.9193);
 
-  /// 地图平瓦地址（与既有选点组件一致，高德 Web 瓦片）。
-  static const String _tileUrl =
-      'https://webrd0{s}.is.autonavi.com/appmaptile'
-      '?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}';
+  /// 卫星影像底图（高德，无标注）。
+  static const String _satelliteTileUrl =
+      'https://webst0{s}.is.autonavi.com/appmaptile'
+      '?style=6&x={x}&y={y}&z={z}';
+
+  /// 地名/POI 文字标注透明层（叠加在卫星图上，显示地名）。
+  static const String _labelTileUrl =
+      'https://wprd0{s}.is.autonavi.com/appmaptile'
+      '?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=8&ltype=4';
 
   String? _category;
   final _weightController = TextEditingController();
@@ -64,6 +83,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   LatLng? _destination;
   bool _submitting = false;
   bool _mapReady = false;
+  bool _sheetExpanded = true;
   late final MapController _mapController;
 
   @override
@@ -92,7 +112,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// 打开全屏地图精挑卸货点（复用既有选点组件 single 模式）。
@@ -117,18 +139,19 @@ class _HomePageState extends ConsumerState<HomePage> {
     setState(() => _destination = null);
   }
 
-  /// 期望作业时间（可选）：日期 + 时间一次选完，避免出现只选其一的中间态。
+  /// 期望作业时间（可选）：日期 + 时间用滚轮选择器一次选完，
+  /// 避免原生 Material 选择器，观感更贴合品牌。
   Future<void> _pickExpectedTime() async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _expectedDate ?? DateTime.now().add(const Duration(days: 1)),
+    final date = await showScrollDatePicker(
+      context,
+      initial: _expectedDate ?? DateTime.now().add(Duration(days: 1)),
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 90)),
+      lastDate: DateTime.now().add(Duration(days: 90)),
     );
     if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: _expectedTime ?? TimeOfDay.now(),
+    final time = await showScrollTimePicker(
+      context,
+      initial: _expectedTime ?? TimeOfDay.now(),
     );
     if (time == null || !mounted) return;
     setState(() {
@@ -230,9 +253,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (!mounted) return;
     setState(() => _submitting = false);
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('发布成功，等待飞手应征')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('发布成功，等待飞手应征')));
       _resetForm();
       unawaited(ref.read(taskListProvider.notifier).loadTasks());
     } else {
@@ -241,69 +264,116 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
+  /// 起吊点展示文本：优先逆地理编码地址，退化为城市，最后才兜底提示。
+  String _startLabel(LocationState location) {
+    if (location.loading) return '定位中...';
+    final address = location.address;
+    if (address != null && address.isNotEmpty) return address;
+    if (location.city.isNotEmpty && location.city != '未知城市') {
+      return location.city;
+    }
+    return '点击右侧刷新定位';
+  }
+
   @override
   Widget build(BuildContext context) {
     final location = ref.watch(locationProvider);
-    final taskState = ref.watch(taskListProvider);
-    final activeTasks =
-        taskState.tasks.where((t) => !t.isCompleted).toList(growable: false);
 
     return Scaffold(
-      appBar: AppBar(
-        title: GestureDetector(
-          onTap: () => ref.read(locationProvider.notifier).refresh(),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.location_on, color: AppColors.primary, size: 20),
-              const SizedBox(width: 4),
-              Text(
-                location.loading ? '定位中...' : location.city,
-                style: const TextStyle(fontSize: 16),
-              ),
-              const Icon(Icons.arrow_drop_down, size: 20),
-            ],
-          ),
-        ),
-      ),
-      body: Column(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: Stack(
         children: [
-          _buildMap(location),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => ref.read(taskListProvider.notifier).loadTasks(),
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _buildPointCard(location),
-                  const SizedBox(height: 16),
-                  _buildCargoForm(),
-                  const SizedBox(height: 24),
-                  _buildSectionTitle('我发布的任务'),
-                  const SizedBox(height: 12),
-                  ..._buildTaskSection(taskState, activeTasks),
-                ],
-              ),
+          // 沉浸式地图背景（整块可点击选卸货点）
+          Positioned.fill(child: _buildMap(location)),
+          // 顶部定位条悬浮于地图之上
+          if (!_sheetExpanded)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _buildTopBar(location),
+            ),
+          // 底部抽屉：起终点 + 货物表单，上滑展开盖住地图
+          NotificationListener<DraggableScrollableNotification>(
+            onNotification: (notification) {
+              final expanded = notification.extent > 0.32;
+              if (expanded != _sheetExpanded)
+                setState(() => _sheetExpanded = expanded);
+              return false;
+            },
+            child: DraggableScrollableSheet(
+              initialChildSize: 0.48,
+              minChildSize: 0.28,
+              maxChildSize: 0.9,
+              builder: (context, scrollController) =>
+                  _buildFormSheet(scrollController, location),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: SizedBox(
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _submitting ? null : _publish,
-              child: _submitting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('发布吊运需求'),
+    );
+  }
+
+  /// 顶部定位条：城市名 + 下拉提示，点击刷新定位（悬浮于地图之上）。
+  Widget _buildTopBar(LocationState location) {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 10, 16, 0),
+        child: Material(
+          color: Theme.of(context).colorScheme.surface,
+          elevation: 2,
+          shadowColor: Color(0x18000000),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(14, 10, 4, 10),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.location_on_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 22,
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        location.loading ? '定位中...' : location.city,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        location.address?.isNotEmpty == true
+                            ? location.address!
+                            : '定位当前作业区域',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: '重新定位',
+                  onPressed: () =>
+                      ref.read(locationProvider.notifier).refresh(),
+                  icon: Icon(
+                    Icons.my_location,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -311,90 +381,173 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// 地图区：固定在滚动区之外（避免与列表滚动手势冲突）。
-  /// 起吊点=当前定位（蓝），点击地图任意位置=设置卸货点（红）。
+  /// 沉浸式地图：整块无边框，可点击任意位置设置卸货点；起终点卡片悬浮于底部。
   Widget _buildMap(LocationState location) {
-    final LatLng? start = (location.latitude != null && location.longitude != null)
+    final LatLng? start =
+        (location.latitude != null && location.longitude != null)
         ? LatLng(location.latitude!, location.longitude!)
         : null;
     final LatLng center = _destination ?? start ?? _fallbackCenter;
 
-    return SizedBox(
-      height: 200,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.outline),
-        ),
-        child: Stack(
-          children: [
-            FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: center,
-                initialZoom: 15,
-                onMapReady: () => setState(() => _mapReady = true),
-                onTap: (_, point) => _setDestination(point),
-                // 关闭双击缩放：单击即选点，避免 250ms 双击判定延迟。
-                interactionOptions: const InteractionOptions(
-                  flags: InteractiveFlag.drag |
-                      InteractiveFlag.pinchZoom |
-                      InteractiveFlag.flingAnimation,
-                ),
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: center,
+              initialZoom: 15,
+              onMapReady: () => setState(() => _mapReady = true),
+              onTap: (_, point) {
+                if (!_sheetExpanded) _setDestination(point);
+              },
+              // 关闭双击缩放：单击即选点，避免 250ms 双击判定延迟。
+              interactionOptions: InteractionOptions(
+                flags:
+                    InteractiveFlag.drag |
+                    InteractiveFlag.pinchZoom |
+                    InteractiveFlag.flingAnimation,
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: _tileUrl,
-                  subdomains: const ['1', '2', '3', '4'],
-                  maxZoom: 18,
-                ),
-                MarkerLayer(
-                  markers: [
-                    if (start != null)
-                      Marker(
-                        point: start,
-                        width: 36,
-                        height: 36,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.my_location,
-                                color: Colors.blue, size: 18),
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: _satelliteTileUrl,
+                subdomains: const ['1', '2', '3', '4'],
+                maxZoom: 18,
+              ),
+              TileLayer(
+                urlTemplate: _labelTileUrl,
+                subdomains: const ['1', '2', '3', '4'],
+                maxZoom: 18,
+              ),
+              MarkerLayer(
+                markers: [
+                  if (start != null)
+                    Marker(
+                      point: start,
+                      width: 36,
+                      height: 36,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF238561).withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.my_location,
+                            color: Color(0xFF238561),
+                            size: 18,
                           ),
                         ),
                       ),
-                    if (_destination != null)
-                      Marker(
-                        point: _destination!,
-                        width: 36,
-                        height: 44,
-                        child: const Icon(Icons.location_on,
-                            color: Colors.red, size: 34),
+                    ),
+                  if (_destination != null)
+                    Marker(
+                      point: _destination!,
+                      width: 36,
+                      height: 44,
+                      child: Icon(
+                        Icons.location_on,
+                        color: AppColors.accent,
+                        size: 34,
                       ),
-                  ],
-                ),
-              ],
-            ),
-            Positioned(
-              left: 8,
-              top: 8,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // 提示角标（悬浮在地图左上）：告知用户地图可点击选卸货点。
+        if (!_sheetExpanded)
+          Positioned(
+            left: 12,
+            top: MediaQuery.paddingOf(context).top + 92,
+            child: IgnorePointer(
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surface.withValues(alpha: 0.94),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   _destination == null ? '点击地图选择卸货点' : '已选卸货点，点击地图可更改',
-                  style: const TextStyle(fontSize: 12),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// 起终点双竖线卡片：起吊点（当前定位，人话地址）+ 卸货点（地图选点）。
+  Widget _buildRouteCard(LocationState location) {
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          children: [
+            _buildRouteRow(
+              key: ValueKey('home-start-row'),
+              dotColor: const Color(0xFF238561),
+              title: '起吊点',
+              subtitle: _startLabel(location),
+              trailing: IconButton(
+                icon: Icon(Icons.refresh, size: 20),
+                visualDensity: VisualDensity.compact,
+                tooltip: '重新定位',
+                onPressed: () => ref.read(locationProvider.notifier).refresh(),
+              ),
+            ),
+            // 连接线（对齐圆点中心）。
+            Row(
+              children: [
+                SizedBox(
+                  width: 30,
+                  height: 24,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(
+                        4,
+                        (_) => Container(
+                          width: 2,
+                          height: 3,
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(child: Divider(height: 24)),
+              ],
+            ),
+            _buildRouteRow(
+              key: ValueKey('home-destination-row'),
+              dotColor: AppColors.accent,
+              title: '卸货点',
+              subtitle: _destination == null ? '点击选择卸货点' : '已选择卸货点',
+              trailing: _destination == null
+                  ? Icon(
+                      Icons.chevron_right,
+                      color: Theme.of(context).colorScheme.outline,
+                    )
+                  : IconButton(
+                      icon: Icon(Icons.clear, size: 20),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: '清除卸货点',
+                      onPressed: _clearDestination,
+                    ),
+              onTap: _pickDestinationPrecisely,
             ),
           ],
         ),
@@ -402,328 +555,450 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// 起吊点（当前定位）与卸货点（地图选点）信息卡。
-  Widget _buildPointCard(LocationState location) {
-    final bool hasStart =
-        location.latitude != null && location.longitude != null;
-    final String startText;
-    if (location.loading) {
-      startText = '定位中...';
-    } else if (hasStart) {
-      startText =
-          '${location.latitude!.toStringAsFixed(5)}, ${location.longitude!.toStringAsFixed(5)}';
-    } else {
-      startText = '定位不可用，点击右侧重试';
-    }
+  Widget _buildRouteRow({
+    Key? key,
+    required Color dotColor,
+    required String title,
+    required String subtitle,
+    required Widget trailing,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      key: key,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                title == '起吊点' ? '起' : '卸',
+                style: TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      if (title == '起吊点')
+                        Text(
+                          '当前定位',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            trailing,
+          ],
+        ),
+      ),
+    );
+  }
 
-    return Card(
-      margin: EdgeInsets.zero,
+  /// 底部抽屉：起终点卡片 + 货物详情 + 发布 CTA。
+  Widget _buildFormSheet(
+    ScrollController scrollController,
+    LocationState location,
+  ) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x140B3D66),
+            blurRadius: 16,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ListTile(
-            leading: const Icon(Icons.my_location, color: Colors.blue),
-            title: const Text('起吊点（当前定位）'),
-            subtitle: Text(startText),
-            trailing: IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () => ref.read(locationProvider.notifier).refresh(),
+          Expanded(
+            child: ListView(
+              controller: scrollController,
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 40),
+              children: [
+                // 拖动手柄
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(2, 4, 2, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '创建吊运任务',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 8),
+                _buildRouteCard(location),
+                SizedBox(height: 14),
+                Material(
+                  color: Theme.of(context).colorScheme.surface,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 18, 16, 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 3,
+                              height: 16,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              '货物与作业信息',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 20),
+                        _buildCategoryField(),
+                        SizedBox(height: 12),
+                        _buildWeightVolumeFields(),
+                        SizedBox(height: 16),
+                        _buildDescriptionField(),
+                        SizedBox(height: 12),
+                        Divider(height: 1),
+                        Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: _buildTimeField(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: 12),
+              ],
             ),
           ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.location_on, color: Colors.red),
-            title: const Text('卸货点'),
-            subtitle: Text(
-              _destination == null
-                  ? '点击上方地图，或打开地图精挑'
-                  : '${_destination!.latitude.toStringAsFixed(5)}, ${_destination!.longitude.toStringAsFixed(5)}',
+          Container(
+            key: const ValueKey('home-publish-footer'),
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, -4),
+                ),
+              ],
+              border: Border(
+                top: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
             ),
-            trailing: _destination == null
-                ? const Icon(Icons.chevron_right, color: AppColors.outline)
-                : IconButton(
-                    icon: const Icon(Icons.clear),
-                    tooltip: '清除卸货点',
-                    onPressed: _clearDestination,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildPublishButton(),
+                SizedBox(height: 8),
+                Text(
+                  '发布后等待飞手报价，选择飞手后再确认支付',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFB9C3CE)
+                        : const Color(0xFF666666),
                   ),
-            onTap: _pickDestinationPrecisely,
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// 物资表单：类别（必选）、重量（必填正数）、体积（选填）、吊运说明（可折叠）、期望时间（可选）。
-  Widget _buildCargoForm() {
-    return Card(
-      margin: EdgeInsets.zero,
+  /// 货物类别：图标 + 文字快捷选项（ChoiceChip）。
+  Widget _buildCategoryField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '货物类别 *',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: kCargoCategoryLabels.entries
+              .map((e) {
+                final icon =
+                    _cargoCategoryIcons[e.key] ?? Icons.inventory_2_outlined;
+                final selected = _category == e.key;
+                final activeColor =
+                    Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFFFB36D)
+                    : AppColors.accentDark;
+                return ChoiceChip(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  side: BorderSide(
+                    color: selected
+                        ? AppColors.accent
+                        : Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                  showCheckmark: false,
+                  avatar: Icon(
+                    icon,
+                    size: 18,
+                    color: selected
+                        ? activeColor
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  label: Text(
+                    e.value,
+                    style: TextStyle(
+                      color: selected
+                          ? activeColor
+                          : Theme.of(context).colorScheme.onSurface,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                  selected: selected,
+                  selectedColor: AppColors.accent.withValues(
+                    alpha: Theme.of(context).brightness == Brightness.dark
+                        ? 0.18
+                        : 0.1,
+                  ),
+                  onSelected: (_) => setState(() => _category = e.key),
+                );
+              })
+              .toList(growable: false),
+        ),
+      ],
+    );
+  }
+
+  /// 重量/体积：标准输入框 + 单位后缀，避免视觉上像禁用按钮。
+  Widget _buildWeightVolumeFields() {
+    return Column(
+      children: [
+        _buildMeasurementRow(
+          label: '货物重量 *',
+          fieldKey: 'home-cargo-weight-field',
+          controller: _weightController,
+          hint: '请输入重量',
+          unit: 'kg',
+        ),
+        Divider(height: 1),
+        _buildMeasurementRow(
+          label: '货物体积',
+          fieldKey: 'home-cargo-volume-field',
+          controller: _volumeController,
+          hint: '选填',
+          unit: 'm³',
+        ),
+        Divider(height: 1),
+      ],
+    );
+  }
+
+  Widget _buildMeasurementRow({
+    required String label,
+    required String fieldKey,
+    required TextEditingController controller,
+    required String hint,
+    required String unit,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 108,
+          child: Text(label, style: TextStyle(fontSize: 15)),
+        ),
+        Expanded(
+          child: TextField(
+            key: ValueKey(fieldKey),
+            controller: controller,
+            textAlign: TextAlign.start,
+            style: TextStyle(fontSize: 15),
+            keyboardType: TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+            ],
+            decoration: MissionFormStyles.input(
+              context,
+              hint: hint,
+              unit: unit,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 吊运说明：直接两行文本域（不再折叠），降低填写成本。
+  Widget _buildDescriptionField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('吊运说明（选填）', style: TextStyle(fontSize: 15)),
+        SizedBox(height: 8),
+        Container(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          padding: EdgeInsets.symmetric(horizontal: 12),
+          child: TextField(
+            key: ValueKey('home-cargo-description-field'),
+            controller: _descriptionController,
+            maxLines: 2,
+            maxLength: 500,
+            onChanged: (_) => setState(() {}),
+            decoration: MissionFormStyles.input(
+              context,
+              hint: '吊点位置、绑扎要求、现场联系人等',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 期望作业时间：一行列表项，默认「现在」，点击弹日期+时间选择器。
+  Widget _buildTimeField() {
+    final hasTime = _expectedDate != null;
+    return InkWell(
+      onTap: _pickExpectedTime,
+      borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: Row(
           children: [
-            const Text('物资信息',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            const Text('货物类别 *',
-                style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: kCargoCategoryLabels.entries
-                  .map(
-                    (e) => ChoiceChip(
-                      label: Text(e.value),
-                      selected: _category == e.key,
-                      onSelected: (_) => setState(() => _category = e.key),
-                    ),
-                  )
-                  .toList(growable: false),
+            Icon(
+              Icons.schedule,
+              size: 20,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    key: const ValueKey('home-cargo-weight-field'),
-                    controller: _weightController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                    ],
-                    decoration: const InputDecoration(
-                      labelText: '重量 *',
-                      hintText: '例如 12.5',
-                      suffixText: 'kg',
-                    ),
-                  ),
+            SizedBox(width: 10),
+            Text(
+              '期望作业时间',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                hasTime
+                    ? buildTaskTimeString(_expectedDate, _expectedTime)!
+                    : '现在',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: hasTime
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    key: const ValueKey('home-cargo-volume-field'),
-                    controller: _volumeController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                    ],
-                    decoration: const InputDecoration(
-                      labelText: '体积（选填）',
-                      hintText: '例如 2.5',
-                      suffixText: 'm³',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: const Text('吊运说明',
-                  style: TextStyle(fontWeight: FontWeight.w500)),
-              subtitle: Text(
-                _descriptionController.text.isEmpty ? '点击展开填写' : '已填写',
-                style: const TextStyle(fontSize: 12),
-              ),
-              children: [
-                TextField(
-                  key: const ValueKey('home-cargo-description-field'),
-                  controller: _descriptionController,
-                  maxLines: 4,
-                  maxLength: 500,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    hintText: '吊点位置、绑扎要求、现场联系人等',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.schedule, size: 18,
-                    color: AppColors.onSurfaceVariant),
-                const SizedBox(width: 6),
-                const Text('期望作业时间（选填）',
-                    style: TextStyle(fontWeight: FontWeight.w500)),
-                const Spacer(),
-                if (_expectedDate != null)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    tooltip: '清除期望时间',
-                    onPressed: _clearExpectedTime,
-                  ),
-              ],
-            ),
-            OutlinedButton.icon(
-              onPressed: _pickExpectedTime,
-              icon: const Icon(Icons.event, size: 18),
-              label: Text(
-                _expectedDate == null
-                    ? '选择日期与时间'
-                    : buildTaskTimeString(_expectedDate, _expectedTime)!,
+                textAlign: TextAlign.end,
+                maxLines: 2,
               ),
             ),
+            if (hasTime)
+              IconButton(
+                icon: Icon(Icons.clear, size: 18),
+                visualDensity: VisualDensity.compact,
+                tooltip: '恢复为现在',
+                onPressed: _clearExpectedTime,
+              )
+            else
+              Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).colorScheme.outline,
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-    );
-  }
-
-  List<Widget> _buildTaskSection(
-    TaskListState taskState,
-    List<TaskVo> activeTasks,
-  ) {
-    if (taskState.loading && taskState.tasks.isEmpty) {
-      return [
-        const SizedBox(
-          height: 120,
-          child: Center(child: CircularProgressIndicator()),
+  Widget _buildPublishButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.accent,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.5),
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
-      ];
-    }
-    if (taskState.error != null && taskState.tasks.isEmpty) {
-      return [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Text(
-                  taskState.error!,
-                  style: const TextStyle(color: AppColors.onSurfaceVariant),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: () => ref.read(taskListProvider.notifier).loadTasks(),
-                  child: const Text('重试'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ];
-    }
-    if (activeTasks.isEmpty) {
-      return [
-        const Card(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(
-              child: Text(
-                '暂无进行中的任务，发布后将显示在这里',
-                style:
-                    TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
-              ),
-            ),
-          ),
-        ),
-      ];
-    }
-    return activeTasks.map(_buildTaskCard).toList(growable: false);
-  }
-
-  Widget _buildTaskCard(TaskVo task) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () => context.push('/order/${task.taskNum}'),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _buildStatusTag(task.taskStatus),
-                  const Spacer(),
-                  Text(
-                    task.formattedCreateTime,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.onSurfaceVariant),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(task.taskName,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w500),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
-              if (task.description != null &&
-                  task.description!.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(task.description!,
-                    style: const TextStyle(
-                        fontSize: 14, color: AppColors.onSurfaceVariant),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
-              ],
-              if (task.actionHint != null &&
-                  task.actionHint!.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.info_outline,
-                        size: 14, color: AppColors.primary),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        task.actionHint!,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.primary),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
+        onPressed: _submitting ? null : _publish,
+        child: _submitting
+            ? SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Text('发布吊运需求'),
       ),
-    );
-  }
-
-  Widget _buildStatusTag(String status) {
-    Color bgColor;
-    Color textColor;
-    String label;
-    switch (status) {
-      case 'IDLE':
-        bgColor = AppColors.statusPending;
-        textColor = AppColors.statusPendingText;
-        label = '空闲中';
-        break;
-      case 'IN_PROGRESS':
-        bgColor = AppColors.statusInProgress;
-        textColor = AppColors.statusInProgressText;
-        label = '执行中';
-        break;
-      case 'COMPLETED':
-        bgColor = AppColors.statusCompleted;
-        textColor = AppColors.statusCompletedText;
-        label = '已完成';
-        break;
-      default:
-        bgColor = AppColors.statusCancelled;
-        textColor = AppColors.statusCancelledText;
-        label = status;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-          color: bgColor, borderRadius: BorderRadius.circular(4)),
-      child: Text(label, style: TextStyle(fontSize: 12, color: textColor)),
     );
   }
 }

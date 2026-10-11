@@ -32,7 +32,7 @@ class OrderStatusCode {
       case waitingConfirm:
         return '待验收';
       default:
-        return '未知状态';
+        return '状态待确认';
     }
   }
 }
@@ -66,7 +66,7 @@ class OrderVo {
       totalAmount: c.totalAmount,
       distance: c.distance,
       taskName: c.taskName,
-      orderStatus: c.orderStatus ?? 0,
+      orderStatus: c.orderStatus ?? -1,
       deviceId: c.deviceId,
       liveState: c.liveState,
     );
@@ -96,9 +96,7 @@ class OrderListVo {
   factory OrderListVo.fromJson(Map<String, dynamic> json) {
     final c = ApiOrderListVO.fromJson(json);
     return OrderListVo(
-      orders: (c.orders ?? const <ApiOrderVO>[])
-          .map(OrderVo.fromApi)
-          .toList(),
+      orders: (c.orders ?? const <ApiOrderVO>[]).map(OrderVo.fromApi).toList(),
       currentPage: c.currentPage ?? 0,
       totalPages: c.totalPages ?? 0,
       totalElements: c.totalElements ?? 0,
@@ -112,11 +110,7 @@ class PayResultVo {
   final String? prepayId;
   final String? payUrl;
 
-  const PayResultVo({
-    required this.orderNum,
-    this.prepayId,
-    this.payUrl,
-  });
+  const PayResultVo({required this.orderNum, this.prepayId, this.payUrl});
 
   factory PayResultVo.fromJson(Map<String, dynamic> json) {
     final c = ApiPayResultVO.fromJson(json);
@@ -160,11 +154,16 @@ class OrderApi {
 
   /// 发起支付（开发态走 t21 mock 通道，openid 可省略）。
   /// 后端业务失败以非 2xx 返回：此处捕获并映射为 Result 透传服务端 message。
-  Future<Result<PayResultVo>> payOrder(String orderNum, {String? openid}) async {
+  Future<Result<PayResultVo>> payOrder(
+    String orderNum, {
+    String? openid,
+  }) async {
     try {
       final response = await _client.dio.post(
         ApiPaths.payPath(orderNum),
-        queryParameters: openid != null ? ApiPaths.payQuery(openid: openid) : null,
+        queryParameters: openid != null
+            ? ApiPaths.payQuery(openid: openid)
+            : null,
         options: Options(contentType: 'application/json'),
       );
       return Result.fromJson(

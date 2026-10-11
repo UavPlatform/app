@@ -5,9 +5,9 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tencent_trtc_cloud/trtc_cloud.dart';
-import 'package:tencent_trtc_cloud/trtc_cloud_def.dart';
-import 'package:tencent_trtc_cloud/trtc_cloud_listener.dart';
+import 'package:tencent_rtc_sdk/trtc_cloud.dart';
+import 'package:tencent_rtc_sdk/trtc_cloud_def.dart';
+import 'package:tencent_rtc_sdk/trtc_cloud_listener.dart';
 
 /// 一次观看的进房参数（凭证来自 /live/get 响应值，不自报身份）。
 class LiveStreamSession {
@@ -53,7 +53,7 @@ abstract class TrtcEngine {
 class TrtcEngineImpl implements TrtcEngine {
   final _events = StreamController<TrtcEvent>.broadcast();
   TRTCCloud? _cloud;
-  ListenerValue? _listener;
+  TRTCCloudListener? _listener;
   String? _firstRemoteUserId;
   int? _viewId;
 
@@ -63,61 +63,51 @@ class TrtcEngineImpl implements TrtcEngine {
   @override
   Future<void> enter(LiveStreamSession session) async {
     final cloud = await TRTCCloud.sharedInstance();
-    if (cloud == null) {
-      throw StateError('TRTC sharedInstance 不可用');
-    }
     _cloud = cloud;
-    _listener = (type, params) {
-      final map = (params ?? const {}) as Map<Object?, Object?>;
-      switch (type) {
-        case TRTCCloudListener.onUserVideoAvailable:
-          final userId = map['userId']?.toString();
-          final available = map['available'] == true || map['available'] == 1;
-          if (available && _firstRemoteUserId == null && userId != null) {
-            _firstRemoteUserId = userId;
-            _events.add(
-              const TrtcEvent(TrtcEventKind.remoteVideoAvailable),
-            );
-            // 画面已就绪则立即绑定渲染
-            final viewId = _viewId;
-            if (viewId != null) {
-              unawaited(
-                _bindView(viewId),
-              );
-            }
+    final listener = TRTCCloudListener(
+      onUserVideoAvailable: (userId, available) {
+        if (available && _firstRemoteUserId == null && userId.isNotEmpty) {
+          _firstRemoteUserId = userId;
+          _events.add(
+            const TrtcEvent(TrtcEventKind.remoteVideoAvailable),
+          );
+          // 画面已就绪则立即绑定渲染
+          final viewId = _viewId;
+          if (viewId != null) {
+            _bindView(viewId);
           }
-          if (!available) {
-            _events.add(
-              const TrtcEvent(TrtcEventKind.remoteVideoUnavailable),
-            );
-          }
-          break;
-        case TRTCCloudListener.onExitRoom:
-          _events.add(const TrtcEvent(TrtcEventKind.exited));
-          break;
-        default:
-          break;
-      }
-    };
-    cloud.registerListener(_listener!);
-    await cloud.enterRoom(
-      TRTCParams()
-        ..sdkAppId = session.sdkAppId
-        ..userId = session.userId
-        ..userSig = session.userSig
-        ..strRoomId = session.strRoomId
-        ..roomId = 0
-        ..role = TRTCCloudDef.TRTCRoleAudience,
-      TRTCCloudDef.TRTC_APP_SCENE_LIVE,
+        }
+        if (!available) {
+          _events.add(
+            const TrtcEvent(TrtcEventKind.remoteVideoUnavailable),
+          );
+        }
+      },
+      onExitRoom: (reason) {
+        _events.add(const TrtcEvent(TrtcEventKind.exited));
+      },
+    );
+    _listener = listener;
+    cloud.registerListener(listener);
+    cloud.enterRoom(
+      TRTCParams(
+        sdkAppId: session.sdkAppId,
+        userId: session.userId,
+        userSig: session.userSig,
+        strRoomId: session.strRoomId,
+        roomId: 0,
+        role: TRTCRoleType.audience,
+      ),
+      TRTCAppScene.live,
     );
   }
 
-  Future<void> _bindView(int viewId) async {
+  void _bindView(int viewId) {
     final userId = _firstRemoteUserId;
     if (userId == null) return;
-    await _cloud?.startRemoteView(
+    _cloud?.startRemoteView(
       userId,
-      TRTCCloudDef.TRTC_VIDEO_STREAM_TYPE_BIG,
+      TRTCVideoStreamType.big,
       viewId,
     );
   }
@@ -125,16 +115,16 @@ class TrtcEngineImpl implements TrtcEngine {
   @override
   Future<void> attachRemoteView(int viewId) async {
     _viewId = viewId;
-    await _bindView(viewId);
+    _bindView(viewId);
   }
 
   @override
   Future<void> detachRemoteView() async {
     final userId = _firstRemoteUserId;
     if (userId != null) {
-      await _cloud?.stopRemoteView(
+      _cloud?.stopRemoteView(
         userId,
-        TRTCCloudDef.TRTC_VIDEO_STREAM_TYPE_BIG,
+        TRTCVideoStreamType.big,
       );
     }
     _viewId = null;
@@ -142,9 +132,10 @@ class TrtcEngineImpl implements TrtcEngine {
 
   @override
   Future<void> exit() async {
-    await _cloud?.exitRoom();
-    if (_listener != null) {
-      _cloud?.unRegisterListener(_listener!);
+    _cloud?.exitRoom();
+    final listener = _listener;
+    if (listener != null) {
+      _cloud?.unRegisterListener(listener);
     }
     _listener = null;
     _cloud = null;

@@ -7,7 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tencent_trtc_cloud/trtc_cloud_video_view.dart';
+import 'package:tencent_rtc_sdk/trtc_cloud_video_view.dart';
 
 import '../../api/live_api.dart';
 import '../../providers/auth_provider.dart';

@@ -6,6 +6,7 @@ import 'api/http_client.dart';
 import 'routes/app_router.dart';
 import 'theme/app_theme.dart';
 import 'providers/auth_provider.dart';
+import 'providers/theme_provider.dart';
 import 'providers/chat_provider.dart';
 import 'services/chat_websocket_service.dart';
 
@@ -17,9 +18,7 @@ void main() async {
 
   runApp(
     ProviderScope(
-      overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
-      ],
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
       child: const MyApp(),
     ),
   );
@@ -62,13 +61,16 @@ class MyApp extends ConsumerWidget {
     ref.watch(chatRealtimeLifecycleProvider);
 
     // 顶号提示（t28③，Q12=A）：WS 收到 4001 被新登录顶掉 → 上抛 UI。
-    ref.listen<AsyncValue<ChatWebSocketStatus>>(chatStatusProvider, (prev, next) {
+    ref.listen<AsyncValue<ChatWebSocketStatus>>(chatStatusProvider, (
+      prev,
+      next,
+    ) {
       if (next.value == ChatWebSocketStatus.superseded) {
         final nav = rootNavigatorKey.currentState;
         if (nav != null) {
-          ScaffoldMessenger.of(nav.context).showSnackBar(
-            const SnackBar(content: Text('账号已在其他设备登录')),
-          );
+          ScaffoldMessenger.of(
+            nav.context,
+          ).showSnackBar(const SnackBar(content: Text('账号已在其他设备登录')));
         }
       }
     });
@@ -78,6 +80,8 @@ class MyApp extends ConsumerWidget {
     return MaterialApp.router(
       title: '飞翼通',
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

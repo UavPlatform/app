@@ -170,8 +170,15 @@ class _DatePickerSheetState extends State<_DatePickerSheet> {
 
   Widget _buildWheel(int count, FixedExtentScrollController ctrl, ValueChanged<int> onChanged, String Function(int) label) {
     return ListWheelScrollView.useDelegate(
-      controller: ctrl, itemExtent: _itemH, diameterRatio: 2.0, perspective: 0.004,
-      onSelectedItemChanged: onChanged, physics: const FixedExtentScrollPhysics(),
+      controller: ctrl,
+      itemExtent: _itemH,
+      diameterRatio: 2.0,
+      perspective: 0.004,
+      useMagnifier: true,
+      magnification: 1.15,
+      overAndUnderCenterOpacity: 0.4,
+      onSelectedItemChanged: onChanged,
+      physics: const FixedExtentScrollPhysics(),
       childDelegate: ListWheelChildBuilderDelegate(
         builder: (_, i) => Center(child: Text(label(i), style: const TextStyle(fontSize: 17))),
         childCount: count,
@@ -242,8 +249,15 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
 
   Widget _buildWheel(int count, FixedExtentScrollController ctrl, ValueChanged<int> onChanged, String Function(int) label) {
     return ListWheelScrollView.useDelegate(
-      controller: ctrl, itemExtent: _itemH, diameterRatio: 2.0, perspective: 0.004,
-      onSelectedItemChanged: onChanged, physics: const FixedExtentScrollPhysics(),
+      controller: ctrl,
+      itemExtent: _itemH,
+      diameterRatio: 2.0,
+      perspective: 0.004,
+      useMagnifier: true,
+      magnification: 1.15,
+      overAndUnderCenterOpacity: 0.4,
+      onSelectedItemChanged: onChanged,
+      physics: const FixedExtentScrollPhysics(),
       childDelegate: ListWheelChildBuilderDelegate(
         builder: (_, i) => Center(child: Text(label(i), style: const TextStyle(fontSize: 17))),
         childCount: count,
