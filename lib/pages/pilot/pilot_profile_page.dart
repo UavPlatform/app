@@ -57,7 +57,7 @@ class PilotProfilePage extends ConsumerWidget {
                   children: [
                     _buildStat('今日接单', '${stats?.todayOrders ?? 0}'),
                     _buildStatDivider(),
-                    _buildStat('总收益', '¥${stats?.totalEarnings?.toStringAsFixed(0) ?? '0'}'),
+                    _buildStat('总收益', '¥${(stats?.totalEarnings ?? 0).toStringAsFixed(2)}'),
                     _buildStatDivider(),
                     _buildStat('完成', '${stats?.totalCompleted ?? 0}'),
                   ],
@@ -86,12 +86,22 @@ class PilotProfilePage extends ConsumerWidget {
                 style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant.withOpacity(0.7))),
           ),
           const SizedBox(height: 8),
+          _buildMenuItem(context, icon: Icons.badge_outlined, title: '飞手资料与驾驶资质',
+              onTap: () => context.push('/pilot/info')),
           _buildMenuItem(context, icon: Icons.flight, title: '我的无人机',
               onTap: () => context.push('/pilot/drones')),
-          _buildMenuItem(context, icon: Icons.tune, title: '接单设置'),
-          _buildMenuItem(context, icon: Icons.star_outline, title: '评价管理'),
-          _buildMenuItem(context, icon: Icons.headset_mic_outlined, title: '联系客服'),
-          _buildMenuItem(context, icon: Icons.info_outline, title: '关于飞翼通'),
+          _buildMenuItem(context, icon: Icons.info_outline, title: '关于飞翼通',
+              onTap: () => showAboutDialog(
+                    context: context,
+                    applicationName: '飞翼通',
+                    applicationVersion: '1.0.0',
+                    applicationIcon: const Icon(Icons.flight, size: 40, color: Color(0xFF2E7D32)),
+                    children: const [
+                      // ADR-0002：飞行执行在 djifly，App 不执行飞行；ADR-0003：平台统一计价、不议价。
+                      Text('无人机吊运撮合平台：在任务大厅按平台统一报价应征，与用户沟通作业细节；'
+                          '确认订单后在 djifly 中执行飞行，完成后提交交付凭证。'),
+                    ],
+                  )),
 
           const SizedBox(height: 24),
 
@@ -137,11 +147,11 @@ class PilotProfilePage extends ConsumerWidget {
   }
 
   Widget _buildQuickGrid(BuildContext context) {
+    // 演示版只保留有真实页面的入口；钱包/服务类型/数据中心暂无后端支撑，先不展示空按钮。
     final items = [
-      (_Icons.wallet, '我的钱包', () {}),
-      (_Icons.category, '服务类型', () {}),
-      (_Icons.shield, '飞手认证', () {}),
-      (_Icons.data, '数据中心', () {}),
+      (_Icons.shield, '飞手资料', () => context.push('/pilot/info')),
+      (_Icons.drone, '我的无人机', () => context.push('/pilot/drones')),
+      (_Icons.jobs, '我的接单', () => context.go('/pilot/jobs')),
     ];
 
     return Padding(
@@ -211,8 +221,7 @@ class PilotProfilePage extends ConsumerWidget {
 // 自定义图标占位
 class _Icons {
   _Icons._();
-  static const wallet = Icons.account_balance_wallet_outlined;
-  static const category = Icons.category_outlined;
   static const shield = Icons.verified_outlined;
-  static const data = Icons.bar_chart_outlined;
+  static const drone = Icons.flight;
+  static const jobs = Icons.assignment_outlined;
 }

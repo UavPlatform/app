@@ -61,9 +61,17 @@ const List<List<String>> calledEndpoints = <List<String>>[
   <String>['post', '/live/leave'],
   <String>['get', '/order/list'],
   <String>['get', '/order/detail'],
+  <String>['get', '/order/stats'],
+  <String>['get', '/order/sold'],
+  <String>['get', '/order/pending-review'],
   <String>['post', '/pay/{orderNum}'],
   <String>['get', '/tasks/{taskNum}/attachments'],
   <String>['post', '/tasks/{taskNum}/attachments/upload-url'],
+  <String>['post', '/review/submit'],
+  <String>['get', '/review/{orderNum}'],
+  <String>['get', '/review/my'],
+  <String>['get', '/rider/info'],
+  <String>['patch', '/rider/info'],
 ];
 
 /// GoRouter 页面路由与契约路径同名时的白名单。
@@ -123,7 +131,7 @@ void main() {
 
   group('调用端点登记表', () {
     test('每条登记端点都存在于 vendored 规格（method + path）', () {
-      expect(calledEndpoints, hasLength(40));
+      expect(calledEndpoints, hasLength(48));
       for (final List<String> endpoint in calledEndpoints) {
         final String method = endpoint[0].toLowerCase();
         final String path = endpoint[1];
@@ -145,10 +153,10 @@ void main() {
       );
     });
 
-    test('登记表无重复（38 条既有端点 + /user/refresh + select-rider = 40）', () {
+    test('登记表无重复（含交易统计 /order/stats、/order/sold、/order/pending-review 等共 48 条）', () {
       String key(List<String> endpoint) =>
           '${endpoint[0].toLowerCase()} ${endpoint[1]}';
-      expect(calledEndpoints.map(key).toSet(), hasLength(40));
+      expect(calledEndpoints.map(key).toSet(), hasLength(48));
     });
   });
 

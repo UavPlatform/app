@@ -169,6 +169,50 @@ class ApiOrderListVO {
   }
 }
 
+/// 契约 components.schemas.OrderReview
+class ApiOrderReview {
+  final String? content;
+  final String? createTime;
+  final int? id;
+  final String? orderNum;
+  final int? rating;
+  final int? userId;
+
+  const ApiOrderReview({this.content, this.createTime, this.id, this.orderNum, this.rating, this.userId});
+
+  factory ApiOrderReview.fromJson(Map<String, dynamic> json) => ApiOrderReview(
+    content: json['content'] as String?,
+    createTime: json['createTime'] as String?,
+    id: (json['id'] as num?)?.toInt(),
+    orderNum: json['orderNum'] as String?,
+    rating: (json['rating'] as num?)?.toInt(),
+    userId: (json['userId'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (content != null) {
+      json['content'] = content;
+    }
+    if (createTime != null) {
+      json['createTime'] = createTime;
+    }
+    if (id != null) {
+      json['id'] = id;
+    }
+    if (orderNum != null) {
+      json['orderNum'] = orderNum;
+    }
+    if (rating != null) {
+      json['rating'] = rating;
+    }
+    if (userId != null) {
+      json['userId'] = userId;
+    }
+    return json;
+  }
+}
+
 /// 契约 components.schemas.OrderVO
 class ApiOrderVO {
   final String? deviceId;
@@ -340,6 +384,40 @@ class ApiRegisterVo {
   }
 }
 
+/// 契约 components.schemas.ReviewListVO
+class ApiReviewListVO {
+  final int? currentPage;
+  final List<ApiOrderReview>? reviews;
+  final int? totalElements;
+  final int? totalPages;
+
+  const ApiReviewListVO({this.currentPage, this.reviews, this.totalElements, this.totalPages});
+
+  factory ApiReviewListVO.fromJson(Map<String, dynamic> json) => ApiReviewListVO(
+    currentPage: (json['currentPage'] as num?)?.toInt(),
+    reviews: (json['reviews'] as List<dynamic>?)?.map((dynamic e) => ApiOrderReview.fromJson(e as Map<String, dynamic>)).toList(),
+    totalElements: (json['totalElements'] as num?)?.toInt(),
+    totalPages: (json['totalPages'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (currentPage != null) {
+      json['currentPage'] = currentPage;
+    }
+    if (reviews != null) {
+      json['reviews'] = reviews;
+    }
+    if (totalElements != null) {
+      json['totalElements'] = totalElements;
+    }
+    if (totalPages != null) {
+      json['totalPages'] = totalPages;
+    }
+    return json;
+  }
+}
+
 /// 契约 components.schemas.RiderApplyDto
 class ApiRiderApplyDto {
   final int? aircraftModelId;
@@ -359,6 +437,183 @@ class ApiRiderApplyDto {
     }
     if (taskNum != null) {
       json['taskNum'] = taskNum;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.RiderInfoDto
+class ApiRiderInfoDto {
+  final int? age;
+  final String? idExpiryDate;
+  final String? idNumber;
+  final String? location;
+  final List<ApiRiderQualificationDto>? qualifications;
+  final String? selfIntroduction;
+
+  const ApiRiderInfoDto({this.age, this.idExpiryDate, this.idNumber, this.location, this.qualifications, this.selfIntroduction});
+
+  factory ApiRiderInfoDto.fromJson(Map<String, dynamic> json) => ApiRiderInfoDto(
+    age: (json['age'] as num?)?.toInt(),
+    idExpiryDate: json['idExpiryDate'] as String?,
+    idNumber: json['idNumber'] as String?,
+    location: json['location'] as String?,
+    qualifications: (json['qualifications'] as List<dynamic>?)?.map((dynamic e) => ApiRiderQualificationDto.fromJson(e as Map<String, dynamic>)).toList(),
+    selfIntroduction: json['selfIntroduction'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (age != null) {
+      json['age'] = age;
+    }
+    if (idExpiryDate != null) {
+      json['idExpiryDate'] = idExpiryDate;
+    }
+    if (idNumber != null) {
+      json['idNumber'] = idNumber;
+    }
+    if (location != null) {
+      json['location'] = location;
+    }
+    if (qualifications != null) {
+      json['qualifications'] = qualifications;
+    }
+    if (selfIntroduction != null) {
+      json['selfIntroduction'] = selfIntroduction;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.RiderInfoVO
+class ApiRiderInfoVO {
+  final int? age;
+  final String? createTime;
+  final bool? idExpired;
+  final String? idExpiryDate;
+  final String? idNumberMasked;
+  final String? location;
+  final List<ApiRiderQualificationVO>? qualifications;
+  final String? selfIntroduction;
+  final String? updateTime;
+  final int? userId;
+  final String? userName;
+
+  const ApiRiderInfoVO({this.age, this.createTime, this.idExpired, this.idExpiryDate, this.idNumberMasked, this.location, this.qualifications, this.selfIntroduction, this.updateTime, this.userId, this.userName});
+
+  factory ApiRiderInfoVO.fromJson(Map<String, dynamic> json) => ApiRiderInfoVO(
+    age: (json['age'] as num?)?.toInt(),
+    createTime: json['createTime'] as String?,
+    idExpired: json['idExpired'] as bool?,
+    idExpiryDate: json['idExpiryDate'] as String?,
+    idNumberMasked: json['idNumberMasked'] as String?,
+    location: json['location'] as String?,
+    qualifications: (json['qualifications'] as List<dynamic>?)?.map((dynamic e) => ApiRiderQualificationVO.fromJson(e as Map<String, dynamic>)).toList(),
+    selfIntroduction: json['selfIntroduction'] as String?,
+    updateTime: json['updateTime'] as String?,
+    userId: (json['userId'] as num?)?.toInt(),
+    userName: json['userName'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (age != null) {
+      json['age'] = age;
+    }
+    if (createTime != null) {
+      json['createTime'] = createTime;
+    }
+    if (idExpired != null) {
+      json['idExpired'] = idExpired;
+    }
+    if (idExpiryDate != null) {
+      json['idExpiryDate'] = idExpiryDate;
+    }
+    if (idNumberMasked != null) {
+      json['idNumberMasked'] = idNumberMasked;
+    }
+    if (location != null) {
+      json['location'] = location;
+    }
+    if (qualifications != null) {
+      json['qualifications'] = qualifications;
+    }
+    if (selfIntroduction != null) {
+      json['selfIntroduction'] = selfIntroduction;
+    }
+    if (updateTime != null) {
+      json['updateTime'] = updateTime;
+    }
+    if (userId != null) {
+      json['userId'] = userId;
+    }
+    if (userName != null) {
+      json['userName'] = userName;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.RiderQualificationDto
+class ApiRiderQualificationDto {
+  final int aircraftModelId;
+  final String licenseGrade;
+
+  const ApiRiderQualificationDto({required this.aircraftModelId, required this.licenseGrade});
+
+  factory ApiRiderQualificationDto.fromJson(Map<String, dynamic> json) => ApiRiderQualificationDto(
+    aircraftModelId: ((json['aircraftModelId'] as num?)?.toInt() ?? 0),
+    licenseGrade: ((json['licenseGrade'] as String?) ?? ""),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    json['aircraftModelId'] = aircraftModelId;
+    json['licenseGrade'] = licenseGrade;
+    return json;
+  }
+}
+
+/// 契约 components.schemas.RiderQualificationVO
+class ApiRiderQualificationVO {
+  final int? aircraftModelId;
+  final int? id;
+  final String? licenseGrade;
+  final String? licenseGradeLabel;
+  final String? modelCode;
+  final String? modelName;
+
+  const ApiRiderQualificationVO({this.aircraftModelId, this.id, this.licenseGrade, this.licenseGradeLabel, this.modelCode, this.modelName});
+
+  factory ApiRiderQualificationVO.fromJson(Map<String, dynamic> json) => ApiRiderQualificationVO(
+    aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
+    id: (json['id'] as num?)?.toInt(),
+    licenseGrade: json['licenseGrade'] as String?,
+    licenseGradeLabel: json['licenseGradeLabel'] as String?,
+    modelCode: json['modelCode'] as String?,
+    modelName: json['modelName'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (aircraftModelId != null) {
+      json['aircraftModelId'] = aircraftModelId;
+    }
+    if (id != null) {
+      json['id'] = id;
+    }
+    if (licenseGrade != null) {
+      json['licenseGrade'] = licenseGrade;
+    }
+    if (licenseGradeLabel != null) {
+      json['licenseGradeLabel'] = licenseGradeLabel;
+    }
+    if (modelCode != null) {
+      json['modelCode'] = modelCode;
+    }
+    if (modelName != null) {
+      json['modelName'] = modelName;
     }
     return json;
   }
@@ -618,6 +873,30 @@ class ApiSessionVO {
     }
     if (userIds != null) {
       json['userIds'] = userIds;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.SubmitReviewVO
+class ApiSubmitReviewVO {
+  final String? orderNum;
+  final int? rating;
+
+  const ApiSubmitReviewVO({this.orderNum, this.rating});
+
+  factory ApiSubmitReviewVO.fromJson(Map<String, dynamic> json) => ApiSubmitReviewVO(
+    orderNum: json['orderNum'] as String?,
+    rating: (json['rating'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (orderNum != null) {
+      json['orderNum'] = orderNum;
+    }
+    if (rating != null) {
+      json['rating'] = rating;
     }
     return json;
   }
@@ -1057,6 +1336,50 @@ class ApiTokenRefreshVO {
     final Map<String, dynamic> json = <String, dynamic>{};
     if (token != null) {
       json['token'] = token;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.TradeStatsVO
+class ApiTradeStatsVO {
+  final int? boughtOrderCount;
+  final int? completedTradeCount;
+  final int? pendingReviewCount;
+  final int? publishedTaskCount;
+  final int? soldOrderCount;
+  final int? totalOrderCount;
+
+  const ApiTradeStatsVO({this.boughtOrderCount, this.completedTradeCount, this.pendingReviewCount, this.publishedTaskCount, this.soldOrderCount, this.totalOrderCount});
+
+  factory ApiTradeStatsVO.fromJson(Map<String, dynamic> json) => ApiTradeStatsVO(
+    boughtOrderCount: (json['boughtOrderCount'] as num?)?.toInt(),
+    completedTradeCount: (json['completedTradeCount'] as num?)?.toInt(),
+    pendingReviewCount: (json['pendingReviewCount'] as num?)?.toInt(),
+    publishedTaskCount: (json['publishedTaskCount'] as num?)?.toInt(),
+    soldOrderCount: (json['soldOrderCount'] as num?)?.toInt(),
+    totalOrderCount: (json['totalOrderCount'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (boughtOrderCount != null) {
+      json['boughtOrderCount'] = boughtOrderCount;
+    }
+    if (completedTradeCount != null) {
+      json['completedTradeCount'] = completedTradeCount;
+    }
+    if (pendingReviewCount != null) {
+      json['pendingReviewCount'] = pendingReviewCount;
+    }
+    if (publishedTaskCount != null) {
+      json['publishedTaskCount'] = publishedTaskCount;
+    }
+    if (soldOrderCount != null) {
+      json['soldOrderCount'] = soldOrderCount;
+    }
+    if (totalOrderCount != null) {
+      json['totalOrderCount'] = totalOrderCount;
     }
     return json;
   }
