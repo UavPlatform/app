@@ -1,5 +1,7 @@
 // 地图选点页（单点模式）：全屏地图精挑一个坐标点，pop 返回 "lat,lng"。
 // 由首页「卸货点」入口调起；沿用仓库既有 flutter_map 选点能力（REQ-APP-002）。
+// UI 重构：地图沉浸式铺满、顶部搜索框（POI 搜索待后端接口）、底部面板承载
+// 引导态/已选态与确认 CTA，消除原「大面积无意义留白」。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -23,9 +25,15 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
   late MapController _mapController;
   LatLng? _point;
 
-  static const _tileUrl =
-      'https://webrd0{s}.is.autonavi.com/appmaptile'
-      '?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}';
+  /// 卫星影像底图（高德，无标注）。
+  static const _satelliteTileUrl =
+      'https://webst0{s}.is.autonavi.com/appmaptile'
+      '?style=6&x={x}&y={y}&z={z}';
+
+  /// 地名/POI 文字标注透明层（叠加在卫星图上，显示地名）。
+  static const _labelTileUrl =
+      'https://wprd0{s}.is.autonavi.com/appmaptile'
+      '?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=8&ltype=4';
 
   @override
   void initState() {
@@ -55,6 +63,12 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
         '${point.longitude.toStringAsFixed(6)}');
   }
 
+  void _showSearchHint() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('POI 搜索需后端提供搜索接口，即将上线')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = ref.watch(locationProvider);
@@ -64,153 +78,204 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
     );
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
-      body: Column(
+      appBar: AppBar(
+        title: Text(widget.title),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: _buildSearchBar(),
+          ),
+        ),
+      ),
+      body: Stack(
         children: [
-          // 地图区域
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Container(
-              height: MediaQuery.of(context).size.height * 0.45,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.outline),
-              ),
-              clipBehavior: Clip.hardEdge,
-              child: FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: center,
-                  initialZoom: 16,
-                  onTap: _setPoint,
-                  // 关闭双击缩放：单击即选点，避免双击判定带来的选点延迟。
-                  interactionOptions: const InteractionOptions(
-                    flags: InteractiveFlag.drag |
-                        InteractiveFlag.pinchZoom |
-                        InteractiveFlag.flingAnimation,
-                  ),
+          // 沉浸式全屏地图
+          Positioned.fill(
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: center,
+                initialZoom: 16,
+                onTap: _setPoint,
+                // 关闭双击缩放：单击即选点，避免双击判定带来的选点延迟。
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.drag |
+                      InteractiveFlag.pinchZoom |
+                      InteractiveFlag.flingAnimation,
                 ),
-                children: [
-                  TileLayer(
-                    urlTemplate: _tileUrl,
-                    subdomains: const ['1', '2', '3', '4'],
-                    maxZoom: 18,
-                  ),
-                  // 我的位置
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: _satelliteTileUrl,
+                  subdomains: const ['1', '2', '3', '4'],
+                  maxZoom: 18,
+                ),
+                TileLayer(
+                  urlTemplate: _labelTileUrl,
+                  subdomains: const ['1', '2', '3', '4'],
+                  maxZoom: 18,
+                ),
+                // 我的位置
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: center,
+                      width: 36,
+                      height: 36,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.3),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.my_location,
+                              color: Colors.blue, size: 18),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                // 已选卸货点
+                if (_point != null)
                   MarkerLayer(
                     markers: [
                       Marker(
-                        point: center,
+                        point: _point!,
                         width: 36,
-                        height: 36,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.3),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.my_location,
-                                color: Colors.blue, size: 18),
-                          ),
-                        ),
+                        height: 44,
+                        child: const Icon(Icons.location_on,
+                            color: Colors.red, size: 34),
                       ),
                     ],
                   ),
-                  // 已选卸货点
-                  if (_point != null)
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: _point!,
-                          width: 36,
-                          height: 44,
-                          child: const Icon(Icons.location_on,
-                              color: Colors.red, size: 34),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          ),
-
-          // 提示文字
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Icon(Icons.touch_app, size: 16, color: Colors.grey.shade600),
-                const SizedBox(width: 4),
-                Text(
-                  _point == null ? '点击地图选择卸货点' : '再次点击可更改选择',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
-
-          // 已选点信息
-          Expanded(
-            child: Center(
-              child: _point == null
-                  ? Text(
-                      '尚未选择卸货点',
-                      style:
-                          TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Card(
-                        child: ListTile(
-                          leading: const Icon(Icons.location_on,
-                              color: Colors.red),
-                          title: const Text('卸货点'),
-                          subtitle: Text(
-                            '${_point!.latitude.toStringAsFixed(6)}, '
-                            '${_point!.longitude.toStringAsFixed(6)}',
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () => setState(() => _point = null),
-                          ),
-                        ),
-                      ),
-                    ),
-            ),
-          ),
-
-          // 底部按钮
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _point == null
-                          ? null
-                          : () => setState(() => _point = null),
-                      child: const Text('清空'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: _confirm,
-                      icon: const Icon(Icons.check, size: 20),
-                      label: const Text('确认'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          // 底部面板：引导态 / 已选态
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildBottomPanel(),
           ),
         ],
       ),
+    );
+  }
+
+  /// 顶部搜索框（视觉骨架：真实 POI 搜索待后端接口）。
+  Widget _buildSearchBar() {
+    return GestureDetector(
+      onTap: _showSearchHint,
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: AppColors.bgWhite,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.search, color: AppColors.onSurfaceVariant, size: 20),
+            SizedBox(width: 8),
+            Text(
+              '搜索卸货点或附近建筑',
+              style: TextStyle(color: AppColors.textHint, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 底部面板：未选显示引导，已选显示坐标 + 确认 CTA。
+  Widget _buildBottomPanel() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.bgWhite,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 16,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: _point == null ? _buildEmptyHint() : _buildSelected(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyHint() {
+    return const Row(
+      children: [
+        Icon(Icons.touch_app, color: AppColors.primary, size: 22),
+        SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            '拖动地图，点击任意位置选择卸货点',
+            style: TextStyle(
+                fontSize: 14,
+                color: AppColors.onSurfaceVariant,
+                fontWeight: FontWeight.w500),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelected() {
+    final point = _point!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.location_on, color: Colors.red, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${point.latitude.toStringAsFixed(6)}, '
+                '${point.longitude.toStringAsFixed(6)}',
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: '清除',
+              onPressed: () => setState(() => _point = null),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 52,
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+              textStyle:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            onPressed: _confirm,
+            icon: const Icon(Icons.check, size: 20),
+            label: const Text('确认'),
+          ),
+        ),
+      ],
     );
   }
 }

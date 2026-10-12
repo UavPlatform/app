@@ -4,6 +4,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:uav_pilot_app/api/order_api.dart';
 
 void main() {
+  test('缺失状态不能被误判为待支付', () {
+    final order = OrderVo.fromJson({'orderNum': 'ORD-MISSING'});
+    expect(order.isPending, isFalse);
+    expect(order.statusLabel, '状态待确认');
+    expect(order.totalAmount, isNull);
+  });
+
+  test('服务端零元金额保留，不能当成缺失报价', () {
+    final order = OrderVo.fromJson({
+      'orderNum': 'ORD-ZERO',
+      'orderStatus': 1,
+      'totalAmount': 0,
+    });
+    expect(order.totalAmount, 0);
+    expect(order.statusLabel, '已支付');
+  });
   Map<String, dynamic> baseJson({String? deviceId, String? liveState}) {
     return {
       'orderNum': 'ORD-1',
@@ -33,7 +49,9 @@ void main() {
     });
 
     test('字段缺失不崩（宽容解析）', () {
-      final json = baseJson()..remove('deviceId')..remove('liveState');
+      final json = baseJson()
+        ..remove('deviceId')
+        ..remove('liveState');
       final vo = OrderVo.fromJson(json);
       expect(vo.deviceId, isNull);
       expect(vo.liveState, isNull);

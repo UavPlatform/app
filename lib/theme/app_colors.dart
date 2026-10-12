@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // 主色调 - 蓝色系
-  static const Color primary = Color(0xFF1565C0);
-  static const Color primaryLight = Color(0xFFD1E4FF);
-  static const Color primaryDark = Color(0xFF003C8F);
+  // 主色调 - 深海蓝（品牌主色：稳重 · 安全 · 专业）
+  static const Color primary = Color(0xFF0B3D66);
+  static const Color primaryLight = Color(0xFFDCE7F3);
+  static const Color primaryDark = Color(0xFF062A47);
+
+  // 强调色 - 工程橙（CTA / 选中态 / 强调：力量 · 行动）
+  static const Color accent = Color(0xFFF57C00);
+  static const Color accentLight = Color(0xFFFFE0B2);
+  static const Color accentDark = Color(0xFFE65100);
 
   // 表面色
   static const Color surface = Color(0xFFFAFCFF);

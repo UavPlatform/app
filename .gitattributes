@@ -1,0 +1,3 @@
+# Keep vendored contract bytes stable for SHA-256 verification on Windows.
+openapi/*.json text eol=lf
+openapi/*.sha256 text eol=lf

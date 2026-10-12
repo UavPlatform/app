@@ -5,12 +5,14 @@ import 'task_provider.dart';
 
 class LocationState {
   final String city;
+  final String? address;
   final bool loading;
   final double? latitude;
   final double? longitude;
 
   const LocationState({
     this.city = '定位中...',
+    this.address,
     this.loading = true,
     this.latitude,
     this.longitude,
@@ -18,12 +20,14 @@ class LocationState {
 
   LocationState copyWith({
     String? city,
+    String? address,
     bool? loading,
     double? latitude,
     double? longitude,
   }) {
     return LocationState(
       city: city ?? this.city,
+      address: address ?? this.address,
       loading: loading ?? this.loading,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
@@ -64,6 +68,7 @@ class LocationNotifier extends StateNotifier<LocationState> {
     final result = await _service.getCurrentLocation();
     state = state.copyWith(
       city: result?.displayCity ?? '未知城市',
+      address: result?.address,
       loading: false,
       latitude: result?.latitude,
       longitude: result?.longitude,

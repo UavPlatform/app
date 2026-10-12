@@ -166,20 +166,29 @@ class TaskVo {
 
   String get taskTypeName {
     switch (taskType) {
-      case 'AERIAL_PHOTO': return '航拍';
-      case 'TRANSPORT': return '调运';
-      case 'SURVEY': return '测绘';
-      case 'MONITORING': return '监测';
-      default: return taskType;
+      case 'AERIAL_PHOTO':
+        return '航拍';
+      case 'TRANSPORT':
+        return '调运';
+      case 'SURVEY':
+        return '测绘';
+      case 'MONITORING':
+        return '监测';
+      default:
+        return taskType;
     }
   }
 
   String get taskStatusName {
     switch (taskStatus) {
-      case 'IDLE': return '空闲中';
-      case 'IN_PROGRESS': return '执行中';
-      case 'COMPLETED': return '已完成';
-      default: return taskStatus;
+      case 'IDLE':
+        return '空闲中';
+      case 'IN_PROGRESS':
+        return '执行中';
+      case 'COMPLETED':
+        return '已完成';
+      default:
+        return taskStatus;
     }
   }
 
@@ -251,10 +260,18 @@ class TaskVo {
 
   static String _cargoCategoryName(String code) {
     switch (code) {
-      case 'CONSTRUCTION': return '建材';
-      case 'EQUIPMENT': return '设备';
-      case 'AGRICULTURAL': return '农产品';
-      default: return code;
+      case 'CONSTRUCTION':
+        return '建材';
+      case 'EQUIPMENT':
+        return '设备';
+      case 'AGRICULTURAL':
+        return '农产品';
+      case 'DAILY_SUPPLIES':
+        return '生活物资';
+      case 'FURNITURE':
+        return '家具家居';
+      default:
+        return code;
     }
   }
 
