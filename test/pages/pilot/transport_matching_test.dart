@@ -112,6 +112,7 @@ void main() {
     Map<String, dynamic>? confirmedDetail,
     List<Map<String, dynamic>> square = const [],
     List<Map<String, dynamic>> myTasks = const [],
+    List<Map<String, dynamic>> history = const [],
     List<Map<String, dynamic>> drones = const [],
     Map<String, dynamic>? applyData,
     String applyMessage = '货物重量 50 kg 超过机型最大载重 30 kg',
@@ -137,7 +138,7 @@ void main() {
         return jsonResponse(200, {'success': true, 'code': 200, 'data': page(myTasks)});
       }
       if (path == '/rider/my-tasks/history') {
-        return jsonResponse(200, {'success': true, 'code': 200, 'data': page(const [])});
+        return jsonResponse(200, {'success': true, 'code': 200, 'data': page(history)});
       }
       if (path == '/rider/drone/list') {
         return jsonResponse(200, {'success': true, 'code': 200, 'data': drones});
@@ -167,6 +168,14 @@ void main() {
           'success': true,
           'code': 200,
           'data': confirmedDetail ?? detail ?? taskJson(matchStatus: 'CONFIRMED'),
+        });
+      }
+      if (path == '/rider/complete') {
+        return jsonResponse(400, {
+          'success': false,
+          'code': 400,
+          'errorCode': 'DELIVERY_EVIDENCE_REQUIRED',
+          'message': '请先上传履约证据',
         });
       }
       if (path == '/chat/session/list') {
@@ -243,6 +252,8 @@ void main() {
     expect(find.text('婚礼航拍跟拍'), findsNothing,
         reason: '默认筛选 TRANSPORT，非吊运任务不展示');
     expect(find.text('25 kg · 建材'), findsOneWidget, reason: '卡片展示货物信息');
+    expect(find.text('待平台报价'), findsOneWidget, reason: 'ADR-0003：未报价时不显示「面议」');
+    expect(find.text('面议'), findsNothing);
     expectNoPriceInputs();
 
     await tester.tap(find.text('全部'));
@@ -475,6 +486,8 @@ void main() {
       name: '仓库钢材吊运',
       matchStatus: 'NEGOTIATING',
       actionHint: '已应征，等待用户选定下单',
+      // 尚未锁价：后端下发本人应征的系统报价（backend「我的接单」批量装配）
+      quotedAmount: 356.4,
     );
     final awaiting = taskJson(
       num: 'T20260926-012',
@@ -519,6 +532,8 @@ void main() {
     expect(find.text('已确认待执飞 (1)'), findsOneWidget);
     expect(find.text('已应征，等待用户选定下单'), findsOneWidget,
         reason: '文案以服务端 actionHint 为准');
+    expect(find.text('¥356.40'), findsOneWidget, reason: '应征中卡片显示本人系统报价');
+    expect(find.text('待平台报价'), findsNothing);
     expect(find.text('已支付，等待你确认约定作业时间'), findsOneWidget);
     expect(find.text('约定作业时间: 2026-09-28 09:00'), findsOneWidget);
     expect(find.text('打开 djifly'), findsOneWidget,
@@ -547,6 +562,72 @@ void main() {
     expectNoPriceInputs();
 
     // 排干 SnackBar 计时器后结束
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('已确认待执飞：有「上传交付凭证」入口，未传证据点完成提示先上传（不再笼统「操作失败」），成交价保留两位小数',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final confirmed = taskJson(
+      num: 'T20260926-013',
+      name: '山顶设备吊运',
+      matchStatus: 'CONFIRMED',
+      taskStatus: 'IN_PROGRESS',
+      actionHint: '双方已确认，可以开始作业',
+      scheduledTime: '2026-09-29T14:00:00',
+      quotedAmount: 264.65,
+      totalAmount: 264.65,
+    );
+    final adapter = pilotAdapter(detail: confirmed, myTasks: [confirmed], history: [
+      taskJson(
+        num: 'T20260926-020',
+        name: '已交付待验收的吊运',
+        taskStatus: 'COMPLETED',
+        matchStatus: 'PENDING_ACCEPTANCE',
+        actionHint: '待验收：飞手已完成，请确认验收',
+        totalAmount: 300,
+      ),
+      taskJson(
+        num: 'T20260926-021',
+        name: '已结案的吊运',
+        taskStatus: 'COMPLETED',
+        matchStatus: 'CLOSED',
+        actionHint: '已完成：感谢使用',
+        totalAmount: 200,
+      ),
+    ]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: await buildOverrides(adapter),
+        child: const MaterialApp(home: MyJobsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('¥264.65'), findsOneWidget, reason: '与用户端金额一致，不四舍五入成 ¥265');
+    expect(find.text('上传交付凭证'), findsOneWidget);
+
+    await tester.tap(find.text('完成任务'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确认完成'));
+    await tester.pumpAndSettle();
+
+    expect(adapter.requests.where((r) => r.uri.path == '/rider/complete'), isNotEmpty);
+    expect(find.textContaining('交付成果'), findsOneWidget, reason: '提示先上传吊运照片/视频');
+    expect(find.text('操作失败'), findsNothing);
+    expect(find.text('已确认待执飞 (1)'), findsOneWidget, reason: '失败时任务仍留在进行中');
+
+    // 已完成页：交付后待用户验收的单显示「待验收」，结案的显示「已完成」
+    await tester.pump(const Duration(seconds: 5));
+    await tester.tap(find.widgetWithText(Tab, '已完成'));
+    await tester.pumpAndSettle();
+    expect(find.text('待验收'), findsOneWidget);
+    expect(find.text('已结案的吊运'), findsOneWidget);
+
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
   });
