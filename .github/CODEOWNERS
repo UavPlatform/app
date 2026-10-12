@@ -1,0 +1,5 @@
+# 门禁与契约对账文件变更须经负责人评审。
+# 仅在 main 分支保护开启「Require review from Code Owners」后生效。
+/.github/                    @Fuwaki
+/tool/analyze_*              @Fuwaki
+/openapi/*.sha256            @Fuwaki

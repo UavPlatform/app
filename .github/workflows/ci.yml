@@ -1,0 +1,112 @@
+# App PR / main 测试门禁。
+#
+# 必需状态检查（Branch protection → Require status checks）请勾选：app-tests
+#
+# 触发：
+#   - pull_request：不限目标分支（叠加 PR 如 #12→#10 分支也会跑）；types 含 edited，
+#     PR 改目标分支（retarget）时重新运行。
+#   - push → main。
+# 执行内容（与 README「OpenAPI 契约（消费侧）」表格中的门禁命令同口径）：
+#   1. flutter pub get（--enforce-lockfile 待 pubspec.lock 同步 PR #16 合入后启用）。
+#   2. OpenAPI 契约：vendored 规格与 openapi/drone-backend.openapi.sha256 对账；
+#      dart run tool/openapi_gen.dart --check 校验生成物（ApiPaths / Api<Schema>）未过期。
+#   3. analyze 门禁：
+#      a. analyze_gate --self-test（门禁自身判定逻辑自测）；
+#      b. 基线只减不增：tool/analyze_baseline.txt 与目标分支（PR）/ 推送前提交（push）比较；
+#      c. analyze_gate：ERROR 一律失败；WARNING/INFO 不得超出基线；dart analyze 崩溃或输出不可解析即失败。
+#      CI 从不使用 --update / --allow-increase。
+#   4. flutter test（含 test/api_contract_test.dart 契约门禁），失败时上传 JSON 测试报告。
+# Flutter 版本固定为 3.47.7（Dart 3.13.x，满足 pubspec environment.sdk ^3.12.0；与本地验证所用版本一致）。
+# 第三方 action 均固定到完整 commit SHA（注释为对应版本）。
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: app-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # 需要目标分支 / 推送前提交，用于基线比较
+
+      - name: Set up Flutter 3.47.7
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Show toolchain versions
+        run: flutter --version
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: OpenAPI vendored spec sha256
+        working-directory: openapi
+        run: sha256sum -c drone-backend.openapi.sha256
+
+      - name: OpenAPI generated code is up to date
+        run: dart run tool/openapi_gen.dart --check
+
+      - name: analyze_gate self-test
+        run: dart run tool/analyze_gate.dart --self-test
+
+      - name: Analyze baseline must not loosen (vs target branch)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="origin/$BASE_REF"
+          else
+            BASE="$BEFORE_SHA"
+          fi
+          : > "$RUNNER_TEMP/base-baseline.txt"
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "没有可比较的基准提交，跳过基线比较。"
+          else
+            # 基准提交必须存在；找不到则失败，避免因取数失败而悄悄跳过
+            git rev-parse --verify "$BASE^{commit}" > /dev/null
+            if git cat-file -e "$BASE:tool/analyze_baseline.txt" 2>/dev/null; then
+              git show "$BASE:tool/analyze_baseline.txt" > "$RUNNER_TEMP/base-baseline.txt"
+            fi
+            echo "基准：$BASE"
+          fi
+          dart run tool/analyze_gate.dart --compare-baseline "$RUNNER_TEMP/base-baseline.txt"
+
+      - name: Analyze (no errors, no new warnings/infos vs baseline)
+        run: dart run tool/analyze_gate.dart
+
+      - name: Test (incl. api_contract_test)
+        run: |
+          mkdir -p build/reports
+          flutter test --reporter expanded --file-reporter json:build/reports/flutter-test.json
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: flutter-test-report
+          path: build/reports/
+          if-no-files-found: ignore
+          retention-days: 14
