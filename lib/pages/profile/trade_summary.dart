@@ -109,8 +109,9 @@ class TradeSummary extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(10),
                         onTap: () async {
                           await context.push('/trade/${entry.$4}');
-                          if (context.mounted)
+                          if (context.mounted) {
                             ref.invalidate(tradeStatsProvider);
+                          }
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(

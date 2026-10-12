@@ -347,8 +347,9 @@ class _HomePageState extends ConsumerState<HomePage> {
           NotificationListener<DraggableScrollableNotification>(
             onNotification: (notification) {
               final expanded = notification.extent > 0.32;
-              if (expanded != _sheetExpanded)
+              if (expanded != _sheetExpanded) {
                 setState(() => _sheetExpanded = expanded);
+              }
               return false;
             },
             child: DraggableScrollableSheet(

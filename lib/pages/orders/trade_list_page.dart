@@ -44,8 +44,9 @@ class _TradeListPageState extends ConsumerState<TradeListPage> {
     try {
       if (widget.kind == 'published') {
         final result = await ref.read(taskApiProvider).listTasks(page: page);
-        if (!result.success || result.data == null)
+        if (!result.success || result.data == null) {
           throw Exception(result.message ?? '任务加载失败');
+        }
         if (!mounted) return;
         final data = result.data!;
         setState(() {
@@ -65,8 +66,9 @@ class _TradeListPageState extends ConsumerState<TradeListPage> {
             .dio
             .get(path, queryParameters: {'page': page, 'size': 20});
         final body = response.data as Map<String, dynamic>;
-        if (body['success'] != true || body['data'] == null)
+        if (body['success'] != true || body['data'] == null) {
           throw Exception(body['message'] ?? '订单加载失败');
+        }
         final data = OrderListVo.fromJson(body['data'] as Map<String, dynamic>);
         if (!mounted) return;
         setState(() {

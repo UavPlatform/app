@@ -267,7 +267,7 @@ void main() {
       await tapHomeMap(tester);
       await tapPublish(tester);
       expect(body?['cargoCategory'], entry.key);
-      expect(body?['taskName'], '${label}吊运');
+      expect(body?['taskName'], '$label吊运');
       expect(body?['description'], '');
       await drainSnackBars(tester);
     });
