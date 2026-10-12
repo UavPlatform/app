@@ -56,8 +56,8 @@ class _TradeListPageState extends ConsumerState<TradeListPage> {
         });
       } else {
         final path = switch (widget.kind) {
-          'sold' => '/order/sold',
-          'review' => '/order/pending-review',
+          'sold' => ApiPaths.orderSold,
+          'review' => ApiPaths.orderPendingReview,
           _ => ApiPaths.orderList,
         };
         final response = await ref

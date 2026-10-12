@@ -1,4 +1,5 @@
 import '../models/result_model.dart';
+import 'generated/openapi_paths.dart';
 import 'http_client.dart';
 
 class TradeStats {
@@ -42,7 +43,7 @@ class TradeApi {
   const TradeApi(this.client);
   final HttpClient client;
   Future<Result<TradeStats>> stats() async {
-    final response = await client.dio.get('/order/stats');
+    final response = await client.dio.get(ApiPaths.orderStats);
     return Result.fromJson(
       response.data as Map<String, dynamic>,
       (data) => TradeStats.fromJson(data as Map<String, dynamic>),

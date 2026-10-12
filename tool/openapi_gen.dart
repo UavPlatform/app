@@ -59,9 +59,17 @@ const List<List<String>> endpoints = <List<String>>[
   <String>['post', '/live/leave'],
   <String>['get', '/order/list'],
   <String>['get', '/order/detail'],
+  <String>['get', '/order/stats'],
+  <String>['get', '/order/sold'],
+  <String>['get', '/order/pending-review'],
   <String>['post', '/pay/{orderNum}'],
   <String>['get', '/tasks/{taskNum}/attachments'],
   <String>['post', '/tasks/{taskNum}/attachments/upload-url'],
+  <String>['post', '/review/submit'],
+  <String>['get', '/review/{orderNum}'],
+  <String>['get', '/review/my'],
+  <String>['get', '/rider/info'],
+  <String>['patch', '/rider/info'],
 ];
 
 void main(List<String> args) {

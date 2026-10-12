@@ -13,9 +13,20 @@ import '../../providers/location_provider.dart';
 import '../../theme/app_colors.dart';
 
 class MapPickerPage extends ConsumerStatefulWidget {
-  const MapPickerPage({super.key, this.title = '选择卸货点'});
+  const MapPickerPage({
+    super.key,
+    this.title = '选择卸货点',
+    this.pointLabel = '卸货点',
+  });
+
+  const MapPickerPage.start({super.key})
+      : title = '选择起吊点',
+        pointLabel = '起吊点';
 
   final String title;
+
+  /// 选点含义（卸货点 / 起吊点），用于提示文案。
+  final String pointLabel;
 
   @override
   ConsumerState<MapPickerPage> createState() => _MapPickerPageState();
@@ -55,7 +66,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
     final point = _point;
     if (point == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先在地图上选择卸货点')),
+        SnackBar(content: Text('请先在地图上选择${widget.pointLabel}')),
       );
       return;
     }
