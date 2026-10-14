@@ -176,9 +176,11 @@ void main() {
     testWidgets('服务器设置预填生效地址（新装回落内置默认环境）', (tester) async {
       await tester.pumpWidget(await buildLoginPage());
 
-      // 展开「服务器设置」
-      await tester.tap(find.text('服务器设置'));
-      await tester.pump();
+      // 展开「服务器设置」（CI 上需 settle 才能稳定出现输入框）
+      final serverSettings = find.text('服务器设置');
+      await tester.ensureVisible(serverSettings);
+      await tester.tap(serverSettings);
+      await tester.pumpAndSettle();
 
       final serverField = find.widgetWithText(
         TextField,
