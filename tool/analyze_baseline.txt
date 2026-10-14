@@ -1,0 +1,12 @@
+# analyze 基线：严重级别|诊断码|文件<TAB>数量。由 dart run tool/analyze_gate.dart --update 生成，只减不增。
+INFO|DEPRECATED_MEMBER_USE|lib/pages/auth/rider_register_page.dart	1
+INFO|DEPRECATED_MEMBER_USE|lib/pages/messages/message_list_page.dart	1
+INFO|DEPRECATED_MEMBER_USE|lib/pages/orders/order_detail_page.dart	3
+INFO|DEPRECATED_MEMBER_USE|lib/pages/pilot/drone_manage_page.dart	1
+INFO|DEPRECATED_MEMBER_USE|lib/pages/pilot/my_jobs_page.dart	1
+INFO|DEPRECATED_MEMBER_USE|lib/pages/pilot/pilot_profile_page.dart	4
+INFO|DEPRECATED_MEMBER_USE|lib/pages/pilot/task_hall_page.dart	1
+INFO|DEPRECATED_MEMBER_USE|lib/pages/profile/address_edit_page.dart	1
+INFO|DEPRECATED_MEMBER_USE|lib/pages/splash/splash_page.dart	1
+INFO|UNNECESSARY_UNDERSCORES|lib/routes/app_router.dart	1
+INFO|UNNECESSARY_UNDERSCORES|lib/widgets/scroll_pickers.dart	6

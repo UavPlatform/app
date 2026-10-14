@@ -15,6 +15,7 @@ import 'deliverables_section.dart';
 import 'pay_entry.dart';
 import 'widgets/applications_section.dart';
 import '../../widgets/data_refresh.dart';
+import 'widgets/review_section.dart';
 
 class OrderDetailPage extends ConsumerWidget {
   final String taskNum;
@@ -195,7 +196,7 @@ Widget _buildScaffold(
             if (task.formattedCreateTime.isNotEmpty)
               _infoRow('创建时间', task.formattedCreateTime),
             if (task.totalAmount != null && task.totalAmount! > 0)
-              _infoRow('酬劳', '¥${task.totalAmount!.toStringAsFixed(0)}'),
+              _infoRow('酬劳', '¥${task.totalAmount!.toStringAsFixed(2)}'),
             if (task.totalDistance != null && task.totalDistance! > 0)
               _infoRow('总距离', '${task.totalDistance!.toStringAsFixed(0)} m'),
             if (task.orderNum != null) _infoRow('订单号', task.orderNum!),
@@ -210,6 +211,11 @@ Widget _buildScaffold(
               ),
             ]),
           ],
+          // 订单评价：用户确认完成（订单 COMPLETED）后评价飞手，一单一评。
+          if (!isPilot &&
+              task.orderStatus == 'COMPLETED' &&
+              task.orderNum != null)
+            ReviewSection(orderNum: task.orderNum!, riderName: task.riderName),
           // t44：交付成果（t42 占位区块填充真实附件列表与上传）
           if (task.riderId != null) ...[
             const SizedBox(height: 8),
@@ -1276,10 +1282,11 @@ Future<void> _onCancel(BuildContext context, WidgetRef ref, TaskVo task) async {
       ),
     ),
   );
-  if (ok)
+  if (ok) {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => context.go('/pilot/tasks'),
     );
+  }
 }
 
 Future<void> _onComplete(
@@ -1320,10 +1327,11 @@ Future<void> _onComplete(
       ),
     ),
   );
-  if (ok)
+  if (ok) {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => context.go('/pilot/jobs'),
     );
+  }
 }
 
 Future<void> _onConfirmUser(
@@ -1399,10 +1407,11 @@ Future<void> _onDeleteUser(
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(ok ? '已删除' : '删除失败')));
-      if (ok)
+      if (ok) {
         WidgetsBinding.instance.addPostFrameCallback(
           (_) => context.go('/orders'),
         );
+      }
     }
   }
 }

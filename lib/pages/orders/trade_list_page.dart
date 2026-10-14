@@ -45,8 +45,9 @@ class _TradeListPageState extends ConsumerState<TradeListPage> {
     try {
       if (widget.kind == 'published') {
         final result = await ref.read(taskApiProvider).listTasks(page: page);
-        if (!result.success || result.data == null)
+        if (!result.success || result.data == null) {
           throw Exception(result.message ?? '任务加载失败');
+        }
         if (!mounted) return;
         final data = result.data!;
         setState(() {
@@ -62,8 +63,9 @@ class _TradeListPageState extends ConsumerState<TradeListPage> {
           'review' => TradeApi(client).pendingReview(page: page),
           _ => OrderApi(client).listOrders(page: page),
         };
-        if (!result.success || result.data == null)
+        if (!result.success || result.data == null) {
           throw Exception(result.message ?? '订单加载失败');
+        }
         final data = result.data!;
         if (!mounted) return;
         setState(() {

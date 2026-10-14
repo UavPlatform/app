@@ -76,8 +76,9 @@ class OwnTasksSummary extends ConsumerWidget {
                     await context.push(
                       '/order/${Uri.encodeComponent(task.taskNum)}',
                     );
-                    if (context.mounted)
+                    if (context.mounted) {
                       ref.read(taskListProvider.notifier).loadTasks();
+                    }
                   },
                 ),
               ),

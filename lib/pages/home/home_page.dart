@@ -37,6 +37,14 @@ const Map<String, String> kCargoCategoryLabels = {
 };
 
 /// 货物类别 → 图标（图标+文字快捷选项，增强点击欲与辨识度）。
+/// 首页标题城市：定位中 / 城市名 / 定位不可用（不展示「未知城市」占位）。
+String homeCityTitle(LocationState location) {
+  if (location.loading) return '定位中...';
+  const placeholders = {'未知城市', '服务暂不可用', '定位中...', ''};
+  if (!placeholders.contains(location.city)) return location.city;
+  return '定位不可用';
+}
+
 const Map<String, IconData> _cargoCategoryIcons = {
   'CONSTRUCTION': Icons.construction,
   'EQUIPMENT': Icons.precision_manufacturing,
@@ -74,6 +82,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   DateTime? _expectedDate;
   TimeOfDay? _expectedTime;
   LatLng? _destination;
+
+  /// 定位不可用时用户可在地图上手动选起吊点；非空时优先于当前定位。
+  LatLng? _manualStart;
   bool _submitting = false;
   bool _confirming = false;
 
@@ -121,6 +132,31 @@ class _HomePageState extends ConsumerState<HomePage> {
     setState(() => _destination = point);
   }
 
+  Future<void> _pickStartManually() async {
+    final result = await context.push<String>('/map/pick?point=start');
+    if (result == null || !mounted) return;
+    final first = result.split(';').first.split(',');
+    if (first.length != 2) return;
+    final lat = double.tryParse(first[0]);
+    final lng = double.tryParse(first[1]);
+    if (lat == null || lng == null) return;
+    final point = LatLng(lat, lng);
+    setState(() => _manualStart = point);
+  }
+
+  void _useCurrentLocation() {
+    setState(() => _manualStart = null);
+    ref.read(locationProvider.notifier).refresh();
+  }
+
+  LatLng? _effectiveStart(LocationState location) {
+    if (_manualStart != null) return _manualStart;
+    if (location.latitude != null && location.longitude != null) {
+      return LatLng(location.latitude!, location.longitude!);
+    }
+    return null;
+  }
+
   void _setDestination(LatLng point) {
     setState(() => _destination = point);
   }
@@ -166,6 +202,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       _expectedDate = null;
       _expectedTime = null;
       _destination = null;
+      _manualStart = null;
     });
   }
 
@@ -206,12 +243,13 @@ class _HomePageState extends ConsumerState<HomePage> {
       return;
     }
     final location = ref.read(locationProvider);
-    final startLat = location.latitude;
-    final startLng = location.longitude;
-    if (startLat == null || startLng == null) {
-      _showError('无法获取当前位置作为起吊点，请稍后重试');
+    final start = _effectiveStart(location);
+    if (start == null) {
+      _showError('无法获取当前位置，请点击「起吊点」在地图上手动选择');
       return;
     }
+    final startLat = start.latitude;
+    final startLng = start.longitude;
 
     final categoryLabel = kCargoCategoryLabels[_category]!;
     final descriptionParts = <String>[
@@ -292,13 +330,28 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   /// 起吊点展示文本：优先逆地理编码地址，退化为城市，最后才兜底提示。
   String _startLabel(LocationState location) {
+    if (_manualStart != null) {
+      return '${_manualStart!.latitude.toStringAsFixed(5)}, '
+          '${_manualStart!.longitude.toStringAsFixed(5)}';
+    }
     if (location.loading) return '定位中...';
+    if (location.latitude == null || location.longitude == null) {
+      return '定位不可用，点击在地图上选择起吊点';
+    }
     final address = location.address;
     if (address != null && address.isNotEmpty) return address;
     if (location.city.isNotEmpty && location.city != '未知城市') {
       return location.city;
     }
-    return '点击右侧刷新定位';
+    return '定位不可用，点击在地图上选择起吊点';
+  }
+
+  String _startModeLabel(LocationState location) {
+    if (_manualStart != null) return '手动选择';
+    if (location.latitude != null && location.longitude != null) {
+      return '当前定位';
+    }
+    return '待选择';
   }
 
   @override
@@ -367,7 +420,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        location.loading ? '定位中...' : location.city,
+                        homeCityTitle(location),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -410,10 +463,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   /// 沉浸式地图：整块无边框，可点击任意位置设置卸货点；起终点卡片悬浮于底部。
   Widget _buildMap(LocationState location) {
-    final LatLng? start =
-        (location.latitude != null && location.longitude != null)
-        ? LatLng(location.latitude!, location.longitude!)
-        : null;
+    final LatLng? start = _effectiveStart(location);
     final LatLng center = _destination ?? start ?? _fallbackCenter;
 
     return Stack(
@@ -469,16 +519,26 @@ class _HomePageState extends ConsumerState<HomePage> {
         child: Column(
           children: [
             _buildRouteRow(
-              key: ValueKey('home-start-row'),
+              key: const ValueKey('home-start-point-tile'),
               dotColor: const Color(0xFF238561),
-              title: '起吊点',
+              title: _manualStart != null ? '起吊点（手动选择）' : '起吊点',
               subtitle: _startLabel(location),
-              trailing: IconButton(
-                icon: Icon(Icons.refresh, size: 20),
-                visualDensity: VisualDensity.compact,
-                tooltip: '重新定位',
-                onPressed: () => ref.read(locationProvider.notifier).refresh(),
-              ),
+              modeLabel: _startModeLabel(location),
+              trailing: _manualStart != null
+                  ? IconButton(
+                      icon: const Icon(Icons.my_location, size: 20),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: '改回当前定位',
+                      onPressed: _useCurrentLocation,
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.refresh, size: 20),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: '重新定位',
+                      onPressed: () =>
+                          ref.read(locationProvider.notifier).refresh(),
+                    ),
+              onTap: _pickStartManually,
             ),
             // 连接线（对齐圆点中心）。
             Row(
@@ -505,10 +565,11 @@ class _HomePageState extends ConsumerState<HomePage> {
               ],
             ),
             _buildRouteRow(
-              key: ValueKey('home-destination-row'),
+              key: const ValueKey('home-destination-row'),
               dotColor: AppColors.accent,
               title: '卸货点',
               subtitle: _destination == null ? '点击选择卸货点' : '已选择卸货点',
+              modeLabel: null,
               trailing: _destination == null
                   ? Icon(
                       Icons.chevron_right,
@@ -533,6 +594,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     required Color dotColor,
     required String title,
     required String subtitle,
+    String? modeLabel,
     required Widget trailing,
     VoidCallback? onTap,
   }) {
@@ -553,7 +615,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 shape: BoxShape.circle,
               ),
               child: Text(
-                title == '起吊点' ? '起' : '卸',
+                title.startsWith('起吊点') ? '起' : '卸',
                 style: TextStyle(color: Colors.white, fontSize: 13),
               ),
             ),
@@ -574,9 +636,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                         ),
                       ),
-                      if (title == '起吊点')
+                      if (modeLabel != null)
                         Text(
-                          '当前定位',
+                          modeLabel,
                           style: TextStyle(
                             fontSize: 11,
                             color: Theme.of(

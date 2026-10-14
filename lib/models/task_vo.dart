@@ -74,7 +74,7 @@ class TaskVo {
   /// 货物类别（CONSTRUCTION/EQUIPMENT/AGRICULTURAL）
   final String? cargoCategory;
 
-  /// 选定应征的系统报价（= 成交价 totalAmount，严格相等；未选定为 null）。
+  /// 选定应征的系统报价（= 成交价 totalAmount，严格相等）；未选定时飞手「我的接单」列表为本人应征的系统报价，其余为 null。
   /// ADR-0003：只读展示，客户端不得改价。
   final double? quotedAmount;
 
@@ -213,8 +213,10 @@ class TaskVo {
     if (orderStatus == 'REFUNDED') return '已退款';
     if (orderStatus == 'CANCELLED') return '已取消';
     if (orderStatus == 'COMPLETED') return '已完成';
-    if (orderStatus == 'WAITING_CONFIRM' || matchStatus == 'PENDING_ACCEPTANCE')
+    if (orderStatus == 'WAITING_CONFIRM' ||
+        matchStatus == 'PENDING_ACCEPTANCE') {
       return '待验收';
+    }
     switch (matchStatus) {
       case 'SEEKING_RIDER':
         return '招募飞手';
@@ -322,9 +324,15 @@ class TaskVo {
 
   String get priceText {
     if (totalAmount != null && totalAmount! > 0) {
-      return '¥${totalAmount!.toStringAsFixed(0)}';
+      // 与用户端订单/收银台一致保留两位小数（¥264.65，而不是四舍五入成 ¥265）
+      return '¥${totalAmount!.toStringAsFixed(2)}';
     }
-    return '面议';
+    // 尚未锁价（应征中/洽谈中）：飞手视角列表下发本人应征的平台系统报价（ADR-0003，不可改价）
+    if (quotedAmount != null && quotedAmount! > 0) {
+      return '¥${quotedAmount!.toStringAsFixed(2)}';
+    }
+    // ADR-0003：平台按规则统一计价、不议价——不显示「面议」；飞手应征后由平台给出系统报价
+    return '待平台报价';
   }
 
   String get formattedCreateTime {

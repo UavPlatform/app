@@ -1,7 +1,7 @@
 import '../models/result_model.dart';
+import 'generated/openapi_paths.dart';
 import 'http_client.dart';
 import 'generated/openapi_models.dart';
-import 'generated/openapi_paths.dart';
 import 'order_api.dart';
 
 class TradeStats {

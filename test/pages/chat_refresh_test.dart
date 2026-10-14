@@ -47,8 +47,9 @@ void main() {
             reads++;
             return jsonResponse(200, {'success': true, 'data': serverMessages});
           }
-          if (options.uri.path == '/chat/session/list')
+          if (options.uri.path == '/chat/session/list') {
             return jsonResponse(200, {'success': true, 'data': []});
+          }
           return jsonResponse(200, {'success': true});
         }),
       );

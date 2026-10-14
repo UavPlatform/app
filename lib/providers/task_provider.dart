@@ -161,7 +161,10 @@ class TaskDetailNotifier extends StateNotifier<TaskDetailState> {
   TaskDetailNotifier(this._api) : super(const TaskDetailState());
 
   Future<void> loadDetail(String taskNum) async {
-    state = state.copyWith(loading: true, error: null);
+    // 已有详情时静默刷新：不回到 loading 态。否则详情页会整页换成转圈，
+    // 页内正在 await 的回调（如「选定飞手 → 进入收银台」）的 context 随之卸载，
+    // 后续导航被 `context.mounted` 静默吞掉（演示走查实测：选定后不进收银台）。
+    state = state.copyWith(loading: state.task == null, error: null);
     try {
       final result = await _api.getTaskDetail(taskNum);
       if (!result.success || result.data == null) {
@@ -247,10 +250,14 @@ class TaskApplicationsNotifier extends StateNotifier<TaskApplicationsState> {
     load();
   }
 
+  bool _loadedOnce = false;
+
   Future<void> load() async {
-    state = state.copyWith(loading: true, error: null);
+    // 首次加载才展示 loading；刷新时保留现有列表，避免应征卡片整体卸载重建。
+    state = state.copyWith(loading: !_loadedOnce, error: null);
     try {
       final result = await _api.listApplications(taskNum);
+      _loadedOnce = true;
       if (!mounted) return;
       if (result.success && result.data != null) {
         state = state.copyWith(loading: false, applications: result.data!);

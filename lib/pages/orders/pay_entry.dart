@@ -29,27 +29,47 @@ String _amountText(double? value) =>
 /// 支付入口：刷新详情 → 锁价校验 → 收银台支付 → 成功后刷新详情。
 ///
 /// 返回 true 表示支付成功（订单已流转），供调用方决定后续提示/跳转。
+///
+/// 入口一开始就抓取 [NavigatorState] / [ScaffoldMessengerState] /
+/// [ProviderContainer]：调用方往往是列表里的某张卡片（如应征卡片），刷新数据时
+/// 卡片可能被重建卸载；之后仍用卡片自己的 context 判断 `mounted` 会把导航静默吞掉。
+/// 页面级导航器与容器在整个流程中稳定存在。
 Future<bool> openPayEntry(
   BuildContext context,
   WidgetRef ref, {
   required String taskNum,
   double? quotedAmount,
+}) {
+  return openPayEntryWith(
+    navigator: Navigator.of(context),
+    messenger: ScaffoldMessenger.of(context),
+    container: ProviderScope.containerOf(context, listen: false),
+    taskNum: taskNum,
+    quotedAmount: quotedAmount,
+  );
+}
+
+/// [openPayEntry] 的稳定句柄版本：调用方在任何 await 之前抓好句柄后传入。
+Future<bool> openPayEntryWith({
+  required NavigatorState navigator,
+  required ScaffoldMessengerState messenger,
+  required ProviderContainer container,
+  required String taskNum,
+  double? quotedAmount,
 }) async {
-  final notifier = ref.read(taskDetailProvider(taskNum).notifier);
+  final notifier = container.read(taskDetailProvider(taskNum).notifier);
   await notifier.loadDetail(taskNum);
-  final task = ref.read(taskDetailProvider(taskNum)).task;
-  if (!context.mounted) return false;
+  final task = container.read(taskDetailProvider(taskNum)).task;
+  if (!navigator.mounted) return false;
 
   if (task == null || task.orderNum == null) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('订单尚未生成，请稍后重试')));
+    messenger.showSnackBar(const SnackBar(content: Text('订单尚未生成，请稍后重试')));
     return false;
   }
 
   final quoted = quotedAmount ?? task.quotedAmount;
   if (!payAmountMatches(totalAmount: task.totalAmount, quotedAmount: quoted)) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         content: Text(
           '支付金额与应征报价不一致（应征报价 ${_amountText(quoted)}，'
@@ -61,18 +81,19 @@ Future<bool> openPayEntry(
     return false;
   }
 
-  final paid = await Navigator.of(context).push<bool>(
+  final paid = await navigator.push<bool>(
     MaterialPageRoute(
       builder: (_) => PayPage(orderNum: task.orderNum!, quotedAmount: quoted),
     ),
   );
-  if (!context.mounted) return false;
   if (paid == true) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('支付成功')));
+    if (messenger.mounted) {
+      messenger.showSnackBar(const SnackBar(content: Text('支付成功')));
+    }
     await notifier.loadDetail(taskNum);
     return true;
   }
+  // 未支付返回也刷新一次，保证详情页状态与服务端一致（如已选定待支付）。
+  await notifier.loadDetail(taskNum);
   return false;
 }

@@ -174,11 +174,12 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                 final filtered = status == null
                     ? orders
                     : orders.where((o) => o.orderStatus == status).toList();
-                if (filtered.isEmpty && _totalPages <= 1)
+                if (filtered.isEmpty && _totalPages <= 1) {
                   return DataRefresh(
                     onRefresh: _loadOrders,
                     child: _buildEmpty(),
                   );
+                }
                 return RefreshIndicator(
                   onRefresh: _loadOrders,
                   child: ListView.builder(
@@ -269,7 +270,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                             physics: AlwaysScrollableScrollPhysics(),
                             padding: EdgeInsets.symmetric(horizontal: 16),
                             itemCount: state.tasks.length,
-                            separatorBuilder: (_, __) => SizedBox(height: 8),
+                            separatorBuilder: (_, _) => SizedBox(height: 8),
                             itemBuilder: (_, index) {
                               final task = state.tasks[index];
                               return Card(
@@ -604,7 +605,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
 class OrderRecordDetailView extends ConsumerStatefulWidget {
   final String orderNum;
 
-  const OrderRecordDetailView({required this.orderNum});
+  const OrderRecordDetailView({super.key, required this.orderNum});
 
   @override
   ConsumerState<OrderRecordDetailView> createState() =>

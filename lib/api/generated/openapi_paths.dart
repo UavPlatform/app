@@ -1,14 +1,14 @@
 // GENERATED — DO NOT EDIT.
 // 契约路径表：调用点只允许通过本表拼 URL。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: acb809d3dbe0438683a8f22d2f6103a01916b98d3fb8e0ac2c46b5baa377c955)
+// 事实源：openapi/drone-backend.openapi.json (sha256: f3fdf76770f2080f242142fe33921bd4b291a34b02cbab57cb2d252ab1f14b03)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端端点路径与查询参数的契约映射：路径写错、必填查询参数漏传都会在编译期暴露。
 class ApiPaths {
   ApiPaths._();
 
-  static const String generatedFromSha256 = 'acb809d3dbe0438683a8f22d2f6103a01916b98d3fb8e0ac2c46b5baa377c955';
+  static const String generatedFromSha256 = 'f3fdf76770f2080f242142fe33921bd4b291a34b02cbab57cb2d252ab1f14b03';
 
   /// GET /task/init
   static const String taskInit = '/task/init';
@@ -185,4 +185,24 @@ class ApiPaths {
   static String tasksAttachmentsUploadUrlPath(String taskNum) => '/tasks/' + Uri.encodeComponent(taskNum) + '/attachments/upload-url';
   static Map<String, dynamic> tasksAttachmentsUploadUrlQuery({required String contentType, required String fileName, required int sizeBytes}) =>
       <String, dynamic>{'contentType': contentType, 'fileName': fileName, 'sizeBytes': sizeBytes};
+
+  /// POST /review/submit
+  static const String reviewSubmit = '/review/submit';
+  static Map<String, dynamic> reviewSubmitQuery({String? content, required String orderNum, required int rating}) =>
+      <String, dynamic>{'content': content, 'orderNum': orderNum, 'rating': rating};
+
+  /// GET /review/{orderNum}
+  static const String review = '/review/{orderNum}';
+  static String reviewPath(String orderNum) => '/review/' + Uri.encodeComponent(orderNum);
+
+  /// GET /review/my
+  static const String reviewMy = '/review/my';
+  static Map<String, dynamic> reviewMyQuery({int? page, int? size}) =>
+      <String, dynamic>{'page': page, 'size': size};
+
+  /// GET /rider/info
+  static const String riderInfo = '/rider/info';
+
+  /// PATCH /rider/info
+  static const String patchRiderInfo = '/rider/info';
 }

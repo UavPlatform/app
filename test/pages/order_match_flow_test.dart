@@ -370,6 +370,95 @@ void main() {
     expect(find.byType(TextFormField), findsNothing);
   });
 
+  // 回归（演示走查实测）：真实网络下刷新是异步的，刷新期间详情页/应征区不得整页
+  // 切到 loading 而卸载应征卡片，否则「确认下单」后不会进入收银台。
+  testWidgets('选定飞手后刷新有网络延迟：仍进入收银台且状态更新为待支付',
+      (tester) async {
+    var selected = false;
+    final adapter = StubAdapter((options) async {
+      final path = options.uri.path;
+      if (selected &&
+          (path == '/task/detail' || path == '/task/$taskNum/applications')) {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+      if (path == '/task/detail') {
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': selected ? awaitingPaymentTask() : taskJson(),
+        });
+      }
+      if (path == '/task/$taskNum/applications') {
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': selected
+              ? [
+                  {...applications.first, 'status': 'SELECTED'},
+                  {...applications.last, 'status': 'CLOSED'},
+                ]
+              : applications,
+        });
+      }
+      if (path == '/task/$taskNum/select-rider') {
+        selected = true;
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': awaitingPaymentTask(),
+        });
+      }
+      if (path == '/order/detail') {
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': {
+            'orderNum': 'ORD-1',
+            'totalAmount': 980,
+            'orderStatus': 0,
+            'taskName': '山顶基站建材吊运',
+          },
+        });
+      }
+      return jsonResponse(200, {'success': true, 'code': 200, 'data': []});
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: await buildOverrides(adapter),
+        child: detailApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('选定飞手').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('选择日期'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '确定'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('选择时间'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '确定'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确认下单'));
+    // 逐帧推进，让刷新中的中间帧真实渲染出来。
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PayPage), findsOneWidget,
+        reason: '选定成功后必须进入收银台');
+    expect(find.text('¥980.00'), findsWidgets);
+
+    // 关闭收银台返回详情：已刷新为待支付，应征卡片不再提供「选定飞手」。
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('已选定飞手，请完成支付'), findsOneWidget);
+    expect(find.text('选定飞手'), findsNothing);
+  });
+
   testWidgets('订单金额与应征报价不一致：不发起支付并提示', (tester) async {
     final adapter = detailAdapter(
       task: taskJson(

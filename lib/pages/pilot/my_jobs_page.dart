@@ -179,7 +179,12 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
     final String badgeText;
     final Color badgeBg;
     final Color badgeFg;
-    if (task.isCompleted) {
+    if (task.isCompleted && task.matchStatus == 'PENDING_ACCEPTANCE') {
+      // 已交付、等用户验收：不要提前显示「已完成」
+      badgeText = '待验收';
+      badgeBg = AppColors.statusPending;
+      badgeFg = AppColors.statusPendingText;
+    } else if (task.isCompleted) {
       badgeText = '已完成';
       badgeBg = AppColors.statusCompleted;
       badgeFg = AppColors.statusCompletedText;
@@ -203,7 +208,12 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      // 整卡可点进任务详情（交付成果上传、航点、完成说明都在详情里）
+      child: InkWell(
+        key: ValueKey('job-card-${task.taskNum}'),
+        onTap: () => context.push('/order/${task.taskNum}'),
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,6 +362,22 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
             ],
             if (isActive) ...[
               const SizedBox(height: 8),
+              // 交付门禁：完成前必须先上传履约证据，入口直达详情页「交付成果」
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => context.push('/order/${task.taskNum}'),
+                  icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                  label: const Text('上传交付凭证'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -382,6 +408,7 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
               ),
             ],
           ],
+        ),
         ),
       ),
     );

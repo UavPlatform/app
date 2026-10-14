@@ -194,8 +194,9 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
   void _applyRealtimeSummary(MessageVo message) {
     if (!mounted) return;
     if (!_seenMessageIds.add(message.msgId)) return;
-    if (_seenMessageIds.length > 1024)
+    if (_seenMessageIds.length > 1024) {
       _seenMessageIds.remove(_seenMessageIds.first);
+    }
     if (!state.sessions.any((session) => session.id == message.sessionId)) {
       // The other participant can create the first session; discover it on push.
       unawaited(load());

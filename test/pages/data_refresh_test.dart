@@ -24,8 +24,9 @@ void main() {
             final path = options.uri.path;
             if (path == entry.key) {
               requests++;
-              if (failed)
+              if (failed) {
                 return jsonResponse(200, {'success': false, 'message': '加载失败'});
+              }
               return jsonResponse(200, {
                 'success': true,
                 'data': switch (path) {
@@ -44,13 +45,15 @@ void main() {
                 },
               });
             }
-            if (path == '/chat/session/list')
+            if (path == '/chat/session/list') {
               return jsonResponse(200, {'success': true, 'data': []});
-            if (path == '/task/list')
+            }
+            if (path == '/task/list') {
               return jsonResponse(200, {
                 'success': true,
                 'data': {'tasks': []},
               });
+            }
             return jsonResponse(200, {'success': true});
           });
           await tester.pumpWidget(

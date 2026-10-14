@@ -92,7 +92,12 @@ Future<void> pumpHome(
     initialLocation: '/home',
     routes: [
       GoRoute(path: '/home', builder: (_, _) => const HomePage()),
-      GoRoute(path: '/map/pick', builder: (_, _) => const MapPickerPage()),
+      GoRoute(
+        path: '/map/pick',
+        builder: (_, state) => state.uri.queryParameters['point'] == 'start'
+            ? const MapPickerPage.start()
+            : const MapPickerPage(),
+      ),
       GoRoute(
         path: '/order/:taskNum',
         builder: (_, _) => const Scaffold(body: Text('order-detail')),
@@ -280,7 +285,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('confirm-publish')));
       await tester.pumpAndSettle();
       expect(body?['cargoCategory'], entry.key);
-      expect(body?['taskName'], '${label}吊运');
+      expect(body?['taskName'], '$label吊运');
       expect(body?['description'], '');
       await drainSnackBars(tester);
     });
@@ -310,7 +315,7 @@ void main() {
     // 起吊点 = 当前定位（展示逆地理编码地址，不再暴露经纬度）
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('home-start-row')),
+        of: find.byKey(const ValueKey('home-start-point-tile')),
         matching: find.text('长沙市雨湖区建设路 1 号'),
       ),
       findsOneWidget,
@@ -502,7 +507,7 @@ void main() {
       of: find.byType(MapPickerPage),
       matching: find.byType(MissionMap),
     );
-    tester.widget<MissionMap>(pickerMap).onTap!(const LatLng(27.91, 112.91));
+    tester.widget<MissionMap>(pickerMap).onTap!(const LatLng(27.92, 112.92));
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.tap(find.widgetWithText(ElevatedButton, '确认'));
@@ -512,5 +517,77 @@ void main() {
     expect(find.text('已选择卸货点'), findsOneWidget);
     expect(find.text('已选卸货点，点击地图可更改'), findsNothing);
     expect(find.text('点击上方地图，或打开地图精挑'), findsNothing);
+  });
+
+  testWidgets('定位不可用：标题提示可重试，起吊点可在地图上手动选择并用于发单', (tester) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_locationChannel, (call) async => null);
+    Map<String, dynamic>? createBody;
+    final adapter = homeAdapter(
+      onCreate: (options) async {
+        createBody = Map<String, dynamic>.from(options.data as Map);
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': {
+            'id': 1,
+            'taskNum': 'T-NEW',
+            'taskName': '设备吊运',
+            'userId': 7,
+            'taskType': 'TRANSPORT',
+            'taskStatus': 'IDLE',
+          },
+        });
+      },
+    );
+    await pumpHome(tester, adapter);
+
+    expect(find.text('未知城市'), findsNothing);
+    expect(find.text('定位不可用，点击在地图上选择起吊点'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, '设备'));
+    await tester.enterText(
+      find.byKey(const ValueKey('home-cargo-weight-field')),
+      '8',
+    );
+    await tapHomeMap(tester);
+    await tapPublish(tester);
+    expect(find.text('无法获取当前位置，请点击「起吊点」在地图上手动选择'), findsOneWidget);
+    expect(createBody, isNull);
+    tester
+        .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first)
+        .clearSnackBars();
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('home-start-point-tile')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('home-start-point-tile')));
+    await tester.pumpAndSettle();
+    expect(find.text('选择起吊点'), findsOneWidget);
+    final pickerMap = find.descendant(
+      of: find.byType(MapPickerPage),
+      matching: find.byType(MissionMap),
+    );
+    tester.widget<MissionMap>(pickerMap).onTap!(const LatLng(27.92, 112.92));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.widgetWithText(ElevatedButton, '确认'));
+    await tester.pumpAndSettle();
+    expect(find.text('起吊点（手动选择）'), findsOneWidget);
+
+    await tapPublish(tester);
+    expect(createBody, isNull, reason: '手动选择起吊点后也必须确认才能发布');
+    await tester.tap(find.byKey(const ValueKey('confirm-publish')));
+    await tester.pumpAndSettle();
+    expect(createBody, isNotNull);
+    final waypoints = (createBody!['waypoints'] as List)
+        .map((w) => w is Map ? w : (w as ApiWaypointDto).toJson())
+        .toList();
+    expect(waypoints, hasLength(2));
+    expect(waypoints.first['orderIndex'], 0);
+    expect(waypoints.first['latitude'], isA<num>());
+    expect(waypoints.first['latitude'], isNot(waypoints.last['latitude']));
+    await drainSnackBars(tester);
   });
 }

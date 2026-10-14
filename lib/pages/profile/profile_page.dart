@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/trade_provider.dart';
+import '../../theme/app_colors.dart';
 import 'trade_summary.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -176,13 +177,30 @@ class ProfilePage extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               _ServiceCard(
+                icon: Icons.star_rounded,
+                color: const Color(0xFFF59E0B),
+                title: '我的评价',
+                subtitle: '查看已完成订单的飞手评价',
+                onTap: () => context.push('/reviews'),
+              ),
+              const SizedBox(height: 12),
+              _ServiceCard(
                 icon: Icons.location_on_rounded,
                 color: const Color(0xFF20B692),
                 title: '地址管理',
                 subtitle: '管理常用作业地址',
                 onTap: () => context.push('/addresses'),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.center,
+                child: TextButton.icon(
+                  onPressed: () => _showAbout(context),
+                  icon: const Icon(Icons.info_outline, size: 20),
+                  label: const Text('关于飞翼通'),
+                ),
+              ),
+              const SizedBox(height: 12),
               OutlinedButton.icon(
                 icon: const Icon(Icons.logout_rounded, size: 22),
                 label: const Text('退出登录'),
@@ -216,6 +234,22 @@ class ProfilePage extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showAbout(BuildContext context) {
+    showAboutDialog(
+      context: context,
+      applicationName: '飞翼通',
+      applicationVersion: '1.0.0',
+      applicationIcon:
+          const Icon(Icons.flight, size: 40, color: AppColors.primary),
+      children: const [
+        Text(
+          '面向山区、林场、屋顶等场景的无人机吊运撮合平台：发布吊运需求，平台按距离、'
+          '重量与机型统一计价；选定飞手并沟通作业细节后在线支付，作业直播与交付验收一站完成。',
+        ),
+      ],
     );
   }
 }

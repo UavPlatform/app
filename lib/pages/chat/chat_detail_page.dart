@@ -109,18 +109,20 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
       if (previous?.messages.lastOrNull?.msgId == latest.msgId) return;
       if (ModalRoute.of(context)?.isCurrent != true) return;
       if (WidgetsBinding.instance.lifecycleState != null &&
-          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed)
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
         return;
+      }
       _readTimer?.cancel();
       _readTimer = Timer(const Duration(milliseconds: 100), () {
         if (mounted &&
             ModalRoute.of(context)?.isCurrent == true &&
             (WidgetsBinding.instance.lifecycleState == null ||
                 WidgetsBinding.instance.lifecycleState ==
-                    AppLifecycleState.resumed))
+                    AppLifecycleState.resumed)) {
           ref
               .read(sessionListProvider.notifier)
               .markSessionRead(widget.sessionId);
+        }
       });
       // Follow new messages only while near the latest messages, or after sending.
       if (!_scrollController.hasClients ||
@@ -142,8 +144,9 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     if (!_connectedRealtime && uid > 0) {
       _connectedRealtime = true;
       Future.microtask(() {
-        if (mounted)
+        if (mounted) {
           ref.read(chatWebSocketServiceProvider).ensureConnected(uid);
+        }
       });
     }
     final title = widget.sessionName ?? '聊天';
@@ -196,11 +199,12 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
                           ? 1
                           : state.messages.length,
                       itemBuilder: (context, index) {
-                        if (state.messages.isEmpty)
+                        if (state.messages.isEmpty) {
                           return const Padding(
                             padding: EdgeInsets.symmetric(vertical: 80),
                             child: Center(child: Text('暂无消息，发送一条开始沟通')),
                           );
+                        }
                         final msg = state.messages[index];
                         // t33：系统消息（NOTICE/ORDER，fromUserId=0）渲染为系统卡片
                         if (isSystemMessage(msg)) {

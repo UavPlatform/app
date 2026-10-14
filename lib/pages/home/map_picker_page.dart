@@ -13,9 +13,18 @@ import '../../providers/location_provider.dart';
 import '../../theme/app_colors.dart';
 
 class MapPickerPage extends ConsumerStatefulWidget {
-  const MapPickerPage({super.key, this.title = '选择卸货点'});
+  const MapPickerPage({
+    super.key,
+    this.title = '选择卸货点',
+    this.pointLabel = '卸货点',
+  });
+
+  const MapPickerPage.start({super.key}) : title = '选择起吊点', pointLabel = '起吊点';
 
   final String title;
+
+  /// 选点含义（卸货点 / 起吊点），用于提示文案。
+  final String pointLabel;
 
   @override
   ConsumerState<MapPickerPage> createState() => _MapPickerPageState();
@@ -46,7 +55,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
     if (point == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('请先在地图上选择卸货点')));
+      ).showSnackBar(SnackBar(content: Text('请先在地图上选择${widget.pointLabel}')));
       return;
     }
     context.pop(
@@ -110,12 +119,12 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.border),
         ),
-        child: const Row(
+        child: Row(
           children: [
             Icon(Icons.search, color: AppColors.onSurfaceVariant, size: 20),
             SizedBox(width: 8),
             Text(
-              '搜索卸货点或附近建筑',
+              '搜索${widget.pointLabel}或附近建筑',
               style: TextStyle(color: AppColors.textHint, fontSize: 14),
             ),
           ],
@@ -149,13 +158,13 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
   }
 
   Widget _buildEmptyHint() {
-    return const Row(
+    return Row(
       children: [
         Icon(Icons.touch_app, color: AppColors.primary, size: 22),
         SizedBox(width: 10),
         Expanded(
           child: Text(
-            '拖动地图，点击任意位置选择卸货点',
+            '拖动地图，点击任意位置选择${widget.pointLabel}',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.onSurfaceVariant,

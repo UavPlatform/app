@@ -86,6 +86,7 @@ class AttachmentVo {
   String get sizeLabel {
     final size = sizeBytes ?? 0;
     if (size <= 0) return '-';
+    if (size < 1024) return '$size B';
     if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(0)} KB';
     return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
   }

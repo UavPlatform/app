@@ -193,7 +193,7 @@ void main() {
             },
           });
         }
-        if (options.uri.path == '/task/list')
+        if (options.uri.path == '/task/list') {
           return jsonResponse(200, {
             'success': true,
             'data': {
@@ -203,6 +203,7 @@ void main() {
               'totalElements': 0,
             },
           });
+        }
         return jsonResponse(200, {'success': true, 'data': []});
       });
       await tester.pumpWidget(

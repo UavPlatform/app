@@ -11,6 +11,7 @@ import '../pages/orders/order_list_page.dart';
 import '../pages/orders/trade_list_page.dart';
 import '../pages/orders/order_detail_page.dart';
 import '../pages/messages/message_list_page.dart';
+import '../pages/profile/my_reviews_page.dart';
 import '../pages/profile/profile_page.dart';
 import '../pages/profile/address_list_page.dart';
 import '../pages/profile/address_edit_page.dart';
@@ -19,6 +20,7 @@ import '../pages/pilot/task_hall_page.dart';
 import '../pages/pilot/my_jobs_page.dart';
 import '../pages/pilot/pilot_profile_page.dart';
 import '../pages/pilot/drone_manage_page.dart';
+import '../pages/pilot/pilot_info_page.dart';
 import '../pages/auth/rider_register_page.dart';
 import '../pages/chat/chat_detail_page.dart';
 import '../widgets/app_bottom_nav.dart';
@@ -70,8 +72,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         final isPilot = authState.user?.isPilot ?? false;
         if (!isPilot && location.startsWith('/pilot/')) return '/home';
         if (isPilot &&
-            const ['/home', '/orders', '/profile'].contains(location))
+            const ['/home', '/orders', '/profile'].contains(location)) {
           return '/pilot/tasks';
+        }
       }
       // 一级「消息」Tab 已移除（REQ-APP-002 三 Tab）：旧深链统一落到订单列表。
       if (location == '/messages') return '/orders';
@@ -90,7 +93,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/map/pick',
-        builder: (context, state) => const MapPickerPage(),
+        builder: (context, state) =>
+            state.uri.queryParameters['point'] == 'start'
+            ? const MapPickerPage.start()
+            : const MapPickerPage(),
       ),
       GoRoute(
         path: '/chat/:sessionId',
@@ -107,6 +113,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             OrderDetailPage(taskNum: state.pathParameters['taskNum']!),
       ),
       GoRoute(
+        path: '/reviews',
+        builder: (context, state) => const MyReviewsPage(),
+      ),
+      GoRoute(
         path: '/addresses',
         builder: (context, state) => const AddressListPage(),
       ),
@@ -114,6 +124,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/trade/:kind',
         builder: (context, state) =>
             TradeListPage(kind: state.pathParameters['kind']!),
+      ),
+      GoRoute(
+        path: '/pilot/info',
+        builder: (context, state) => const PilotInfoPage(),
       ),
       GoRoute(
         path: '/pilot/drones',
