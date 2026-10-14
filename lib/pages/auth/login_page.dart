@@ -168,6 +168,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               if (_showServer) ...[
                 const SizedBox(height: 8),
                 TextField(
+                  key: const Key('login_server_url'),
                   controller: _serverController,
                   textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(

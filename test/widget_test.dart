@@ -176,16 +176,13 @@ void main() {
     testWidgets('服务器设置预填生效地址（新装回落内置默认环境）', (tester) async {
       await tester.pumpWidget(await buildLoginPage());
 
-      // 展开「服务器设置」（CI 上需 settle 才能稳定出现输入框）
-      final serverSettings = find.text('服务器设置');
-      await tester.ensureVisible(serverSettings);
-      await tester.tap(serverSettings);
-      await tester.pumpAndSettle();
+      // 展开「服务器设置」：点折叠图标，避免 CI 上文字区域 hit-test 不稳定
+      await tester.ensureVisible(find.text('服务器设置'));
+      await tester.tap(find.byIcon(Icons.expand_more));
+      await tester.pump();
+      expect(find.byIcon(Icons.expand_less), findsOneWidget);
 
-      final serverField = find.widgetWithText(
-        TextField,
-        '请输入服务器地址，如 http://192.168.1.1:8080',
-      );
+      final serverField = find.byKey(const Key('login_server_url'));
       expect(serverField, findsOneWidget);
       final controller = tester.widget<TextField>(serverField).controller;
       expect(
