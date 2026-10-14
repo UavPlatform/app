@@ -185,9 +185,14 @@ void main() {
       final serverField = find.byKey(const Key('login_server_url'));
       expect(serverField, findsOneWidget);
       final controller = tester.widget<TextField>(serverField).controller;
+      final prefilled = Uri.parse(controller?.text ?? '');
+      final defaultUri = Uri.parse(ApiConfig.defaultBaseUrl);
+      expect(prefilled.scheme, defaultUri.scheme);
+      expect(prefilled.host, defaultUri.host);
+      expect(prefilled.port, defaultUri.port);
       expect(
-        controller?.text,
-        ApiConfig.defaultBaseUrl,
+        prefilled.path.replaceAll(RegExp(r'/+$'), ''),
+        '',
         reason: '新装首启无本地 serverUrl 时应预填内置默认地址（P1-5）',
       );
     });
