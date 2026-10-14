@@ -13,14 +13,14 @@ import '../pay/pay_page.dart';
 /// 锁价校验（ADR-0003：成交价恒等于应征系统报价）。
 ///
 /// 无 quotedAmount 的旧订单（撮合改版前创建）没有锁定价基准，放行走既有支付流；
-/// 一旦有锁定价，订单金额缺失或不等（误差 > 0.005 元）都视为不一致。
+/// 一旦有锁定价，订单金额缺失或不等都视为不一致；两者均来自服务端，不做客户端计价。
 bool payAmountMatches({
   required double? totalAmount,
   required double? quotedAmount,
 }) {
   if (quotedAmount == null) return true;
   if (totalAmount == null) return false;
-  return (totalAmount - quotedAmount).abs() <= 0.005;
+  return totalAmount == quotedAmount;
 }
 
 String _amountText(double? value) =>
@@ -63,9 +63,7 @@ Future<bool> openPayEntryWith({
   if (!navigator.mounted) return false;
 
   if (task == null || task.orderNum == null) {
-    messenger.showSnackBar(
-      const SnackBar(content: Text('订单尚未生成，请稍后重试')),
-    );
+    messenger.showSnackBar(const SnackBar(content: Text('订单尚未生成，请稍后重试')));
     return false;
   }
 
@@ -85,14 +83,12 @@ Future<bool> openPayEntryWith({
 
   final paid = await navigator.push<bool>(
     MaterialPageRoute(
-      builder: (_) => PayPage(orderNum: task.orderNum!),
+      builder: (_) => PayPage(orderNum: task.orderNum!, quotedAmount: quoted),
     ),
   );
   if (paid == true) {
     if (messenger.mounted) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('支付成功')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('支付成功')));
     }
     await notifier.loadDetail(taskNum);
     return true;

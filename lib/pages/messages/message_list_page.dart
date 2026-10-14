@@ -30,8 +30,7 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
 
     // t33：系统通知专属会话（chat_session.type=2，懒创建）单独聚合展示
     final systemSession = _systemSessionOf(state.sessions);
-    final chatSessions =
-        state.sessions.where((s) => s.type != 2).toList();
+    final chatSessions = state.sessions.where((s) => s.type != 2).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('消息')),
@@ -41,95 +40,103 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
       ),
       body: state.loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              children: [
-                _buildSystemNotice(context, systemSession),
-                if (chatSessions.isEmpty)
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.5,
-                    child: const Center(
-                      child: Text(
-                        '暂无会话',
-                        style: TextStyle(color: AppColors.onSurfaceVariant),
+          : RefreshIndicator(
+              onRefresh: () => ref.read(sessionListProvider.notifier).load(),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  _buildSystemNotice(context, systemSession),
+                  if (chatSessions.isEmpty)
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.5,
+                      child: const Center(
+                        child: Text(
+                          '暂无会话',
+                          style: TextStyle(color: AppColors.onSurfaceVariant),
+                        ),
                       ),
-                    ),
-                  )
-                else
-                  ...chatSessions.map((s) {
-                    final title = s.otherUserName ?? s.name;
-                    return Column(
-                      children: [
-                        ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: AppColors.primaryLight,
-                            child: Text(
-                              title[0].toUpperCase(),
-                              style: const TextStyle(color: AppColors.primary),
-                            ),
-                          ),
-                          title: Text(
-                            title,
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                          subtitle: Text(
-                            s.lastMessage ?? s.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.onSurfaceVariant,
-                            ),
-                          ),
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                _formatSessionTime(s.sortTime),
+                    )
+                  else
+                    ...chatSessions.map((s) {
+                      final title = s.otherUserName ?? s.name;
+                      return Column(
+                        children: [
+                          ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: AppColors.primaryLight,
+                              child: Text(
+                                title[0].toUpperCase(),
                                 style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.onSurfaceVariant,
+                                  color: AppColors.primary,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              if (s.unreadCount > 0)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
+                            ),
+                            title: Text(
+                              title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            subtitle: Text(
+                              s.lastMessage ?? s.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                            ),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  _formatSessionTime(s.sortTime),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.onSurfaceVariant,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.error,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    s.unreadCount > 99
-                                        ? '99+'
-                                        : s.unreadCount.toString(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                )
-                              else
-                                const Icon(
-                                  Icons.chevron_right,
-                                  color: AppColors.outline,
-                                  size: 18,
                                 ),
-                            ],
+                                const SizedBox(height: 4),
+                                if (s.unreadCount > 0)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.error,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      s.unreadCount > 99
+                                          ? '99+'
+                                          : s.unreadCount.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  const Icon(
+                                    Icons.chevron_right,
+                                    color: AppColors.outline,
+                                    size: 18,
+                                  ),
+                              ],
+                            ),
+                            onTap: () => context.push(
+                              '/chat/${s.id}?otherUserName=${Uri.encodeComponent(title)}',
+                            ),
                           ),
-                          onTap: () => context.push(
-                            '/chat/${s.id}?otherUserName=${Uri.encodeComponent(title)}',
-                          ),
-                        ),
-                        const Divider(height: 1, indent: 72),
-                      ],
-                    );
-                  }),
-              ],
+                          const Divider(height: 1, indent: 72),
+                        ],
+                      );
+                    }),
+                ],
+              ),
             ),
     );
   }
@@ -168,7 +175,10 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
           ),
           subtitle: Text(
             hasUnread ? '你有新的系统消息' : '查看系统消息和订单动态',
-            style: const TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.onSurfaceVariant,
+            ),
           ),
           trailing: hasUnread
               ? Container(
@@ -192,9 +202,7 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
               : const Icon(Icons.chevron_right, color: AppColors.outline),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => SystemMessagesView(
-                sessionId: systemSession?.id,
-              ),
+              builder: (_) => SystemMessagesView(sessionId: systemSession?.id),
             ),
           ),
         ),

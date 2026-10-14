@@ -20,9 +20,8 @@ final chatWebSocketServiceProvider = Provider<ChatWebSocketService>((ref) {
     ref.watch(tokenStorageProvider),
     // t28②：握手 403 自愈——主动刷新 token，rejected 走 sessionExpired 登出链
     refreshSession: () => ref.read(httpClientProvider).refreshTokens(),
-    onSessionInvalid: () => unawaited(
-      ref.read(authProvider.notifier).logout(sessionExpired: true),
-    ),
+    onSessionInvalid: () =>
+        unawaited(ref.read(authProvider.notifier).logout(sessionExpired: true)),
   );
   ref.onDispose(service.dispose);
   return service;
@@ -95,13 +94,16 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
   final HttpClient _httpClient;
   StreamSubscription<MessageVo>? _realtimeSub;
   StreamSubscription<void>? _resyncSub;
+  final int viewerUserId;
+  final Set<String> _seenMessageIds = {};
 
   SessionListNotifier(
     this._api,
     this._httpClient,
     Stream<MessageVo> messages,
-    Stream<void> resync,
-  ) : super(const SessionListState()) {
+    Stream<void> resync, {
+    this.viewerUserId = 0,
+  }) : super(const SessionListState()) {
     _realtimeSub = messages.listen(_applyRealtimeSummary);
     // WS 断线重连成功后补拉会话列表（P1-2）。
     _resyncSub = resync.listen((_) => load());
@@ -113,13 +115,16 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
   /// 本地同步清零该会话未读，避免回到列表仍显示旧红点。
   Future<void> markSessionRead(int sessionId) async {
     try {
-      await _httpClient.dio.post(
+      final response = await _httpClient.dio.post(
         ApiPaths.chatMessageRead,
         queryParameters: ApiPaths.chatMessageReadQuery(sessionId: sessionId),
       );
+      if (response.data is! Map || response.data['success'] != true) return;
     } catch (_) {
       // 已读推进失败不阻塞 UI（下次进入会话重试）
+      return;
     }
+    if (!mounted) return;
     final sessions = state.sessions
         .map((s) => s.id == sessionId ? s.copyWith(unreadCount: 0) : s)
         .toList();
@@ -188,12 +193,22 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
 
   void _applyRealtimeSummary(MessageVo message) {
     if (!mounted) return;
+    if (!_seenMessageIds.add(message.msgId)) return;
+    if (_seenMessageIds.length > 1024) {
+      _seenMessageIds.remove(_seenMessageIds.first);
+    }
+    if (!state.sessions.any((session) => session.id == message.sessionId)) {
+      // The other participant can create the first session; discover it on push.
+      unawaited(load());
+      return;
+    }
     final sessions = state.sessions.map((session) {
       if (session.id != message.sessionId) return session;
       return session.copyWith(
         lastMessage: message.content,
         lastMessageTime: message.timestamp,
-        unreadCount: session.unreadCount + 1,
+        unreadCount:
+            session.unreadCount + (message.fromUserId == viewerUserId ? 0 : 1),
       );
     }).toList()..sort((a, b) => b.sortTime.compareTo(a.sortTime));
     state = state.copyWith(sessions: sessions, loading: false);
@@ -208,17 +223,20 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
 }
 
 final sessionListProvider =
-    StateNotifierProvider<SessionListNotifier, SessionListState>(
-      (ref) {
-        final service = ref.watch(chatWebSocketServiceProvider);
-        return SessionListNotifier(
-          ref.watch(chatApiProvider),
-          ref.watch(httpClientProvider),
-          service.messages,
-          service.resync,
-        );
-      },
-    );
+    StateNotifierProvider<SessionListNotifier, SessionListState>((ref) {
+      final service = ref.watch(chatWebSocketServiceProvider);
+      return SessionListNotifier(
+        ref.watch(chatApiProvider),
+        ref.watch(httpClientProvider),
+        service.messages,
+        service.resync,
+        viewerUserId:
+            int.tryParse(
+              ref.watch(authProvider.select((auth) => auth.user?.userId)) ?? '',
+            ) ??
+            0,
+      );
+    });
 
 // ==================== 任务内嵌会话（订单详情） ====================
 
@@ -251,14 +269,41 @@ class TaskChatSessionsState {
 class TaskChatSessionsNotifier extends StateNotifier<TaskChatSessionsState> {
   final ChatApi _api;
   final String taskNum;
+  StreamSubscription<MessageVo>? _realtimeSub;
+  StreamSubscription<void>? _resyncSub;
+  Timer? _refreshDebounce;
+  Future<void>? _pendingLoad;
 
-  TaskChatSessionsNotifier(this._api, this.taskNum)
-      : super(const TaskChatSessionsState()) {
+  TaskChatSessionsNotifier(
+    this._api,
+    this.taskNum,
+    Stream<MessageVo> messages,
+    Stream<void> resync,
+  ) : super(const TaskChatSessionsState()) {
+    _realtimeSub = messages.listen((_) {
+      // A new session is not yet in this list, so refresh even for unknown IDs.
+      _refreshDebounce?.cancel();
+      _refreshDebounce = Timer(const Duration(milliseconds: 250), () async {
+        _refreshDebounce = null;
+        await _pendingLoad;
+        if (mounted) await load(silent: true);
+      });
+    });
+    _resyncSub = resync.listen((_) => load(silent: true));
     load();
   }
 
-  Future<void> load() async {
-    state = state.copyWith(loading: true, error: null);
+  Future<void> load({bool silent = false}) {
+    return _pendingLoad ??= _load(
+      silent: silent,
+    ).whenComplete(() => _pendingLoad = null);
+  }
+
+  Future<void> _load({required bool silent}) async {
+    state = state.copyWith(
+      loading: !silent && state.sessions.isEmpty,
+      error: null,
+    );
     try {
       final result = await _api.listTaskChatSessions(taskNum);
       if (!mounted) return;
@@ -275,14 +320,30 @@ class TaskChatSessionsNotifier extends StateNotifier<TaskChatSessionsState> {
       state = state.copyWith(loading: false, error: '网络请求失败');
     }
   }
+
+  @override
+  void dispose() {
+    _refreshDebounce?.cancel();
+    _realtimeSub?.cancel();
+    _resyncSub?.cancel();
+    super.dispose();
+  }
 }
 
 /// 任务内嵌会话：autoDispose，每次进入详情页重新对齐服务端未读与会话归属。
-final taskChatSessionsProvider = StateNotifierProvider.autoDispose.family<
-    TaskChatSessionsNotifier, TaskChatSessionsState, String>(
-  (ref, taskNum) =>
-      TaskChatSessionsNotifier(ref.watch(chatApiProvider), taskNum),
-);
+final taskChatSessionsProvider = StateNotifierProvider.autoDispose
+    .family<TaskChatSessionsNotifier, TaskChatSessionsState, String>((
+      ref,
+      taskNum,
+    ) {
+      final service = ref.watch(chatWebSocketServiceProvider);
+      return TaskChatSessionsNotifier(
+        ref.watch(chatApiProvider),
+        taskNum,
+        service.messages,
+        service.resync,
+      );
+    });
 
 // ==================== 消息列表（单个会话） ====================
 
@@ -319,6 +380,8 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
   final int sessionId;
   StreamSubscription<MessageVo>? _realtimeSub;
   StreamSubscription<void>? _resyncSub;
+  Future<void>? _pendingLoad;
+  final Map<String, MessageVo> _receivedDuringLoad = {};
 
   MessageListNotifier(
     this._api,
@@ -328,17 +391,34 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
   ) : super(const MessageListState()) {
     _realtimeSub = messages.listen(_appendRealtimeMessage);
     // WS 断线重连成功后补拉当前会话历史，弥合离线期间的消息空洞（P1-2）。
-    _resyncSub = resync.listen((_) => load());
+    _resyncSub = resync.listen((_) => load(silent: true));
     load();
   }
 
-  Future<void> load() async {
-    state = state.copyWith(loading: true, error: null);
+  Future<void> load({bool silent = false}) {
+    return _pendingLoad ??= _load(
+      silent: silent,
+    ).whenComplete(() => _pendingLoad = null);
+  }
+
+  Future<void> _load({required bool silent}) async {
+    _receivedDuringLoad.clear();
+    state = state.copyWith(
+      loading: !silent && state.messages.isEmpty,
+      error: null,
+    );
     try {
       final result = await _api.getMessages(sessionId);
       if (!mounted) return;
       if (result.success && result.data != null) {
-        state = state.copyWith(loading: false, messages: result.data!);
+        final byId = {
+          for (final message in result.data!) message.msgId: message,
+        };
+        // A slow history response must not erase a newer WebSocket message.
+        byId.addAll(_receivedDuringLoad);
+        final messages = byId.values.toList()
+          ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+        state = state.copyWith(loading: false, messages: messages);
       } else {
         state = state.copyWith(loading: false, error: result.message ?? '加载失败');
       }
@@ -357,7 +437,10 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
         content: content,
       );
       if (result.success) {
-        await load();
+        // Wait for any older snapshot before fetching our just-sent message.
+        await _pendingLoad;
+        if (!mounted) return false;
+        await load(silent: true);
         if (!mounted) return false;
         state = state.copyWith(sending: false);
         return true;
@@ -375,6 +458,9 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
   void _appendRealtimeMessage(MessageVo message) {
     if (!mounted) return;
     if (message.sessionId != sessionId) return;
+    if (_pendingLoad != null || state.loading) {
+      _receivedDuringLoad[message.msgId] = message;
+    }
     final messages = [
       ...state.messages.where((item) => item.msgId != message.msgId),
       message,
@@ -390,18 +476,16 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
   }
 }
 
-final messageListProvider =
-    StateNotifierProvider.family<MessageListNotifier, MessageListState, int>(
-      (ref, sessionId) {
-        final service = ref.watch(chatWebSocketServiceProvider);
-        return MessageListNotifier(
-          ref.watch(chatApiProvider),
-          sessionId,
-          service.messages,
-          service.resync,
-        );
-      },
-    );
+final messageListProvider = StateNotifierProvider.autoDispose
+    .family<MessageListNotifier, MessageListState, int>((ref, sessionId) {
+      final service = ref.watch(chatWebSocketServiceProvider);
+      return MessageListNotifier(
+        ref.watch(chatApiProvider),
+        sessionId,
+        service.messages,
+        service.resync,
+      );
+    });
 
 // ==================== 重连补拉与按单未读 ====================
 

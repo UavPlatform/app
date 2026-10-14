@@ -10,4 +10,3 @@ INFO|DEPRECATED_MEMBER_USE|lib/pages/profile/address_edit_page.dart	1
 INFO|DEPRECATED_MEMBER_USE|lib/pages/splash/splash_page.dart	1
 INFO|UNNECESSARY_UNDERSCORES|lib/routes/app_router.dart	1
 INFO|UNNECESSARY_UNDERSCORES|lib/widgets/scroll_pickers.dart	6
-WARNING|INVALID_NULL_AWARE_OPERATOR|lib/pages/pilot/pilot_profile_page.dart	1

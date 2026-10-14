@@ -176,19 +176,23 @@ void main() {
     testWidgets('服务器设置预填生效地址（新装回落内置默认环境）', (tester) async {
       await tester.pumpWidget(await buildLoginPage());
 
-      // 展开「服务器设置」
-      await tester.tap(find.text('服务器设置'));
+      // 展开「服务器设置」：点折叠图标，避免 CI 上文字区域 hit-test 不稳定
+      await tester.ensureVisible(find.text('服务器设置'));
+      await tester.tap(find.byIcon(Icons.expand_more));
       await tester.pump();
+      expect(find.byIcon(Icons.expand_less), findsOneWidget);
 
-      final serverField = find.widgetWithText(
-        TextField,
-        '请输入服务器地址，如 http://192.168.1.1:8080',
-      );
+      final serverField = find.byKey(const Key('login_server_url'));
       expect(serverField, findsOneWidget);
       final controller = tester.widget<TextField>(serverField).controller;
+      final prefilled = Uri.parse(controller?.text ?? '');
+      final defaultUri = Uri.parse(ApiConfig.defaultBaseUrl);
+      expect(prefilled.scheme, defaultUri.scheme);
+      expect(prefilled.host, defaultUri.host);
+      expect(prefilled.port, defaultUri.port);
       expect(
-        controller?.text,
-        ApiConfig.defaultBaseUrl,
+        prefilled.path.replaceAll(RegExp(r'/+$'), ''),
+        '',
         reason: '新装首启无本地 serverUrl 时应预填内置默认地址（P1-5）',
       );
     });

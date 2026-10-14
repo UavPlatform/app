@@ -1,10 +1,10 @@
 // 地图选点页（单点模式）：全屏地图精挑一个坐标点，pop 返回 "lat,lng"。
-// 由首页「卸货点」入口调起；沿用仓库既有 flutter_map 选点能力（REQ-APP-002）。
+// 由首页「卸货点」入口调起；使用共享高德原生地图选点能力（REQ-APP-002）。
 // UI 重构：地图沉浸式铺满、顶部搜索框（POI 搜索待后端接口）、底部面板承载
 // 引导态/已选态与确认 CTA，消除原「大面积无意义留白」。
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import '../../widgets/mission_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
@@ -19,9 +19,7 @@ class MapPickerPage extends ConsumerStatefulWidget {
     this.pointLabel = '卸货点',
   });
 
-  const MapPickerPage.start({super.key})
-      : title = '选择起吊点',
-        pointLabel = '起吊点';
+  const MapPickerPage.start({super.key}) : title = '选择起吊点', pointLabel = '起吊点';
 
   final String title;
 
@@ -33,23 +31,13 @@ class MapPickerPage extends ConsumerStatefulWidget {
 }
 
 class _MapPickerPageState extends ConsumerState<MapPickerPage> {
-  late MapController _mapController;
+  late MissionMapController _mapController;
   LatLng? _point;
-
-  /// 卫星影像底图（高德，无标注）。
-  static const _satelliteTileUrl =
-      'https://webst0{s}.is.autonavi.com/appmaptile'
-      '?style=6&x={x}&y={y}&z={z}';
-
-  /// 地名/POI 文字标注透明层（叠加在卫星图上，显示地名）。
-  static const _labelTileUrl =
-      'https://wprd0{s}.is.autonavi.com/appmaptile'
-      '?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=8&ltype=4';
 
   @override
   void initState() {
     super.initState();
-    _mapController = MapController();
+    _mapController = MissionMapController();
   }
 
   @override
@@ -58,35 +46,34 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
     super.dispose();
   }
 
-  void _setPoint(TapPosition position, LatLng point) {
+  void _setPoint(LatLng point) {
     setState(() => _point = point);
   }
 
   void _confirm() {
     final point = _point;
     if (point == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('请先在地图上选择${widget.pointLabel}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('请先在地图上选择${widget.pointLabel}')));
       return;
     }
-    context.pop('${point.latitude.toStringAsFixed(6)},'
-        '${point.longitude.toStringAsFixed(6)}');
+    context.pop(
+      '${point.latitude.toStringAsFixed(6)},'
+      '${point.longitude.toStringAsFixed(6)}',
+    );
   }
 
   void _showSearchHint() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('POI 搜索需后端提供搜索接口，即将上线')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('POI 搜索需后端提供搜索接口，即将上线')));
   }
 
   @override
   Widget build(BuildContext context) {
     final loc = ref.watch(locationProvider);
-    final center = LatLng(
-      loc.latitude ?? 27.8981,
-      loc.longitude ?? 112.9193,
-    );
+    final center = LatLng(loc.latitude ?? 27.8981, loc.longitude ?? 112.9193);
 
     return Scaffold(
       appBar: AppBar(
@@ -103,73 +90,18 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
         children: [
           // 沉浸式全屏地图
           Positioned.fill(
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: center,
-                initialZoom: 16,
-                onTap: _setPoint,
-                // 关闭双击缩放：单击即选点，避免双击判定带来的选点延迟。
-                interactionOptions: const InteractionOptions(
-                  flags: InteractiveFlag.drag |
-                      InteractiveFlag.pinchZoom |
-                      InteractiveFlag.flingAnimation,
-                ),
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: _satelliteTileUrl,
-                  subdomains: const ['1', '2', '3', '4'],
-                  maxZoom: 18,
-                ),
-                TileLayer(
-                  urlTemplate: _labelTileUrl,
-                  subdomains: const ['1', '2', '3', '4'],
-                  maxZoom: 18,
-                ),
-                // 我的位置
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: center,
-                      width: 36,
-                      height: 36,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.3),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.my_location,
-                              color: Colors.blue, size: 18),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                // 已选卸货点
-                if (_point != null)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: _point!,
-                        width: 36,
-                        height: 44,
-                        child: const Icon(Icons.location_on,
-                            color: Colors.red, size: 34),
-                      ),
-                    ],
-                  ),
-              ],
+            child: MissionMap(
+              controller: _mapController,
+              center: center,
+              start: loc.latitude != null && loc.longitude != null
+                  ? center
+                  : null,
+              destination: _point,
+              onTap: _setPoint,
             ),
           ),
           // 底部面板：引导态 / 已选态
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _buildBottomPanel(),
-          ),
+          Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomPanel()),
         ],
       ),
     );
@@ -187,12 +119,12 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.border),
         ),
-        child: const Row(
+        child: Row(
           children: [
             Icon(Icons.search, color: AppColors.onSurfaceVariant, size: 20),
             SizedBox(width: 8),
             Text(
-              '搜索卸货点或附近建筑',
+              '搜索${widget.pointLabel}或附近建筑',
               style: TextStyle(color: AppColors.textHint, fontSize: 14),
             ),
           ],
@@ -226,17 +158,18 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
   }
 
   Widget _buildEmptyHint() {
-    return const Row(
+    return Row(
       children: [
         Icon(Icons.touch_app, color: AppColors.primary, size: 22),
         SizedBox(width: 10),
         Expanded(
           child: Text(
-            '拖动地图，点击任意位置选择卸货点',
+            '拖动地图，点击任意位置选择${widget.pointLabel}',
             style: TextStyle(
-                fontSize: 14,
-                color: AppColors.onSurfaceVariant,
-                fontWeight: FontWeight.w500),
+              fontSize: 14,
+              color: AppColors.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],
@@ -257,7 +190,9 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
                 '${point.latitude.toStringAsFixed(6)}, '
                 '${point.longitude.toStringAsFixed(6)}',
                 style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w600),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             IconButton(
@@ -277,9 +212,12 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-              textStyle:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             onPressed: _confirm,
             icon: const Icon(Icons.check, size: 20),

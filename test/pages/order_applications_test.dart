@@ -113,9 +113,7 @@ void main() {
         });
       }
       if (path == '/chat/session/create') {
-        onCreateSession?.call(
-          Map<String, dynamic>.from(options.data as Map),
-        );
+        onCreateSession?.call(Map<String, dynamic>.from(options.data as Map));
         return jsonResponse(200, {
           'success': true,
           'code': 200,
@@ -144,9 +142,8 @@ void main() {
     });
   }
 
-  Widget detailApp() => const MaterialApp(
-        home: OrderDetailPage(taskNum: taskNum),
-      );
+  Widget detailApp() =>
+      const MaterialApp(home: OrderDetailPage(taskNum: taskNum));
 
   testWidgets('应征列表渲染：机型、载重、系统报价与应征时间', (tester) async {
     final adapter = detailAdapter(
@@ -188,7 +185,7 @@ void main() {
     expect(find.text('应征于 2026-09-26 11:05'), findsOneWidget);
 
     // 订单内红点：已有会话未读挂在对应应征项上
-    expect(find.text('3'), findsOneWidget, reason: '任务会话未读数');
+    expect(find.text('聊一聊 · 3 条未读'), findsOneWidget, reason: '任务会话未读数');
 
     // 服务端 actionHint 为唯一文案源
     expect(find.text('等待飞手应征，选定后下单支付'), findsOneWidget);
@@ -206,8 +203,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('应征飞手'), findsOneWidget);
-    expect(find.byType(TextField), findsNothing,
-        reason: '详情页不允许出现任何价格输入框');
+    expect(find.byType(TextField), findsNothing, reason: '详情页不允许出现任何价格输入框');
     expect(find.byType(TextFormField), findsNothing);
     expect(find.byType(Slider), findsNothing);
     expect(find.byType(EditableText), findsNothing);
@@ -238,8 +234,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('应征飞手'), findsNothing);
-    expect(find.text('等待飞手接单'), findsNothing,
-        reason: '非撮合阶段不得误导用户等待接单');
+    expect(find.text('等待飞手接单'), findsNothing, reason: '非撮合阶段不得误导用户等待接单');
   });
 
   testWidgets('点击无会话的应征项：创建订单内会话并进入聊天', (tester) async {
@@ -275,15 +270,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('飞手乙'));
+    await tester.ensureVisible(find.byKey(const ValueKey('chat-rider-12')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('chat-rider-12')));
     await tester.pumpAndSettle();
 
     expect(createdBody, isNotNull, reason: '无既有会话时走 /chat/session/create');
     expect(createdBody!['taskNum'], taskNum);
     expect(createdBody!['applicationId'], 12);
     expect((createdBody!['userIds'] as List), contains(9));
-    expect(find.byType(ChatDetailPage), findsOneWidget,
-        reason: '聊天从订单详情进入，不经全局消息 Tab');
+    expect(
+      find.byType(ChatDetailPage),
+      findsOneWidget,
+      reason: '聊天从订单详情进入，不经全局消息 Tab',
+    );
   });
 
   testWidgets('点击已有会话的应征项：直达会话，不重复创建', (tester) async {
@@ -330,7 +330,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('飞手甲'));
+    await tester.ensureVisible(find.byKey(const ValueKey('chat-rider-11')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('chat-rider-11')));
     await tester.pumpAndSettle();
 
     expect(find.byType(ChatDetailPage), findsOneWidget);
@@ -388,8 +390,7 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, 320));
     await tester.pumpAndSettle();
 
-    expect(applicationCalls, greaterThanOrEqualTo(2),
-        reason: '下拉刷新重新请求应征列表');
+    expect(applicationCalls, greaterThanOrEqualTo(2), reason: '下拉刷新重新请求应征列表');
     expect(find.text('等待飞手接单'), findsNothing);
     expect(find.text('飞手甲'), findsOneWidget);
   });

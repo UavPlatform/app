@@ -44,7 +44,7 @@ class ApplicationsSection extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     if (state.loading) {
-      return _section([
+      return _section(context, [
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
           child: Center(child: CircularProgressIndicator()),
@@ -52,8 +52,8 @@ class ApplicationsSection extends ConsumerWidget {
       ]);
     }
     if (visible.isEmpty) {
-      if (state.error != null) return _errorCard(ref);
-      return _section([
+      if (state.error != null) return _errorCard(context, ref);
+      return _section(context, [
         // 空状态（REQ-APP-002 场景 2）：暂无应征时提示等待飞手接单。
         Container(
           width: double.infinity,
@@ -81,7 +81,7 @@ class ApplicationsSection extends ConsumerWidget {
     }
 
     final sessions = ref.watch(taskChatSessionsProvider(taskNum));
-    return _section([
+    return _section(context, [
       for (final app in visible)
         _ApplicationTile(
           taskNum: taskNum,
@@ -114,8 +114,8 @@ class ApplicationsSection extends ConsumerWidget {
     ]);
   }
 
-  Widget _errorCard(WidgetRef ref) {
-    return _section([
+  Widget _errorCard(BuildContext context, WidgetRef ref) {
+    return _section(context, [
       const Text(
         '应征列表加载失败',
         style: TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
@@ -132,12 +132,12 @@ class ApplicationsSection extends ConsumerWidget {
     ]);
   }
 
-  Widget _section(List<Widget> children) {
+  Widget _section(BuildContext context, List<Widget> children) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -147,6 +147,17 @@ class ApplicationsSection extends ConsumerWidget {
             '应征飞手',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           ),
+          if (inMatching) ...[
+            const SizedBox(height: 6),
+            Text(
+              '可先沟通比较，再选定一位飞手下单',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           ...children,
         ],
@@ -160,7 +171,8 @@ class ApplicationsSection extends ConsumerWidget {
     TaskApplicationVo app,
   ) {
     for (final session in sessions) {
-      final sameApplication = app.applicationId != null &&
+      final sameApplication =
+          app.applicationId != null &&
           session.applicationId == app.applicationId;
       final sameRider = app.riderId != null && session.riderId == app.riderId;
       if (sameApplication || sameRider) return session.unreadCount;
@@ -170,7 +182,7 @@ class ApplicationsSection extends ConsumerWidget {
 }
 
 /// 应征列表单项：头像 + 昵称 + 机型/载重 + 系统报价（只读） + 应征时间，
-/// 右侧聊天入口与「选定飞手」操作（招募/洽谈阶段）；点击整行进入订单内聊天。
+/// 卡片底部的整行「选定飞手」主操作（招募/洽谈阶段）与独立聊天入口。
 class _ApplicationTile extends ConsumerWidget {
   final String taskNum;
   final TaskApplicationVo application;
@@ -189,130 +201,154 @@ class _ApplicationTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final app = application;
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () => _openChat(context, ref),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(12),
+    final scheme = Theme.of(context).colorScheme;
+    final selected = app.status == 'SELECTED';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: selected ? scheme.primary : scheme.outlineVariant,
         ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: AppColors.primary,
-              child: Text(
-                app.displayName.isEmpty ? '?' : app.displayName.substring(0, 1),
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: scheme.primaryContainer,
+                child: Icon(
+                  Icons.person_rounded,
+                  color: scheme.onPrimaryContainer,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          app.displayName,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      if (unread > 0) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.error,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            unread > 99 ? '99+' : '$unread',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    [
-                      app.aircraftLabel,
-                      if (app.payloadText.isNotEmpty) app.payloadText,
-                    ].join(' · '),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
-                  if (app.formattedAppliedAt.isNotEmpty) ...[
-                    const SizedBox(height: 2),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      '应征于 ${app.formattedAppliedAt}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.onSurfaceVariant,
+                      app.displayName,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      [
+                        app.aircraftLabel,
+                        if (app.payloadText.isNotEmpty) app.payloadText,
+                      ].join(' · '),
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
+              if (selected)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(
+                    '已选定',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.primary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Text(
+                '系统报价',
+                style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
                   app.quotedAmountText,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFFFB36B)
+                        : AppColors.accentDark,
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Icon(
-                  Icons.chat_bubble_outline,
-                  size: 18,
-                  color: AppColors.primary,
-                ),
-                if (canSelect) ...[
-                  const SizedBox(height: 2),
-                  TextButton(
-                    onPressed: () => _onSelect(context, ref),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text(
-                      '选定飞手',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+              ),
+            ],
+          ),
+          if (app.formattedAppliedAt.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              '应征于 ${app.formattedAppliedAt}',
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
             ),
           ],
-        ),
+          const SizedBox(height: 14),
+          if (canSelect && !selected) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: ValueKey('select-rider-${app.applicationId}'),
+                onPressed: () => _onSelect(context, ref),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFC45100),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                icon: const Icon(Icons.check_circle_outline_rounded, size: 21),
+                label: const Text(
+                  '选定飞手',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: ValueKey('chat-rider-${app.applicationId}'),
+              onPressed: () => _openChat(context, ref),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+                foregroundColor: scheme.primary,
+                side: BorderSide(color: scheme.outlineVariant),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+              label: Text(
+                unread > 0
+                    ? '聊一聊 · ${unread > 99 ? '99+' : unread} 条未读'
+                    : '聊一聊',
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -348,14 +384,13 @@ class _ApplicationTile extends ConsumerWidget {
   /// 返回详情页后刷新任务会话，使未读红点与服务端已读推进对齐。
   Future<void> _openChat(BuildContext context, WidgetRef ref) async {
     final app = application;
-    final existing =
-        ref.read(taskChatSessionsProvider(taskNum)).sessions;
+    final existing = ref.read(taskChatSessionsProvider(taskNum)).sessions;
     int? sessionId;
     for (final session in existing) {
-      final sameApplication = app.applicationId != null &&
+      final sameApplication =
+          app.applicationId != null &&
           session.applicationId == app.applicationId;
-      final sameRider =
-          app.riderId != null && session.riderId == app.riderId;
+      final sameRider = app.riderId != null && session.riderId == app.riderId;
       if (sameApplication || sameRider) {
         sessionId = session.sessionId;
         break;
@@ -366,27 +401,28 @@ class _ApplicationTile extends ConsumerWidget {
       final riderId = app.riderId;
       if (riderId == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('该应征缺少飞手信息，无法发起会话')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('该应征缺少飞手信息，无法发起会话')));
         }
         return;
       }
-      final session =
-          await ref.read(sessionListProvider.notifier).createDirectSession(
-                name: app.displayName,
-                userId: riderId,
-                taskNum: taskNum,
-                applicationId: app.applicationId,
-              );
+      final session = await ref
+          .read(sessionListProvider.notifier)
+          .createDirectSession(
+            name: app.displayName,
+            userId: riderId,
+            taskNum: taskNum,
+            applicationId: app.applicationId,
+          );
       sessionId = session?.id;
     }
 
     if (!context.mounted) return;
     if (sessionId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('创建会话失败，请稍后重试')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('创建会话失败，请稍后重试')));
       return;
     }
 

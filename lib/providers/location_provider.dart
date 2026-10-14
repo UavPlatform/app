@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/location_service.dart';
-import '../api/task_api.dart';
-import 'task_provider.dart';
+import '../models/amap_config.dart';
+import 'map_provider.dart';
 
 class LocationState {
   final String city;
@@ -36,12 +36,14 @@ class LocationState {
 }
 
 class LocationNotifier extends StateNotifier<LocationState> {
-  final LocationService _service = LocationService();
-  final TaskApi _taskApi;
+  final LocationService _service;
+  final Future<AmapConfig> Function() _getConfig;
   bool _running = false;
   String? _amapKey;
 
-  LocationNotifier(this._taskApi) : super(const LocationState()) {
+  LocationNotifier(this._getConfig, {LocationService? service})
+    : _service = service ?? LocationService(),
+      super(const LocationState()) {
     _init();
   }
 
@@ -51,23 +53,20 @@ class LocationNotifier extends StateNotifier<LocationState> {
 
     if (_amapKey == null) {
       try {
-        final r = await _taskApi.getAmapConfig();
-        if (r.success && r.data != null) {
-          _amapKey = r.data!.key;
+        final config = await _getConfig();
+        if (!mounted) return;
+        if (config.key.trim().isNotEmpty) {
+          _amapKey = config.key.trim();
           await _service.setApiKey(_amapKey!);
         }
       } catch (_) {}
     }
 
-    if (_amapKey == null) {
-      state = state.copyWith(city: '服务暂不可用', loading: false);
-      _running = false;
-      return;
-    }
-
+    if (!mounted) return;
     final result = await _service.getCurrentLocation();
-    state = state.copyWith(
-      city: result?.displayCity ?? '未知城市',
+    if (!mounted) return;
+    state = LocationState(
+      city: result?.displayCity ?? '定位不可用，请检查权限和定位开关',
       address: result?.address,
       loading: false,
       latitude: result?.latitude,
@@ -77,12 +76,18 @@ class LocationNotifier extends StateNotifier<LocationState> {
   }
 
   Future<void> refresh() async {
+    if (_running) return;
     state = state.copyWith(loading: true);
-    _running = false;
     await _init();
+  }
+
+  @override
+  void dispose() {
+    _service.dispose();
+    super.dispose();
   }
 }
 
 final locationProvider = StateNotifierProvider<LocationNotifier, LocationState>(
-  (ref) => LocationNotifier(ref.watch(taskApiProvider)),
+  (ref) => LocationNotifier(() => ref.read(amapMapConfigProvider.future)),
 );

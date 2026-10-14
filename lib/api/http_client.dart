@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../config/api_config.dart';
 import '../services/token_storage.dart';
 import 'generated/openapi_paths.dart';
@@ -38,7 +39,21 @@ class HttpClient {
     dio.interceptors.add(_authInterceptor());
     dio.interceptors.add(_droneCheckInterceptor());
     dio.interceptors.add(_refreshInterceptor());
-    dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
+    if (kDebugMode) {
+      dio.interceptors.add(
+        LogInterceptor(
+          requestBody: true,
+          responseBody: true,
+          requestHeader: false,
+          logPrint: (message) => debugPrint(
+            message.toString().replaceAllMapped(
+              RegExp(r'("(?:key|securityKey|apiKey)"\s*:\s*")[^"]*(")'),
+              (match) => '${match[1]}<redacted>${match[2]}',
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   void updateBaseUrl(String url) {

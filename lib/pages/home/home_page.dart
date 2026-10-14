@@ -2,14 +2,16 @@
 //   沉浸式地图（起吊点=当前定位，卸货点=地图选点） + 悬浮起终点双竖线卡片
 //   （起吊点展示逆地理编码的「人话」地址，不再暴露经纬度） + 紧凑物资表单
 //   + 发布 TRANSPORT（发单不支付，支付在选定飞手后）。
-// 已移除：服务四宫格、热门飞手推荐、任务广场、本人已发任务列表（任务列表
-//   收敛到「订单」Tab，首页只专注「发单」一件事）。
+// 已移除：服务四宫格、热门飞手推荐、任务广场。
+// 首页保留本人进行中的吊运需求摘要，完整列表由订单与交易入口查询。
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'own_tasks_summary.dart';
+import 'task_flow_guide.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_map/flutter_map.dart';
+import '../../widgets/mission_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
@@ -17,6 +19,7 @@ import 'package:latlong2/latlong.dart';
 import '../../api/generated/openapi_models.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/task_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/scroll_pickers.dart';
 import '../../widgets/mission_design.dart';
@@ -72,16 +75,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// 地图默认中心（定位不可用时，沿用仓库既有默认坐标）。
   static const LatLng _fallbackCenter = LatLng(27.8981, 112.9193);
 
-  /// 卫星影像底图（高德，无标注）。
-  static const String _satelliteTileUrl =
-      'https://webst0{s}.is.autonavi.com/appmaptile'
-      '?style=6&x={x}&y={y}&z={z}';
-
-  /// 地名/POI 文字标注透明层（叠加在卫星图上，显示地名）。
-  static const String _labelTileUrl =
-      'https://wprd0{s}.is.autonavi.com/appmaptile'
-      '?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=8&ltype=4';
-
   String? _category;
   final _weightController = TextEditingController();
   final _volumeController = TextEditingController();
@@ -93,14 +86,22 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// 定位不可用时用户可在地图上手动选起吊点；非空时优先于当前定位。
   LatLng? _manualStart;
   bool _submitting = false;
-  bool _mapReady = false;
+  bool _confirming = false;
+
   bool _sheetExpanded = true;
-  late final MapController _mapController;
+  late final MissionMapController _mapController;
 
   @override
   void initState() {
     super.initState();
-    _mapController = MapController();
+    _mapController = MissionMapController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      final prefs = ref.read(sharedPreferencesProvider);
+      if (prefs.getBool(taskFlowGuideDismissedKey) != true) {
+        unawaited(showTaskFlowGuide(context, prefs));
+      }
+    });
   }
 
   @override
@@ -110,16 +111,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     _volumeController.dispose();
     _descriptionController.dispose();
     super.dispose();
-  }
-
-  /// 从选点页取回终点后，把视野移到终点，保证标记可见。
-  void _recenter(LatLng point) {
-    if (!_mapReady) return;
-    try {
-      _mapController.move(point, 16);
-    } catch (_) {
-      // 地图尚未完成首帧渲染时忽略，标记仍会随初始中心展示。
-    }
   }
 
   void _showError(String message) {
@@ -139,7 +130,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (lat == null || lng == null) return;
     final point = LatLng(lat, lng);
     setState(() => _destination = point);
-    _recenter(point);
   }
 
   Future<void> _pickStartManually() async {
@@ -152,7 +142,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (lat == null || lng == null) return;
     final point = LatLng(lat, lng);
     setState(() => _manualStart = point);
-    _recenter(point);
   }
 
   void _useCurrentLocation() {
@@ -218,6 +207,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Future<void> _publish() async {
+    if (_submitting || _confirming) return;
     if (_category == null) {
       _showError('请选择货物类别');
       return;
@@ -252,7 +242,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       _showError('请选择卸货点');
       return;
     }
-    final start = _effectiveStart(ref.read(locationProvider));
+    final location = ref.read(locationProvider);
+    final start = _effectiveStart(location);
     if (start == null) {
       _showError('无法获取当前位置，请点击「起吊点」在地图上手动选择');
       return;
@@ -267,7 +258,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         _descriptionController.text.trim(),
     ];
 
-    setState(() => _submitting = true);
     // 发单不支付（ADR-0003）：仅创建 TRANSPORT 任务，不携带任何客户端价格，
     // 不触发任何支付/下单接口；支付发生在用户选定飞手并下单时。
     final request = ApiTaskDto(
@@ -287,6 +277,42 @@ class _HomePageState extends ConsumerState<HomePage> {
       cargoCategory: _category,
     );
 
+    setState(() => _confirming = true);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('确认发布吊运需求'),
+        content: SingleChildScrollView(
+          child: Text(
+            '货物类别：$categoryLabel\n货物重量：$weightText kg\n'
+            '${volumeText.isNotEmpty ? '货物体积：$volumeText m³\n' : ''}'
+            '起吊点：${_startLabel(location)}\n'
+            '卸货点：${request.waypoints!.last.latitude!.toStringAsFixed(6)}，${request.waypoints!.last.longitude!.toStringAsFixed(6)}\n'
+            '作业时间：${request.taskTime ?? '与飞手协商'}\n'
+            '${descriptionParts.isNotEmpty ? '作业说明：${descriptionParts.join('；')}\n' : ''}'
+            '\n发布后等待飞手报价，选择飞手后再确认支付。',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('返回修改'),
+          ),
+          FilledButton(
+            key: const ValueKey('confirm-publish'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('确认发布'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _confirming = false);
+    if (confirmed != true) {
+      return;
+    }
+
+    setState(() => _submitting = true);
     final success = await ref.read(taskProvider.notifier).createTask(request);
     if (!mounted) return;
     setState(() => _submitting = false);
@@ -309,6 +335,9 @@ class _HomePageState extends ConsumerState<HomePage> {
           '${_manualStart!.longitude.toStringAsFixed(5)}';
     }
     if (location.loading) return '定位中...';
+    if (location.latitude == null || location.longitude == null) {
+      return '定位不可用，点击在地图上选择起吊点';
+    }
     final address = location.address;
     if (address != null && address.isNotEmpty) return address;
     if (location.city.isNotEmpty && location.city != '未知城市') {
@@ -440,69 +469,15 @@ class _HomePageState extends ConsumerState<HomePage> {
     return Stack(
       children: [
         Positioned.fill(
-          child: FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: center,
-              initialZoom: 15,
-              onMapReady: () => setState(() => _mapReady = true),
-              onTap: (_, point) {
-                if (!_sheetExpanded) _setDestination(point);
-              },
-              // 关闭双击缩放：单击即选点，避免 250ms 双击判定延迟。
-              interactionOptions: InteractionOptions(
-                flags:
-                    InteractiveFlag.drag |
-                    InteractiveFlag.pinchZoom |
-                    InteractiveFlag.flingAnimation,
-              ),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: _satelliteTileUrl,
-                subdomains: const ['1', '2', '3', '4'],
-                maxZoom: 18,
-              ),
-              TileLayer(
-                urlTemplate: _labelTileUrl,
-                subdomains: const ['1', '2', '3', '4'],
-                maxZoom: 18,
-              ),
-              MarkerLayer(
-                markers: [
-                  if (start != null)
-                    Marker(
-                      point: start,
-                      width: 36,
-                      height: 36,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF238561).withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Icon(
-                            Icons.my_location,
-                            color: Color(0xFF238561),
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (_destination != null)
-                    Marker(
-                      point: _destination!,
-                      width: 36,
-                      height: 44,
-                      child: Icon(
-                        Icons.location_on,
-                        color: AppColors.accent,
-                        size: 34,
-                      ),
-                    ),
-                ],
-              ),
-            ],
+          child: MissionMap(
+            controller: _mapController,
+            center: center,
+            start: start,
+            destination: _destination,
+            zoom: 15,
+            onTap: (point) {
+              if (!_sheetExpanded) _setDestination(point);
+            },
           ),
         ),
         // 提示角标（悬浮在地图左上）：告知用户地图可点击选卸货点。
@@ -715,83 +690,104 @@ class _HomePageState extends ConsumerState<HomePage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: ListView(
-              controller: scrollController,
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 40),
-              children: [
-                // 拖动手柄
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    margin: EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
+            child: RefreshIndicator(
+              onRefresh: () => ref.read(taskListProvider.notifier).loadTasks(),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                controller: scrollController,
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 40),
+                children: [
+                  // 拖动手柄
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(2, 4, 2, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '创建吊运任务',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 8),
-                _buildRouteCard(location),
-                SizedBox(height: 14),
-                Material(
-                  color: Theme.of(context).colorScheme.surface,
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 18, 16, 4),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(2, 4, 2, 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Container(
-                              width: 3,
-                              height: 16,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              '货物与作业信息',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
+                            Expanded(
+                              child: Text(
+                                '创建吊运任务',
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
+                            TextButton.icon(
+                              onPressed: () => showTaskFlowGuide(
+                                context,
+                                ref.read(sharedPreferencesProvider),
+                              ),
+                              icon: const Icon(Icons.help_outline, size: 16),
+                              label: const Text('流程指南'),
+                            ),
                           ],
-                        ),
-                        SizedBox(height: 20),
-                        _buildCategoryField(),
-                        SizedBox(height: 12),
-                        _buildWeightVolumeFields(),
-                        SizedBox(height: 16),
-                        _buildDescriptionField(),
-                        SizedBox(height: 12),
-                        Divider(height: 1),
-                        Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          child: _buildTimeField(),
                         ),
                       ],
                     ),
                   ),
-                ),
-                SizedBox(height: 12),
-              ],
+                  SizedBox(height: 8),
+                  _buildRouteCard(location),
+                  SizedBox(height: 14),
+                  Material(
+                    color: Theme.of(context).colorScheme.surface,
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 18, 16, 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 3,
+                                height: 16,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                '货物与作业信息',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 20),
+                          _buildCategoryField(),
+                          SizedBox(height: 12),
+                          _buildWeightVolumeFields(),
+                          SizedBox(height: 16),
+                          _buildDescriptionField(),
+                          SizedBox(height: 12),
+                          Divider(height: 1),
+                          Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: _buildTimeField(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  const OwnTasksSummary(),
+                ],
+              ),
             ),
           ),
           Container(
@@ -1050,7 +1046,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
-        onPressed: _submitting ? null : _publish,
+        onPressed: _submitting || _confirming ? null : _publish,
         child: _submitting
             ? SizedBox(
                 width: 20,

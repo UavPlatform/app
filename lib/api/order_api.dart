@@ -15,6 +15,8 @@ class OrderStatusCode {
   static const int refunded = 3;
   static const int completed = 4;
   static const int waitingConfirm = 5;
+  static const int disputed = 6;
+  static const int matching = 7;
 
   /// 状态中文标签（WAITING_CONFIRM 按验收口径展示为「待验收」）。
   static String labelOf(int code) {
@@ -31,6 +33,10 @@ class OrderStatusCode {
         return '已完成';
       case waitingConfirm:
         return '待验收';
+      case disputed:
+        return '争议中';
+      case matching:
+        return '待撮合';
       default:
         return '状态待确认';
     }
@@ -76,6 +82,17 @@ class OrderVo {
       OrderVo.fromApi(ApiOrderVO.fromJson(json));
 
   bool get isPending => orderStatus == OrderStatusCode.pending;
+  bool get isPaymentConfirmed => const [
+    OrderStatusCode.paid,
+    OrderStatusCode.waitingConfirm,
+    OrderStatusCode.completed,
+    OrderStatusCode.disputed,
+  ].contains(orderStatus);
+  String get priceLabel => orderStatus == OrderStatusCode.matching
+      ? '待飞手报价'
+      : totalAmount == null
+      ? '价格待确认'
+      : '¥${totalAmount!.toStringAsFixed(2)}';
   String get statusLabel => OrderStatusCode.labelOf(orderStatus);
 }
 
@@ -129,10 +146,18 @@ class OrderApi {
   OrderApi(this._client);
 
   /// 当前用户订单列表，按创建时间倒序。
-  Future<Result<OrderListVo>> listOrders({int page = 0, int size = 20}) async {
+  Future<Result<OrderListVo>> listOrders({
+    int page = 0,
+    int size = 20,
+    String? status,
+  }) async {
     final response = await _client.dio.get(
       ApiPaths.orderList,
-      queryParameters: ApiPaths.orderListQuery(page: page, size: size),
+      queryParameters: ApiPaths.orderListQuery(
+        page: page,
+        size: size,
+        status: status,
+      )..removeWhere((key, value) => value == null),
     );
     return Result.fromJson(
       response.data as Map<String, dynamic>,
@@ -176,6 +201,7 @@ class OrderApi {
         return Result(
           success: data['success'] == true,
           code: data['code'] as int?,
+          errorCode: data['errorCode'] as String?,
           message: data['message'] as String? ?? '支付失败，请稍后重试',
         );
       }

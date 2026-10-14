@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 
 class AmapLocationResult {
@@ -37,24 +38,54 @@ class AmapLocationResult {
 
 class LocationService {
   static const _channel = MethodChannel('com.fuwaki.app/location');
+  Timer? _sdkTimeout;
+  Completer<dynamic>? _sdkRequest;
+
+  void dispose() {
+    _sdkTimeout?.cancel();
+    final request = _sdkRequest;
+    if (request != null && !request.isCompleted) request.complete(null);
+  }
 
   Future<void> setApiKey(String key) async {
     await _channel.invokeMethod('setApiKey', {'key': key});
   }
 
   Future<AmapLocationResult?> getCurrentLocation() async {
+    final request = Completer<dynamic>();
+    _sdkRequest = request;
+    final timeout = Timer(const Duration(seconds: 30), () {
+      if (!request.isCompleted) request.complete(null);
+    });
+    _sdkTimeout = timeout;
+    unawaited(
+      _channel
+          .invokeMethod('getLocation')
+          .then<void>(
+            (result) {
+              if (!request.isCompleted) request.complete(result);
+            },
+            onError: (Object error, StackTrace stack) {
+              if (!request.isCompleted) request.completeError(error, stack);
+            },
+          ),
+    );
     try {
-      final result = await _channel.invokeMethod('getLocation').timeout(
-        const Duration(seconds: 30),
-      );
+      final result = await request.future;
+      if (result == null) return null;
       final map = result as Map<dynamic, dynamic>;
 
       if (map['errorCode'] != null) return null;
 
       return AmapLocationResult.fromMap(map);
     } catch (e) {
-      debugPrint('LocationService: 定位失败 - $e');
       return null;
+    } finally {
+      timeout.cancel();
+      if (_sdkRequest == request) {
+        _sdkRequest = null;
+        _sdkTimeout = null;
+      }
     }
   }
 }

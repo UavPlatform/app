@@ -85,14 +85,15 @@ void main() {
   ];
 
   Map<String, dynamic> page(List<Map<String, dynamic>> tasks) => {
-        'tasks': tasks,
-        'currentPage': 1,
-        'totalPages': 1,
-        'totalElements': tasks.length,
-      };
+    'tasks': tasks,
+    'currentPage': 1,
+    'totalPages': 1,
+    'totalElements': tasks.length,
+  };
 
   Future<List<Override>> buildOverrides(StubAdapter adapter) async {
     SharedPreferences.setMockInitialValues({
+      'pilot_task_flow_guide_dismissed_v1': true,
       'jwt_token': makeJwt(userId: 8, role: 1),
       'server_url': 'http://stub.local:8081',
     });
@@ -132,23 +133,47 @@ void main() {
         });
       }
       if (path == '/rider/square') {
-        return jsonResponse(200, {'success': true, 'code': 200, 'data': page(square)});
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': page(square),
+        });
       }
       if (path == '/rider/my-tasks') {
-        return jsonResponse(200, {'success': true, 'code': 200, 'data': page(myTasks)});
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': page(myTasks),
+        });
       }
       if (path == '/rider/my-tasks/history') {
-        return jsonResponse(200, {'success': true, 'code': 200, 'data': page(history)});
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': page(history),
+        });
       }
       if (path == '/rider/drone/list') {
-        return jsonResponse(200, {'success': true, 'code': 200, 'data': drones});
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': drones,
+        });
       }
       if (path == '/api/aircraft-models') {
-        return jsonResponse(200, {'success': true, 'code': 200, 'data': catalog});
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': catalog,
+        });
       }
       if (path == '/rider/apply') {
         if (applyData != null) {
-          return jsonResponse(200, {'success': true, 'code': 200, 'data': applyData});
+          return jsonResponse(200, {
+            'success': true,
+            'code': 200,
+            'data': applyData,
+          });
         }
         return jsonResponse(400, {
           'success': false,
@@ -158,16 +183,14 @@ void main() {
       }
       if (path == '/rider/confirm-order') {
         if (!confirmOk) {
-          return jsonResponse(400, {
-            'success': false,
-            'message': '订单状态不允许确认',
-          });
+          return jsonResponse(400, {'success': false, 'message': '订单状态不允许确认'});
         }
         confirmed = true;
         return jsonResponse(200, {
           'success': true,
           'code': 200,
-          'data': confirmedDetail ?? detail ?? taskJson(matchStatus: 'CONFIRMED'),
+          'data':
+              confirmedDetail ?? detail ?? taskJson(matchStatus: 'CONFIRMED'),
         });
       }
       if (path == '/rider/complete') {
@@ -204,13 +227,19 @@ void main() {
       if (path == '/chat/Message/read') {
         return jsonResponse(200, {'success': true, 'code': 200});
       }
-      return jsonResponse(200, {'success': false, 'message': 'unexpected stub: $path'});
+      return jsonResponse(200, {
+        'success': false,
+        'message': 'unexpected stub: $path',
+      });
     });
   }
 
   void expectNoPriceInputs() {
-    expect(find.byType(TextField), findsNothing,
-        reason: 'ADR-0003：页面不允许出现任何价格输入框');
+    expect(
+      find.byType(TextField),
+      findsNothing,
+      reason: 'ADR-0003：页面不允许出现任何价格输入框',
+    );
     expect(find.byType(TextFormField), findsNothing);
     expect(find.byType(Slider), findsNothing);
     expect(find.byType(EditableText), findsNothing);
@@ -230,14 +259,17 @@ void main() {
       ],
       drones: [boundDrone],
     );
-    final router = GoRouter(initialLocation: '/pilot/tasks', routes: [
-      GoRoute(path: '/pilot/tasks', builder: (_, _) => const TaskHallPage()),
-      GoRoute(
-        path: '/order/:taskNum',
-        builder: (_, state) =>
-            OrderDetailPage(taskNum: state.pathParameters['taskNum']!),
-      ),
-    ]);
+    final router = GoRouter(
+      initialLocation: '/pilot/tasks',
+      routes: [
+        GoRoute(path: '/pilot/tasks', builder: (_, _) => const TaskHallPage()),
+        GoRoute(
+          path: '/order/:taskNum',
+          builder: (_, state) =>
+              OrderDetailPage(taskNum: state.pathParameters['taskNum']!),
+        ),
+      ],
+    );
     addTearDown(router.dispose);
 
     await tester.pumpWidget(
@@ -249,8 +281,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('山顶基站建材吊运'), findsOneWidget);
-    expect(find.text('婚礼航拍跟拍'), findsNothing,
-        reason: '默认筛选 TRANSPORT，非吊运任务不展示');
+    expect(
+      find.text('婚礼航拍跟拍'),
+      findsNothing,
+      reason: '默认筛选 TRANSPORT，非吊运任务不展示',
+    );
     expect(find.text('25 kg · 建材'), findsOneWidget, reason: '卡片展示货物信息');
     expect(find.text('待平台报价'), findsOneWidget, reason: 'ADR-0003：未报价时不显示「面议」');
     expect(find.text('面议'), findsNothing);
@@ -268,8 +303,7 @@ void main() {
     expect(find.text('25 kg · 建材'), findsOneWidget, reason: '详情任务信息展示货物');
   });
 
-  testWidgets('应征成功：绑定机型预选、请求无金额字段、只读系统报价、聊天带 applicationId',
-      (tester) async {
+  testWidgets('应征成功：绑定机型预选、请求无金额字段、只读系统报价、聊天带 applicationId', (tester) async {
     Map<String, dynamic>? createdBody;
     final adapter = pilotAdapter(
       detail: taskJson(),
@@ -291,20 +325,23 @@ void main() {
       onSessionCreate: (options) =>
           createdBody = Map<String, dynamic>.from(options.data as Map),
     );
-    final router = GoRouter(initialLocation: '/order/$taskNum', routes: [
-      GoRoute(
-        path: '/order/:taskNum',
-        builder: (_, state) =>
-            OrderDetailPage(taskNum: state.pathParameters['taskNum']!),
-      ),
-      GoRoute(
-        path: '/chat/:sessionId',
-        builder: (_, state) => ChatDetailPage(
-          sessionId: int.parse(state.pathParameters['sessionId']!),
-          sessionName: state.uri.queryParameters['name'],
+    final router = GoRouter(
+      initialLocation: '/order/$taskNum',
+      routes: [
+        GoRoute(
+          path: '/order/:taskNum',
+          builder: (_, state) =>
+              OrderDetailPage(taskNum: state.pathParameters['taskNum']!),
         ),
-      ),
-    ]);
+        GoRoute(
+          path: '/chat/:sessionId',
+          builder: (_, state) => ChatDetailPage(
+            sessionId: int.parse(state.pathParameters['sessionId']!),
+            sessionName: state.uri.queryParameters['name'],
+          ),
+        ),
+      ],
+    );
     addTearDown(router.dispose);
 
     await tester.pumpWidget(
@@ -323,12 +360,15 @@ void main() {
     await tester.pumpAndSettle();
 
     // 请求只含 taskNum + aircraftModelId：客户端不传金额，无法改价
-    final applyReq =
-        adapter.requests.firstWhere((r) => r.uri.path == '/rider/apply');
+    final applyReq = adapter.requests.firstWhere(
+      (r) => r.uri.path == '/rider/apply',
+    );
     expect(applyReq.queryParameters['taskNum'], taskNum);
     expect(applyReq.queryParameters['aircraftModelId'], 3);
-    expect((applyReq.data as Map).keys.toSet(), {'taskNum', 'aircraftModelId'},
-        reason: 'ADR-0003：应征请求不得携带金额字段');
+    expect((applyReq.data as Map).keys.toSet(), {
+      'taskNum',
+      'aircraftModelId',
+    }, reason: 'ADR-0003：应征请求不得携带金额字段');
 
     // 成功后只读展示系统报价
     expect(find.text('应征成功，等待用户选定下单'), findsOneWidget);
@@ -341,8 +381,11 @@ void main() {
     expect(createdBody, isNotNull, reason: '聊天走 /chat/session/create');
     expect(createdBody!['taskNum'], taskNum);
     expect(createdBody!['applicationId'], 21);
-    expect(find.byType(ChatDetailPage), findsOneWidget,
-        reason: '聊天从任务详情进入订单内会话');
+    expect(
+      find.byType(ChatDetailPage),
+      findsOneWidget,
+      reason: '聊天从任务详情进入订单内会话',
+    );
   });
 
   testWidgets('应征被拒：展示服务端 message（超重），不出现成功态', (tester) async {
@@ -363,8 +406,11 @@ void main() {
     await tester.tap(find.text('应征任务'));
     await tester.pumpAndSettle();
 
-    expect(find.text('货物重量 50 kg 超过机型最大载重 30 kg'), findsOneWidget,
-        reason: '失败原因直接透出服务端 message');
+    expect(
+      find.text('货物重量 50 kg 超过机型最大载重 30 kg'),
+      findsOneWidget,
+      reason: '失败原因直接透出服务端 message',
+    );
     expect(find.text('应征成功，等待用户选定下单'), findsNothing);
     expect(
       adapter.requests.where((r) => r.uri.path == '/rider/apply').length,
@@ -396,8 +442,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('请先选择本次使用的机型'), findsOneWidget);
-    expect(adapter.requests.where((r) => r.uri.path == '/rider/apply'), isEmpty,
-        reason: '未选机型不得发起应征');
+    expect(
+      adapter.requests.where((r) => r.uri.path == '/rider/apply'),
+      isEmpty,
+      reason: '未选机型不得发起应征',
+    );
   });
 
   testWidgets('未绑机/未映射机型：引导去绑机页，不提供应征提交', (tester) async {
@@ -445,11 +494,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('打开 djifly'), findsNothing,
-        reason: '未确认订单不得显示执飞入口');
+    expect(find.text('打开 djifly'), findsNothing, reason: '未确认订单不得显示执飞入口');
     expect(find.text('确认订单'), findsOneWidget);
-    expect(find.text('已支付，等待你确认约定作业时间'), findsOneWidget,
-        reason: '文案以服务端 actionHint 为准');
+    expect(
+      find.text('已支付，等待你确认约定作业时间'),
+      findsOneWidget,
+      reason: '文案以服务端 actionHint 为准',
+    );
     expect(find.text('2026-09-28 09:00'), findsOneWidget, reason: '约定时间回显');
     expect(find.text('¥980（平台计价）'), findsOneWidget, reason: '系统报价只读');
 
@@ -464,8 +515,9 @@ void main() {
     await tester.tap(find.text('确认接单'));
     await tester.pumpAndSettle();
 
-    final confirmReq = adapter.requests
-        .firstWhere((r) => r.uri.path == '/rider/confirm-order');
+    final confirmReq = adapter.requests.firstWhere(
+      (r) => r.uri.path == '/rider/confirm-order',
+    );
     expect(confirmReq.queryParameters['taskNum'], taskNum);
     expect(find.text('打开 djifly'), findsOneWidget, reason: '确认后提供执飞引导');
     expectNoPriceInputs();
@@ -530,22 +582,31 @@ void main() {
     expect(find.text('待用户下单 (1)'), findsOneWidget);
     expect(find.text('待我确认 (1)'), findsOneWidget);
     expect(find.text('已确认待执飞 (1)'), findsOneWidget);
-    expect(find.text('已应征，等待用户选定下单'), findsOneWidget,
-        reason: '文案以服务端 actionHint 为准');
+    expect(
+      find.text('已应征，等待用户选定下单'),
+      findsOneWidget,
+      reason: '文案以服务端 actionHint 为准',
+    );
     expect(find.text('¥356.40'), findsOneWidget, reason: '应征中卡片显示本人系统报价');
     expect(find.text('待平台报价'), findsNothing);
     expect(find.text('已支付，等待你确认约定作业时间'), findsOneWidget);
     expect(find.text('约定作业时间: 2026-09-28 09:00'), findsOneWidget);
-    expect(find.text('打开 djifly'), findsOneWidget,
-        reason: '仅已确认任务有执飞入口，未确认任务不显示');
+    expect(
+      find.text('打开 djifly'),
+      findsOneWidget,
+      reason: '仅已确认任务有执飞入口，未确认任务不显示',
+    );
     expectNoPriceInputs();
 
     await tester.ensureVisible(find.text('确认订单'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('确认订单'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('2026-09-28 09:00'), findsWidgets,
-        reason: '确认前回显约定作业时间');
+    expect(
+      find.textContaining('2026-09-28 09:00'),
+      findsWidgets,
+      reason: '确认前回显约定作业时间',
+    );
 
     await tester.tap(find.text('确认接单'));
     await tester.pumpAndSettle();
@@ -556,8 +617,7 @@ void main() {
       reason: '确认按钮调用 confirm-order',
     );
     expect(find.text('待我确认 (1)'), findsNothing);
-    expect(find.text('已确认待执飞 (2)'), findsOneWidget,
-        reason: '确认后任务推进到已确认分组');
+    expect(find.text('已确认待执飞 (2)'), findsOneWidget, reason: '确认后任务推进到已确认分组');
     expect(find.text('打开 djifly'), findsNWidgets(2));
     expectNoPriceInputs();
 
@@ -566,8 +626,9 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('已确认待执飞：有「上传交付凭证」入口，未传证据点完成提示先上传（不再笼统「操作失败」），成交价保留两位小数',
-      (tester) async {
+  testWidgets('已确认待执飞：有「上传交付凭证」入口，未传证据点完成提示先上传（不再笼统「操作失败」），成交价保留两位小数', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -582,24 +643,28 @@ void main() {
       quotedAmount: 264.65,
       totalAmount: 264.65,
     );
-    final adapter = pilotAdapter(detail: confirmed, myTasks: [confirmed], history: [
-      taskJson(
-        num: 'T20260926-020',
-        name: '已交付待验收的吊运',
-        taskStatus: 'COMPLETED',
-        matchStatus: 'PENDING_ACCEPTANCE',
-        actionHint: '待验收：飞手已完成，请确认验收',
-        totalAmount: 300,
-      ),
-      taskJson(
-        num: 'T20260926-021',
-        name: '已结案的吊运',
-        taskStatus: 'COMPLETED',
-        matchStatus: 'CLOSED',
-        actionHint: '已完成：感谢使用',
-        totalAmount: 200,
-      ),
-    ]);
+    final adapter = pilotAdapter(
+      detail: confirmed,
+      myTasks: [confirmed],
+      history: [
+        taskJson(
+          num: 'T20260926-020',
+          name: '已交付待验收的吊运',
+          taskStatus: 'COMPLETED',
+          matchStatus: 'PENDING_ACCEPTANCE',
+          actionHint: '待验收：飞手已完成，请确认验收',
+          totalAmount: 300,
+        ),
+        taskJson(
+          num: 'T20260926-021',
+          name: '已结案的吊运',
+          taskStatus: 'COMPLETED',
+          matchStatus: 'CLOSED',
+          actionHint: '已完成：感谢使用',
+          totalAmount: 200,
+        ),
+      ],
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: await buildOverrides(adapter),
@@ -608,7 +673,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('¥264.65'), findsOneWidget, reason: '与用户端金额一致，不四舍五入成 ¥265');
+    expect(
+      find.text('¥264.65'),
+      findsOneWidget,
+      reason: '与用户端金额一致，不四舍五入成 ¥265',
+    );
     expect(find.text('上传交付凭证'), findsOneWidget);
 
     await tester.tap(find.text('完成任务'));
@@ -616,7 +685,10 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '确认完成'));
     await tester.pumpAndSettle();
 
-    expect(adapter.requests.where((r) => r.uri.path == '/rider/complete'), isNotEmpty);
+    expect(
+      adapter.requests.where((r) => r.uri.path == '/rider/complete'),
+      isNotEmpty,
+    );
     expect(find.textContaining('交付成果'), findsOneWidget, reason: '提示先上传吊运照片/视频');
     expect(find.text('操作失败'), findsNothing);
     expect(find.text('已确认待执飞 (1)'), findsOneWidget, reason: '失败时任务仍留在进行中');
@@ -634,11 +706,13 @@ void main() {
 
   testWidgets('飞手端页面均无价格输入控件（ADR-0003 禁止议价 UI）', (tester) async {
     // 任务大厅
-    var overrides = await buildOverrides(pilotAdapter(
-      detail: taskJson(),
-      square: [taskJson()],
-      drones: [boundDrone],
-    ));
+    var overrides = await buildOverrides(
+      pilotAdapter(
+        detail: taskJson(),
+        square: [taskJson()],
+        drones: [boundDrone],
+      ),
+    );
     await tester.pumpWidget(
       ProviderScope(
         key: const ValueKey('hall'),
@@ -651,10 +725,9 @@ void main() {
     expectNoPriceInputs();
 
     // 任务详情（应征表单）
-    overrides = await buildOverrides(pilotAdapter(
-      detail: taskJson(),
-      drones: [boundDrone],
-    ));
+    overrides = await buildOverrides(
+      pilotAdapter(detail: taskJson(), drones: [boundDrone]),
+    );
     await tester.pumpWidget(
       ProviderScope(
         key: const ValueKey('detail'),
@@ -667,19 +740,21 @@ void main() {
     expectNoPriceInputs();
 
     // 我的接单
-    overrides = await buildOverrides(pilotAdapter(
-      myTasks: [
-        taskJson(
-          num: 'T20260926-012',
-          name: '工地砂石吊运',
-          matchStatus: 'AWAITING_RIDER_CONFIRM',
-          actionHint: '已支付，等待你确认约定作业时间',
-          scheduledTime: '2026-09-28T09:00:00',
-          quotedAmount: 980,
-          totalAmount: 980,
-        ),
-      ],
-    ));
+    overrides = await buildOverrides(
+      pilotAdapter(
+        myTasks: [
+          taskJson(
+            num: 'T20260926-012',
+            name: '工地砂石吊运',
+            matchStatus: 'AWAITING_RIDER_CONFIRM',
+            actionHint: '已支付，等待你确认约定作业时间',
+            scheduledTime: '2026-09-28T09:00:00',
+            quotedAmount: 980,
+            totalAmount: 980,
+          ),
+        ],
+      ),
+    );
     await tester.pumpWidget(
       ProviderScope(
         key: const ValueKey('jobs'),

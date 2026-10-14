@@ -1,6 +1,6 @@
 // 系统通知聚合页（t33，APP P3-4 空壳消除）：
 // 聚合展示系统会话（chat_session.type=2）中的任务状态通知卡片。
-// 未读数深度修复（进入会话推进 lastReadTime）属批次 2-1，此处仅展示层。
+// 成功加载通知后推进服务端已读状态，并同步会话列表红点。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/system_message_card.dart';
+import '../../widgets/data_refresh.dart';
 
 class SystemMessagesView extends ConsumerStatefulWidget {
   /// 已知的系统会话 id（消息页入口传入）；为空则自行从会话列表查找。
@@ -26,7 +27,6 @@ class _SystemMessagesViewState extends ConsumerState<SystemMessagesView> {
   List<MessageVo> _messages = [];
   bool _loading = true;
   String? _error;
-  int? _resolvedSessionId;
 
   ChatApi get _chatApi => ChatApi(ref.read(httpClientProvider));
 
@@ -53,9 +53,7 @@ class _SystemMessagesViewState extends ConsumerState<SystemMessagesView> {
           });
           return;
         }
-        final system = sessions.data!
-            .where((s) => s.type == 2)
-            .toList()
+        final system = sessions.data!.where((s) => s.type == 2).toList()
           ..sort((a, b) => b.sortTime.compareTo(a.sortTime));
         if (system.isEmpty) {
           // 系统通知会话懒创建：尚无通知时会话不存在
@@ -88,6 +86,7 @@ class _SystemMessagesViewState extends ConsumerState<SystemMessagesView> {
           ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
         _loading = false;
       });
+      await ref.read(sessionListProvider.notifier).markSessionRead(sessionId);
     } else {
       setState(() {
         _error = result.message ?? '加载失败';
@@ -98,35 +97,24 @@ class _SystemMessagesViewState extends ConsumerState<SystemMessagesView> {
 
   @override
   Widget build(BuildContext context) {
-    // 已定位系统会话后，本地红点清零（展示层联动，t50）
-    final systemSessionId = _resolvedSessionId;
-    if (systemSessionId != null) {
-      Future.microtask(() {
-        if (mounted) {
-          ref
-              .read(sessionListProvider.notifier)
-              .markSessionRead(systemSessionId);
-        }
-      });
-    }
     return Scaffold(
       appBar: AppBar(title: const Text('系统通知')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _buildError()
-              : _messages.isEmpty
-                  ? _buildEmpty()
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _messages.length,
-                        itemBuilder: (_, index) => SystemMessageCard(
-                          message: _messages[index],
-                        ),
-                      ),
-                    ),
+          ? DataRefresh(onRefresh: _load, child: _buildError())
+          : _messages.isEmpty
+          ? DataRefresh(onRefresh: _load, child: _buildEmpty())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                itemCount: _messages.length,
+                itemBuilder: (_, index) =>
+                    SystemMessageCard(message: _messages[index]),
+              ),
+            ),
     );
   }
 

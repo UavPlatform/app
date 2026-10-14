@@ -111,22 +111,29 @@ void main() {
   final Directory libDir = Directory('lib');
   final File specFile = File('openapi/drone-backend.openapi.json');
   final Map<String, dynamic> spec =
-      jsonDecode(utf8.decode(specFile.readAsBytesSync())) as Map<String, dynamic>;
+      jsonDecode(utf8.decode(specFile.readAsBytesSync()))
+          as Map<String, dynamic>;
   final Map<String, dynamic> specPaths = spec['paths'] as Map<String, dynamic>;
   specPathSet = specPaths.keys.toSet();
 
   group('契约事实源对账（sha256）', () {
-    test('vendored 规格 sha256 == .sha256 记录 == ApiPaths.generatedFromSha256', () {
-      final String computed = sha256File('openapi/drone-backend.openapi.json');
-      final String recorded = File('openapi/drone-backend.openapi.sha256')
-          .readAsStringSync()
-          .trim()
-          .split(RegExp(r'\s+'))
-          .first;
-      expect(computed, recorded, reason: 'vendored 规格与 .sha256 记录不一致');
-      expect(ApiPaths.generatedFromSha256, recorded,
-          reason: '生成路径表的事实源版本与 vendored 规格不一致');
-    });
+    test(
+      'vendored 规格 sha256 == .sha256 记录 == ApiPaths.generatedFromSha256',
+      () {
+        final String computed = sha256File(
+          'openapi/drone-backend.openapi.json',
+        );
+        final String recorded = File(
+          'openapi/drone-backend.openapi.sha256',
+        ).readAsStringSync().trim().split(RegExp(r'\s+')).first;
+        expect(computed, recorded, reason: 'vendored 规格与 .sha256 记录不一致');
+        expect(
+          ApiPaths.generatedFromSha256,
+          recorded,
+          reason: '生成路径表的事实源版本与 vendored 规格不一致',
+        );
+      },
+    );
   });
 
   group('调用端点登记表', () {
@@ -135,29 +142,35 @@ void main() {
       for (final List<String> endpoint in calledEndpoints) {
         final String method = endpoint[0].toLowerCase();
         final String path = endpoint[1];
-        expect(specPaths.containsKey(path), isTrue,
-            reason: 'vendored 规格缺少路径 $path');
-        final Map<String, dynamic> item = specPaths[path] as Map<String, dynamic>;
-        expect(item.containsKey(method), isTrue,
-            reason:
-                'vendored 规格缺少方法 ${method.toUpperCase()} $path');
+        expect(
+          specPaths.containsKey(path),
+          isTrue,
+          reason: 'vendored 规格缺少路径 $path',
+        );
+        final Map<String, dynamic> item =
+            specPaths[path] as Map<String, dynamic>;
+        expect(
+          item.containsKey(method),
+          isTrue,
+          reason: 'vendored 规格缺少方法 ${method.toUpperCase()} $path',
+        );
       }
     });
 
     test('登记表与生成器 endpoints 一致（新增调用点必须登记）', () {
       String key(List<String> endpoint) =>
           '${endpoint[0].toLowerCase()} ${endpoint[1]}';
-      expect(
-        calledEndpoints.map(key).toSet(),
-        endpoints.map(key).toSet(),
-      );
+      expect(calledEndpoints.map(key).toSet(), endpoints.map(key).toSet());
     });
 
-    test('登记表无重复（含交易统计 /order/stats、/order/sold、/order/pending-review 等共 48 条）', () {
-      String key(List<String> endpoint) =>
-          '${endpoint[0].toLowerCase()} ${endpoint[1]}';
-      expect(calledEndpoints.map(key).toSet(), hasLength(48));
-    });
+    test(
+      '登记表无重复（含交易统计 /order/stats、/order/sold、/order/pending-review 等共 48 条）',
+      () {
+        String key(List<String> endpoint) =>
+            '${endpoint[0].toLowerCase()} ${endpoint[1]}';
+        expect(calledEndpoints.map(key).toSet(), hasLength(48));
+      },
+    );
   });
 
   group('后端路径字面量零残留', () {
@@ -171,12 +184,17 @@ void main() {
         if (!path.endsWith('.dart') || path.contains('/api/generated/')) {
           continue;
         }
-        for (final String found in scanBackendPathLiterals(entity.readAsStringSync())) {
+        for (final String found in scanBackendPathLiterals(
+          entity.readAsStringSync(),
+        )) {
           violations.add('$path $found');
         }
       }
-      expect(violations, isEmpty,
-          reason: '发现残留的后端路径字面量：\n${violations.join('\n')}');
+      expect(
+        violations,
+        isEmpty,
+        reason: '发现残留的后端路径字面量：\n${violations.join('\n')}',
+      );
     });
 
     test('扫描器能识别带/不带前导斜杠的契约路径', () {

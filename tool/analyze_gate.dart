@@ -52,7 +52,8 @@ AnalyzeResult evaluate(int exitCode, String output, String root) {
       throw GateFailure('无法识别的诊断行（输出格式可能已变化）：$line');
     }
     if (code > maxCode) maxCode = code;
-    var file = parts[3].replaceAll('\\', '/');
+    // Machine output escapes Windows backslashes; normalize both forms.
+    var file = parts[3].replaceAll(RegExp(r'\\+'), '/');
     final prefix = '${root.replaceAll('\\', '/')}/';
     if (file.startsWith(prefix)) file = file.substring(prefix.length);
     if (severity == 'ERROR') {
@@ -63,8 +64,10 @@ AnalyzeResult evaluate(int exitCode, String output, String root) {
     counts[key] = (counts[key] ?? 0) + 1;
   }
   if (maxCode != exitCode) {
-    throw GateFailure('dart analyze 退出码 $exitCode 与解析出的最高严重级别 $maxCode 不一致，'
-        '分析可能未正常完成或输出格式已变化：\n$output');
+    throw GateFailure(
+      'dart analyze 退出码 $exitCode 与解析出的最高严重级别 $maxCode 不一致，'
+      '分析可能未正常完成或输出格式已变化：\n$output',
+    );
   }
   return AnalyzeResult(counts, errors);
 }
@@ -75,7 +78,9 @@ Map<String, int> parseBaseline(String text) {
     if (line.trim().isEmpty || line.startsWith('#')) continue;
     final tab = line.lastIndexOf('\t');
     if (tab < 0) throw GateFailure('基线行格式错误：$line');
-    baseline[line.substring(0, tab)] = int.parse(line.substring(tab + 1).trim());
+    baseline[line.substring(0, tab)] = int.parse(
+      line.substring(tab + 1).trim(),
+    );
   }
   return baseline;
 }
@@ -83,7 +88,9 @@ Map<String, int> parseBaseline(String text) {
 String formatBaseline(Map<String, int> counts) {
   final keys = counts.keys.toList()..sort();
   final buf = StringBuffer()
-    ..writeln('# analyze 基线：严重级别|诊断码|文件<TAB>数量。由 dart run tool/analyze_gate.dart --update 生成，只减不增。');
+    ..writeln(
+      '# analyze 基线：严重级别|诊断码|文件<TAB>数量。由 dart run tool/analyze_gate.dart --update 生成，只减不增。',
+    );
   for (final k in keys) {
     buf.writeln('$k\t${counts[k]}');
   }
@@ -92,9 +99,10 @@ String formatBaseline(Map<String, int> counts) {
 
 /// [current] 相对 [allowed] 的增加项（新键或数量变多）。
 List<String> increases(Map<String, int> current, Map<String, int> allowed) => [
-      for (final e in current.entries)
-        if (e.value > (allowed[e.key] ?? 0)) '${e.key}: ${e.value}（允许 ${allowed[e.key] ?? 0}）',
-    ];
+  for (final e in current.entries)
+    if (e.value > (allowed[e.key] ?? 0))
+      '${e.key}: ${e.value}（允许 ${allowed[e.key] ?? 0}）',
+];
 
 Future<void> main(List<String> args) async {
   try {
@@ -107,7 +115,10 @@ Future<void> main(List<String> args) async {
       compareBaseline(args[cmp + 1]);
       return;
     }
-    await gate(update: args.contains('--update'), allowIncrease: args.contains('--allow-increase'));
+    await gate(
+      update: args.contains('--update'),
+      allowIncrease: args.contains('--allow-increase'),
+    );
   } on GateFailure catch (e) {
     stderr.writeln(e.message);
     exit(1);
@@ -125,41 +136,65 @@ void compareBaseline(String oldPath) {
   final old = parseBaseline(oldFile.readAsStringSync());
   final added = increases(current, old);
   if (added.isNotEmpty) {
-    throw GateFailure('tool/analyze_baseline.txt 相对目标分支被放宽（基线只减不增）：\n${added.join('\n')}');
+    throw GateFailure(
+      'tool/analyze_baseline.txt 相对目标分支被放宽（基线只减不增）：\n${added.join('\n')}',
+    );
   }
   stdout.writeln('基线未放宽（当前 ${current.length} 个键，目标分支 ${old.length} 个键）。');
 }
 
 Future<void> gate({required bool update, required bool allowIncrease}) async {
-  final result = await Process.run('dart', ['analyze', '--format=machine', '--fatal-infos'], runInShell: true);
-  final analyzed = evaluate(result.exitCode, '${result.stdout}\n${result.stderr}', Directory.current.path);
-  stdout.writeln('analyze: error=${analyzed.errors.length}, warning/info=${analyzed.total}');
+  final result = await Process.run('dart', [
+    'analyze',
+    '--format=machine',
+    '--fatal-infos',
+  ], runInShell: true);
+  final analyzed = evaluate(
+    result.exitCode,
+    '${result.stdout}\n${result.stderr}',
+    Directory.current.path,
+  );
+  stdout.writeln(
+    'analyze: error=${analyzed.errors.length}, warning/info=${analyzed.total}',
+  );
   if (analyzed.errors.isNotEmpty) {
     throw GateFailure('存在 ERROR（不允许进入基线）：\n${analyzed.errors.join('\n')}');
   }
   final baselineFile = File(baselinePath);
-  final baseline = baselineFile.existsSync() ? parseBaseline(baselineFile.readAsStringSync()) : <String, int>{};
+  final baseline = baselineFile.existsSync()
+      ? parseBaseline(baselineFile.readAsStringSync())
+      : <String, int>{};
   final added = increases(analyzed.counts, baseline);
 
   if (update) {
     if (added.isNotEmpty && !allowIncrease) {
-      throw GateFailure('拒绝写入：新基线相对现有基线有增加（--update 只允许收紧）：\n${added.join('\n')}\n'
-          '确需放宽请修复问题；人工放宽须加 --allow-increase 并在 PR 中说明。');
+      throw GateFailure(
+        '拒绝写入：新基线相对现有基线有增加（--update 只允许收紧）：\n${added.join('\n')}\n'
+        '确需放宽请修复问题；人工放宽须加 --allow-increase 并在 PR 中说明。',
+      );
     }
     baselineFile.writeAsStringSync(formatBaseline(analyzed.counts));
-    stdout.writeln('已写入 $baselinePath（${analyzed.counts.length} 个键，${analyzed.total} 条）');
+    stdout.writeln(
+      '已写入 $baselinePath（${analyzed.counts.length} 个键，${analyzed.total} 条）',
+    );
     return;
   }
 
   final baselineTotal = baseline.values.fold<int>(0, (a, b) => a + b);
   if (added.isNotEmpty) {
-    throw GateFailure('相对基线新增了 analyze 问题（基线 $baselineTotal 条，当前 ${analyzed.total} 条）：\n'
-        '${added.join('\n')}\n请修复；确属误报时在代码处用 // ignore: 并说明原因。');
+    throw GateFailure(
+      '相对基线新增了 analyze 问题（基线 $baselineTotal 条，当前 ${analyzed.total} 条）：\n'
+      '${added.join('\n')}\n请修复；确属误报时在代码处用 // ignore: 并说明原因。',
+    );
   }
   if (analyzed.total < baselineTotal) {
-    stdout.writeln('问题比基线少（${analyzed.total} < $baselineTotal）：请执行 dart run tool/analyze_gate.dart --update 收紧基线。');
+    stdout.writeln(
+      '问题比基线少（${analyzed.total} < $baselineTotal）：请执行 dart run tool/analyze_gate.dart --update 收紧基线。',
+    );
   }
-  stdout.writeln('analyze 门禁通过（当前 ${analyzed.total} 条，基线 $baselineTotal 条，无新增）。');
+  stdout.writeln(
+    'analyze 门禁通过（当前 ${analyzed.total} 条，基线 $baselineTotal 条，无新增）。',
+  );
 }
 
 void selfTest() {
@@ -180,20 +215,41 @@ void selfTest() {
   }
 
   const root = '/repo';
-  const warn = 'WARNING|STATIC_WARNING|UNUSED_LOCAL_VARIABLE|/repo/lib/a.dart|1|18|1|unused';
-  const info = 'INFO|HINT|DEPRECATED_MEMBER_USE|/repo/lib/b.dart|3|5|4|deprecated';
-  const err = 'ERROR|COMPILE_TIME_ERROR|RETURN_OF_INVALID_TYPE|/repo/lib/c.dart|1|12|3|bad';
+  const warn =
+      'WARNING|STATIC_WARNING|UNUSED_LOCAL_VARIABLE|/repo/lib/a.dart|1|18|1|unused';
+  const info =
+      'INFO|HINT|DEPRECATED_MEMBER_USE|/repo/lib/b.dart|3|5|4|deprecated';
+  const err =
+      'ERROR|COMPILE_TIME_ERROR|RETURN_OF_INVALID_TYPE|/repo/lib/c.dart|1|12|3|bad';
 
   check('无问题 → 0 条', evaluate(0, 'Running build hooks...\n', root).total == 0);
   final r = evaluate(2, '$info\n$warn\n', root);
-  check('解析 WARNING/INFO 与相对路径',
-      r.counts['WARNING|UNUSED_LOCAL_VARIABLE|lib/a.dart'] == 1 && r.counts['INFO|DEPRECATED_MEMBER_USE|lib/b.dart'] == 1);
+  check(
+    '解析 WARNING/INFO 与相对路径',
+    r.counts['WARNING|UNUSED_LOCAL_VARIABLE|lib/a.dart'] == 1 &&
+        r.counts['INFO|DEPRECATED_MEMBER_USE|lib/b.dart'] == 1,
+  );
   check('ERROR 单独记录', evaluate(3, '$err\n', root).errors.length == 1);
+  check(
+    'Windows 转义路径使用仓库相对路径',
+    evaluate(
+          1,
+          r'INFO|HINT|DEPRECATED_MEMBER_USE|D:\\repo\\lib\\b.dart|3|5|4|deprecated',
+          r'D:\repo',
+        ).counts['INFO|DEPRECATED_MEMBER_USE|lib/b.dart'] ==
+        1,
+  );
   expectFail('崩溃退出码 255', () => evaluate(255, 'Unhandled exception', root));
-  expectFail('用法错误退出码 64', () => evaluate(64, 'Directory or file doesn\'t exist', root));
+  expectFail(
+    '用法错误退出码 64',
+    () => evaluate(64, 'Directory or file doesn\'t exist', root),
+  );
   expectFail('退出码 2 但没有任何诊断行（输出不可解析）', () => evaluate(2, 'garbage', root));
   expectFail('退出码 0 却有 WARNING（不一致）', () => evaluate(0, warn, root));
-  expectFail('未知严重级别', () => evaluate(1, 'FATAL|X|Y|/repo/a.dart|1|1|1|m', root));
+  expectFail(
+    '未知严重级别',
+    () => evaluate(1, 'FATAL|X|Y|/repo/a.dart|1|1|1|m', root),
+  );
   check('增加检测：新键', increases({'k': 1}, {}).length == 1);
   check('增加检测：数量变多', increases({'k': 3}, {'k': 2}).length == 1);
   check('减少不算增加', increases({'k': 1}, {'k': 2, 'j': 1}).isEmpty);

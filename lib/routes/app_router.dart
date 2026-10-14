@@ -66,6 +66,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         final isPilot = authState.user?.isPilot ?? false;
         return isPilot ? '/pilot/tasks' : '/home';
       }
+      // REQ-APP-001: keep ordinary users out of the pilot business shell,
+      // and keep pilot accounts out of the user publishing shell.
+      if (isLoggedIn) {
+        final isPilot = authState.user?.isPilot ?? false;
+        if (!isPilot && location.startsWith('/pilot/')) return '/home';
+        if (isPilot &&
+            const ['/home', '/orders', '/profile'].contains(location)) {
+          return '/pilot/tasks';
+        }
+      }
       // 一级「消息」Tab 已移除（REQ-APP-002 三 Tab）：旧深链统一落到订单列表。
       if (location == '/messages') return '/orders';
       return null;
@@ -85,8 +95,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/map/pick',
         builder: (context, state) =>
             state.uri.queryParameters['point'] == 'start'
-                ? const MapPickerPage.start()
-                : const MapPickerPage(),
+            ? const MapPickerPage.start()
+            : const MapPickerPage(),
       ),
       GoRoute(
         path: '/chat/:sessionId',

@@ -7,6 +7,7 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:uav_pilot_app/providers/map_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,13 +25,17 @@ import 'package:uav_pilot_app/services/token_storage.dart';
 import 'package:uav_pilot_app/widgets/app_bottom_nav.dart';
 
 import '../test_support.dart';
+import '../map_test_support.dart';
+import 'package:uav_pilot_app/models/amap_config.dart';
 
 /// 登录态启动真实 App：桩 HTTP（默认 success=false），WS 用假 socket。
 Future<ProviderContainer> pumpLoggedInApp(
   WidgetTester tester, {
   Future<ResponseBody> Function(RequestOptions options)? handler,
 }) async {
+  mockNativeMaps(tester);
   SharedPreferences.setMockInitialValues({
+    'task_flow_guide_dismissed_v1': true,
     'jwt_token': makeJwt(userId: 7),
     'jwt_refresh_token': 'r-1',
     'server_url': 'http://stub.local:8081',
@@ -38,7 +43,8 @@ Future<ProviderContainer> pumpLoggedInApp(
   final prefs = await SharedPreferences.getInstance();
   final stub = StubAdapter(
     handler ??
-        (options) async => jsonResponse(200, {'success': false, 'message': 'stub'}),
+        (options) async =>
+            jsonResponse(200, {'success': false, 'message': 'stub'}),
   );
   final client = HttpClient(TokenStorage(prefs), adapter: stub);
 
@@ -54,6 +60,9 @@ Future<ProviderContainer> pumpLoggedInApp(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        amapMapConfigProvider.overrideWith(
+          (ref) async => AmapConfig(key: 'test-key', securityKey: ''),
+        ),
         sharedPreferencesProvider.overrideWithValue(prefs),
         httpClientProvider.overrideWithValue(client),
         chatWebSocketServiceProvider.overrideWithValue(chatService),
@@ -105,11 +114,11 @@ void main() {
       find.byType(BottomNavigationBar),
     );
     expect(nav.items, hasLength(3), reason: '用户 Shell 只保留三 Tab');
-    expect(
-      nav.items.map((i) => i.label).toList(),
-      ['首页', '订单', '我的'],
-      reason: '一级「消息」Tab 已移除（REQ-APP-002）',
-    );
+    expect(nav.items.map((i) => i.label).toList(), [
+      '首页',
+      '订单',
+      '我的',
+    ], reason: '一级「消息」Tab 已移除（REQ-APP-002）');
     expect(
       find.descendant(
         of: find.byType(BottomNavigationBar),
@@ -288,7 +297,6 @@ void main() {
       findsNothing,
       reason: '红点按单隔离，不落错订单',
     );
-    expect(find.text('5'), findsNothing,
-        reason: '未绑定任务的会话不计入订单红点');
+    expect(find.text('5'), findsNothing, reason: '未绑定任务的会话不计入订单红点');
   });
 }
