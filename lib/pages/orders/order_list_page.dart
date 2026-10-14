@@ -22,6 +22,16 @@ class OrderListPage extends ConsumerStatefulWidget {
   ConsumerState<OrderListPage> createState() => _OrderListPageState();
 }
 
+/// 每个 Tab 独立分页缓存，避免 TabBarView 共用一份列表导致错态/空态闪烁。
+class _OrderTabCache {
+  List<OrderVo> orders = const [];
+  int page = 0;
+  int totalPages = 0;
+  bool loading = false;
+  bool loaded = false;
+  String? error;
+}
+
 class _OrderListPageState extends ConsumerState<OrderListPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
@@ -34,24 +44,22 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     OrderStatusCode.completed,
   ];
 
-  List<OrderVo>? _orders;
-  bool _loading = true;
-  String? _error;
-  int _page = 0;
-  int _totalPages = 0;
-  int _queriedTab = 0;
-  int _requestVersion = 0;
+  late final List<_OrderTabCache> _tabCaches;
+  late final List<int> _requestTokens;
 
   OrderApi get _orderApi => OrderApi(ref.read(httpClientProvider));
 
   @override
   void initState() {
     super.initState();
+    _tabCaches = List.generate(_tabs.length, (_) => _OrderTabCache());
+    _requestTokens = List.filled(_tabs.length, 0);
     _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(() {
-      if (_tabController.index != _queriedTab) _loadOrders();
+      if (_tabController.indexIsChanging) return;
+      _loadOrders(tabIndex: _tabController.index);
     });
-    _loadOrders();
+    _loadOrders(tabIndex: 0);
   }
 
   @override
@@ -60,37 +68,39 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     super.dispose();
   }
 
-  Future<void> _loadOrders({int page = 0}) async {
-    final requestVersion = ++_requestVersion;
-    _queriedTab = _tabController.index;
+  Future<void> _loadOrders({int page = 0, int? tabIndex}) async {
+    final tab = tabIndex ?? _tabController.index;
+    final cache = _tabCaches[tab];
+    final token = ++_requestTokens[tab];
     setState(() {
-      _loading = true;
-      _error = null;
+      cache.loading = true;
+      cache.error = null;
     });
     try {
       final result = await _orderApi.listOrders(
         page: page,
-        status: _statusFilters[_queriedTab]?.toString(),
+        status: _statusFilters[tab]?.toString(),
       );
-      if (!mounted || requestVersion != _requestVersion) return;
+      if (!mounted || token != _requestTokens[tab]) return;
       if (result.success && result.data != null) {
         setState(() {
-          _orders = result.data!.orders;
-          _page = result.data!.currentPage;
-          _totalPages = result.data!.totalPages;
-          _loading = false;
+          cache.orders = result.data!.orders;
+          cache.page = result.data!.currentPage;
+          cache.totalPages = result.data!.totalPages;
+          cache.loading = false;
+          cache.loaded = true;
         });
       } else {
         setState(() {
-          _error = result.message ?? '加载失败';
-          _loading = false;
+          cache.error = result.message ?? '加载失败';
+          cache.loading = false;
         });
       }
     } catch (_) {
-      if (!mounted || requestVersion != _requestVersion) return;
+      if (!mounted || token != _requestTokens[tab]) return;
       setState(() {
-        _error = '加载失败，请检查网络';
-        _loading = false;
+        cache.error = '加载失败，请检查网络';
+        cache.loading = false;
       });
     }
   }
@@ -160,59 +170,78 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
       ),
       floatingActionButton: FloatingActionButton.small(
         tooltip: '刷新订单',
-        onPressed: _loadOrders,
+        onPressed: () => _loadOrders(tabIndex: _tabController.index),
         child: Icon(Icons.refresh),
       ),
-      body: _loading
-          ? Center(child: CircularProgressIndicator())
-          : _error != null
-          ? DataRefresh(onRefresh: _loadOrders, child: _buildErrorView())
-          : TabBarView(
-              controller: _tabController,
-              children: _statusFilters.map((status) {
-                final orders = _orders ?? const <OrderVo>[];
-                final filtered = status == null
-                    ? orders
-                    : orders.where((o) => o.orderStatus == status).toList();
-                if (filtered.isEmpty && _totalPages <= 1) {
-                  return DataRefresh(
-                    onRefresh: _loadOrders,
-                    child: _buildEmpty(),
-                  );
-                }
-                return RefreshIndicator(
-                  onRefresh: _loadOrders,
-                  child: ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.all(16),
-                    itemCount: filtered.length + (_totalPages > 1 ? 1 : 0),
-                    itemBuilder: (_, i) => i == filtered.length
-                        ? _pagination()
-                        : _buildCard(
-                            filtered[i],
-                            unread: unreadByOrder[filtered[i].orderNum] ?? 0,
-                            task: _taskForOrder(tasks, filtered[i].orderNum),
-                          ),
-                  ),
-                );
-              }).toList(),
-            ),
+      body: TabBarView(
+        controller: _tabController,
+        children: List.generate(
+          _tabs.length,
+          (tabIndex) => _buildOrderTabBody(
+            tabIndex,
+            unreadByOrder: unreadByOrder,
+            tasks: tasks,
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildErrorView() {
+  Widget _buildOrderTabBody(
+    int tabIndex, {
+    required Map<String, int> unreadByOrder,
+    required List<TaskVo> tasks,
+  }) {
+    final cache = _tabCaches[tabIndex];
+    if (cache.loading && !cache.loaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (cache.error != null && !cache.loaded) {
+      return DataRefresh(
+        onRefresh: () => _loadOrders(tabIndex: tabIndex),
+        child: _buildErrorView(cache.error!, tabIndex),
+      );
+    }
+    final orders = cache.orders;
+    if (orders.isEmpty && cache.totalPages <= 1) {
+      return DataRefresh(
+        onRefresh: () => _loadOrders(tabIndex: tabIndex),
+        child: _buildEmpty(),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: () => _loadOrders(tabIndex: tabIndex),
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: orders.length + (cache.totalPages > 1 ? 1 : 0),
+        itemBuilder: (_, i) => i == orders.length
+            ? _pagination(tabIndex)
+            : _buildCard(
+                orders[i],
+                unread: unreadByOrder[orders[i].orderNum] ?? 0,
+                task: _taskForOrder(tasks, orders[i].orderNum),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildErrorView(String message, int tabIndex) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            _error!,
+            message,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          SizedBox(height: 16),
-          OutlinedButton(onPressed: _loadOrders, child: Text('重试')),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: () => _loadOrders(tabIndex: tabIndex),
+            child: const Text('重试'),
+          ),
         ],
       ),
     );
@@ -560,22 +589,27 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     ),
   );
 
-  Widget _pagination() => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      TextButton(
-        onPressed: _page > 0 ? () => _loadOrders(page: _page - 1) : null,
-        child: const Text('上一页'),
-      ),
-      Text('${_page + 1} / $_totalPages'),
-      TextButton(
-        onPressed: _page + 1 < _totalPages
-            ? () => _loadOrders(page: _page + 1)
-            : null,
-        child: const Text('下一页'),
-      ),
-    ],
-  );
+  Widget _pagination(int tabIndex) {
+    final cache = _tabCaches[tabIndex];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        TextButton(
+          onPressed: cache.page > 0
+              ? () => _loadOrders(page: cache.page - 1, tabIndex: tabIndex)
+              : null,
+          child: const Text('上一页'),
+        ),
+        Text('${cache.page + 1} / ${cache.totalPages}'),
+        TextButton(
+          onPressed: cache.page + 1 < cache.totalPages
+              ? () => _loadOrders(page: cache.page + 1, tabIndex: tabIndex)
+              : null,
+          child: const Text('下一页'),
+        ),
+      ],
+    );
+  }
 
   String _orderHint(int status) {
     switch (status) {
