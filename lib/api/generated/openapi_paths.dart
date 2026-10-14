@@ -1,14 +1,14 @@
 // GENERATED — DO NOT EDIT.
 // 契约路径表：调用点只允许通过本表拼 URL。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: f3fdf76770f2080f242142fe33921bd4b291a34b02cbab57cb2d252ab1f14b03)
+// 事实源：openapi/drone-backend.openapi.json (sha256: a06487d50eaac4c0ee1b3735ebff0b4ccef51d160cec742b60a58a994eb8cff2)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端端点路径与查询参数的契约映射：路径写错、必填查询参数漏传都会在编译期暴露。
 class ApiPaths {
   ApiPaths._();
 
-  static const String generatedFromSha256 = 'f3fdf76770f2080f242142fe33921bd4b291a34b02cbab57cb2d252ab1f14b03';
+  static const String generatedFromSha256 = 'a06487d50eaac4c0ee1b3735ebff0b4ccef51d160cec742b60a58a994eb8cff2';
 
   /// GET /task/init
   static const String taskInit = '/task/init';
@@ -185,6 +185,12 @@ class ApiPaths {
   static String tasksAttachmentsUploadUrlPath(String taskNum) => '/tasks/' + Uri.encodeComponent(taskNum) + '/attachments/upload-url';
   static Map<String, dynamic> tasksAttachmentsUploadUrlQuery({required String contentType, required String fileName, required int sizeBytes}) =>
       <String, dynamic>{'contentType': contentType, 'fileName': fileName, 'sizeBytes': sizeBytes};
+
+  /// POST /tasks/{taskNum}/attachments/confirm-upload
+  static const String tasksAttachmentsConfirmUpload = '/tasks/{taskNum}/attachments/confirm-upload';
+  static String tasksAttachmentsConfirmUploadPath(String taskNum) => '/tasks/' + Uri.encodeComponent(taskNum) + '/attachments/confirm-upload';
+  static Map<String, dynamic> tasksAttachmentsConfirmUploadQuery({required String objectKey}) =>
+      <String, dynamic>{'objectKey': objectKey};
 
   /// POST /review/submit
   static const String reviewSubmit = '/review/submit';
