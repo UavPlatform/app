@@ -14,6 +14,7 @@ import '../live/live_watch_page.dart';
 import 'deliverables_section.dart';
 import 'pay_entry.dart';
 import 'widgets/applications_section.dart';
+import '../../widgets/data_refresh.dart';
 
 class OrderDetailPage extends ConsumerWidget {
   final String taskNum;
@@ -49,9 +50,16 @@ class _UserDetailView extends ConsumerWidget {
     if (task == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('任务详情')),
-        body: Center(
-          child: Text(state.error ?? '未找到任务',
-              style: const TextStyle(color: AppColors.onSurfaceVariant)),
+        body: DataRefresh(
+          onRefresh: () => ref
+              .read(taskDetailProvider(taskNum).notifier)
+              .loadDetail(taskNum),
+          child: Center(
+            child: Text(
+              state.error ?? '未找到任务',
+              style: const TextStyle(color: AppColors.onSurfaceVariant),
+            ),
+          ),
         ),
       );
     }
@@ -84,20 +92,20 @@ class _PilotDetailViewState extends ConsumerState<_PilotDetailView> {
   @override
   Widget build(BuildContext context) {
     final detail = ref.watch(riderTaskDetailProvider);
-    final fresh =
-        detail.task?.taskNum == widget.taskNum ? detail.task : null;
+    final fresh = detail.task?.taskNum == widget.taskNum ? detail.task : null;
     final task = fresh ?? riderTaskLookup(ref, widget.taskNum);
 
     if (task == null) {
       if (detail.loading && detail.error == null) {
-        return const Scaffold(
-            body: Center(child: CircularProgressIndicator()));
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
       return Scaffold(
         appBar: AppBar(title: const Text('任务详情')),
         body: Center(
-          child: Text(detail.error ?? '未找到任务',
-              style: const TextStyle(color: AppColors.onSurfaceVariant)),
+          child: Text(
+            detail.error ?? '未找到任务',
+            style: const TextStyle(color: AppColors.onSurfaceVariant),
+          ),
         ),
       );
     }
@@ -107,13 +115,17 @@ class _PilotDetailViewState extends ConsumerState<_PilotDetailView> {
 }
 
 /// 共享的 Scaffold 构建
-Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
-    {required bool isPilot}) {
+Widget _buildScaffold(
+  BuildContext context,
+  WidgetRef ref,
+  TaskVo task, {
+  required bool isPilot,
+}) {
   return Scaffold(
     appBar: AppBar(
       title: const Text('任务详情'),
       actions: [
-        if (!isPilot && task.isIdle)
+        if (!isPilot && task.canDeleteUserDemand)
           IconButton(
             icon: const Icon(Icons.delete_outline, color: AppColors.error),
             onPressed: () => _onDeleteUser(context, ref, task),
@@ -127,7 +139,7 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          _buildStatusHeader(task),
+          _buildStatusHeader(task, isPilot: isPilot),
           // t42：操作提示矩阵（t32 服务端统一计算，直接渲染不端上拼装）
           if (task.actionHint != null && task.actionHint!.isNotEmpty)
             _buildActionHintBanner(task.actionHint!),
@@ -136,9 +148,8 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
           if (isPilot) ...[
             _PilotMatchSection(
               task: task,
-              onTaskRefreshed: () => ref
-                  .read(riderTaskDetailProvider.notifier)
-                  .load(task.taskNum),
+              onTaskRefreshed: () =>
+                  ref.read(riderTaskDetailProvider.notifier).load(task.taskNum),
             ),
             const SizedBox(height: 8),
           ],
@@ -152,7 +163,8 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
           // 撮合状态（TASK-APP-004 / ADR-0003 决定 4、6）：待飞手确认 / 已确认 /
           // 进行中……描述文案以上方 actionHint 横幅为准（服务端统一计算），
           // 此处只补可核验事实：状态名 + 双确认时间（有则展示）。
-          if (!isPilot && !task.isInMatchingStage) _buildMatchStatusSection(task),
+          if (!isPilot && !task.isInMatchingStage)
+            _buildMatchStatusSection(task),
           _buildSection('任务信息', [
             _infoRow('任务编号', task.taskNum),
             _infoRow('任务名称', task.taskName),
@@ -218,13 +230,20 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
                   child: Row(
                     children: [
                       Container(
-                        width: 24, height: 24,
+                        width: 24,
+                        height: 24,
                         decoration: const BoxDecoration(
-                          color: AppColors.primary, shape: BoxShape.circle,
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
                         ),
                         child: Center(
-                          child: Text('${e.key + 1}',
-                              style: const TextStyle(color: Colors.white, fontSize: 12)),
+                          child: Text(
+                            '${e.key + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -242,20 +261,27 @@ Widget _buildScaffold(BuildContext context, WidgetRef ref, TaskVo task,
         ],
       ),
     ),
-    bottomNavigationBar: isPilot ? _buildPilotBottom(context, ref, task) : _buildUserBottom(context, ref, task),
+    bottomNavigationBar: isPilot
+        ? _buildPilotBottom(context, ref, task)
+        : _buildUserBottom(context, ref, task),
   );
 }
 
 /// 详情页下拉刷新：飞手侧刷新 /rider/task/detail（撮合状态权威源）；
 /// 用户侧同时刷新应征列表与任务内会话，使空状态「等待飞手接单」
 /// 在飞手应征后能被拉到最新数据。
-Future<void> _refreshDetail(WidgetRef ref, TaskVo task,
-    {required bool isPilot}) async {
+Future<void> _refreshDetail(
+  WidgetRef ref,
+  TaskVo task, {
+  required bool isPilot,
+}) async {
   if (isPilot) {
     await ref.read(riderTaskDetailProvider.notifier).load(task.taskNum);
     return;
   }
-  await ref.read(taskDetailProvider(task.taskNum).notifier).loadDetail(task.taskNum);
+  await ref
+      .read(taskDetailProvider(task.taskNum).notifier)
+      .loadDetail(task.taskNum);
   await ref.read(taskApplicationsProvider(task.taskNum).notifier).load();
   await ref.read(taskChatSessionsProvider(task.taskNum).notifier).load();
 }
@@ -289,7 +315,7 @@ Widget _buildActionHintBanner(String hint) {
   );
 }
 
-Widget _buildStatusHeader(TaskVo task) {
+Widget _buildStatusHeader(TaskVo task, {required bool isPilot}) {
   return Container(
     padding: const EdgeInsets.all(24),
     decoration: const BoxDecoration(
@@ -300,17 +326,39 @@ Widget _buildStatusHeader(TaskVo task) {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _stepDot('空闲', true),
-            _stepLine(task.taskStatus != 'IDLE'),
-            _stepDot('执行中', task.isInProgress || task.isCompleted),
-            _stepLine(task.isCompleted),
-            _stepDot('完成', task.isCompleted),
+            _stepDot(isPilot ? '空闲' : '发布需求', true),
+            _stepLine(
+              isPilot
+                  ? task.taskStatus != 'IDLE'
+                  : task.matchStatus == 'CONFIRMED' ||
+                        task.isInProgress ||
+                        task.isCompleted,
+            ),
+            _stepDot(
+              isPilot ? '执行中' : '双方确认',
+              isPilot
+                  ? task.isInProgress || task.isCompleted
+                  : task.matchStatus == 'CONFIRMED' ||
+                        task.isInProgress ||
+                        task.isCompleted,
+            ),
+            _stepLine(
+              isPilot ? task.isCompleted : task.userStageLabel == '已完成',
+            ),
+            _stepDot(
+              isPilot ? '完成' : '验收完成',
+              isPilot ? task.isCompleted : task.userStageLabel == '已完成',
+            ),
           ],
         ),
         const SizedBox(height: 16),
         Text(
-          '当前状态: ${task.taskStatusName}',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+          '当前状态: ${isPilot ? task.taskStatusName : task.userStageLabel}',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
       ],
     ),
@@ -321,21 +369,34 @@ Widget _stepDot(String label, bool active) {
   return Column(
     children: [
       Container(
-        width: 20, height: 20,
+        width: 20,
+        height: 20,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: active ? Colors.white : Colors.white38,
         ),
-        child: active ? const Icon(Icons.check, size: 14, color: AppColors.primary) : null,
+        child: active
+            ? const Icon(Icons.check, size: 14, color: AppColors.primary)
+            : null,
       ),
       const SizedBox(height: 4),
-      Text(label, style: TextStyle(fontSize: 12, color: active ? Colors.white : Colors.white54)),
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: active ? Colors.white : Colors.white54,
+        ),
+      ),
     ],
   );
 }
 
 Widget _stepLine(bool active) {
-  return Container(width: 40, height: 2, color: active ? Colors.white : Colors.white38);
+  return Container(
+    width: 40,
+    height: 2,
+    color: active ? Colors.white : Colors.white38,
+  );
 }
 
 Widget _buildSection(String title, List<Widget> children) {
@@ -349,7 +410,10 @@ Widget _buildSection(String title, List<Widget> children) {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+        ),
         const SizedBox(height: 16),
         ...children,
       ],
@@ -365,7 +429,13 @@ Widget _infoRow(String label, String value) {
       children: [
         SizedBox(
           width: 80,
-          child: Text(label, style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant)),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
         ),
         Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
       ],
@@ -391,7 +461,7 @@ Widget _buildMatchStatusSection(TaskVo task) {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 16),
-        _infoRow('状态', _matchStatusLabel(task)),
+        _infoRow('状态', task.userStageLabel),
         // 双确认（ADR-0003 决定 4）：下单即用户确认；飞手确认后才进入进行中。
         if (task.formattedUserConfirmedAt.isNotEmpty)
           _infoRow('用户确认时间', task.formattedUserConfirmedAt),
@@ -400,27 +470,6 @@ Widget _buildMatchStatusSection(TaskVo task) {
       ],
     ),
   );
-}
-
-/// 撮合状态名：执行/完成态优先看 TaskStatus，否则按 matchStatus 映射。
-/// 仅作状态名展示，阶段描述文案仍以 actionHint 为准。
-String _matchStatusLabel(TaskVo task) {
-  if (task.isInProgress) return '进行中';
-  if (task.isCompleted) return '已完成';
-  switch (task.matchStatus) {
-    case 'AWAITING_PAYMENT':
-      return '待支付';
-    case 'AWAITING_RIDER_CONFIRM':
-      return '待飞手确认';
-    case 'CONFIRMED':
-      return '已确认';
-    case 'PENDING_ACCEPTANCE':
-      return '待验收';
-    case 'CLOSED':
-      return '已关闭';
-    default:
-      return task.taskStatusName;
-  }
 }
 
 /// 后端 OrderStatus 枚举名 → 中文标签（/task/detail 返回枚举名字符串）。
@@ -445,11 +494,7 @@ String? _orderStatusLabel(String? orderStatus) {
 
 /// 待支付订单支付入口（TASK-APP-004：先做锁价校验 totalAmount == quotedAmount，
 /// 不一致不发起支付；校验通过才跳转既有模拟收银台，完成后刷新详情）。
-Future<void> _onPayUser(
-  BuildContext context,
-  WidgetRef ref,
-  TaskVo task,
-) {
+Future<void> _onPayUser(BuildContext context, WidgetRef ref, TaskVo task) {
   return openPayEntry(
     context,
     ref,
@@ -477,13 +522,15 @@ Future<void> _onContactRider(
       );
   if (!context.mounted) return;
   if (session == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('创建会话失败，请稍后重试')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('创建会话失败，请稍后重试')));
     return;
   }
   final riderName = task.riderName ?? '飞手';
-  await context.push('/chat/${session.id}?name=${Uri.encodeComponent(riderName)}');
+  await context.push(
+    '/chat/${session.id}?name=${Uri.encodeComponent(riderName)}',
+  );
 }
 
 /// 用户端底部按钮
@@ -496,7 +543,9 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
             foregroundColor: AppColors.primary,
             side: const BorderSide(color: AppColors.primary),
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
           icon: const Icon(Icons.chat_bubble_outline, size: 18),
           label: const Text('联系飞手', style: TextStyle(fontSize: 16)),
@@ -505,14 +554,12 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
 
   // t38（P0-4/Q3=C）+ t41 富化：直播运行中提供「观看直播」入口
   // 主判定 = 详情字段（deviceId 非空 && liveState==RUNNING），免额外往返
-  final watchEntry = task.deviceId != null &&
+  final watchEntry =
+      task.deviceId != null &&
           task.deviceId!.isNotEmpty &&
           task.liveState == 'RUNNING' &&
           task.orderNum != null
-      ? _WatchLiveEntry(
-          deviceId: task.deviceId!,
-          orderNum: task.orderNum!,
-        )
+      ? _WatchLiveEntry(deviceId: task.deviceId!, orderNum: task.orderNum!)
       : null;
 
   // 履约证据（TASK-APP-004）：0 条 = 明确无证据 → 禁用「确认完成」并提示；
@@ -536,10 +583,7 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (watchEntry != null) ...[
-            watchEntry,
-            const SizedBox(height: 8),
-          ],
+          if (watchEntry != null) ...[watchEntry, const SizedBox(height: 8)],
           Row(
             children: [
               if (contactButton != null) ...[
@@ -548,8 +592,9 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
               ],
               Expanded(
                 child: FilledButton(
-                  onPressed:
-                      noEvidence ? null : () => _onConfirmUser(context, ref, task),
+                  onPressed: noEvidence
+                      ? null
+                      : () => _onConfirmUser(context, ref, task),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.success,
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -568,7 +613,10 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
               width: double.infinity,
               child: Text(
                 '暂无履约证据，待飞手上传后方可确认完成',
-                style: TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -602,7 +650,9 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               child: const Text('去支付', style: TextStyle(fontSize: 16)),
             ),
@@ -627,8 +677,7 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
   // 撮合双确认阶段（TASK-APP-004 / ADR-0003 决定 4）：待飞手确认 / 已确认待执飞
   // 的任务仍是 IDLE，但不能落到下方「删除任务」分支——此阶段要提供履约沟通
   // （联系飞手）与直播入口，等待/可开飞文案由服务端 actionHint 横幅承担。
-  if (task.isIdle &&
-      !(task.isAwaitingRiderConfirm || task.isConfirmedForFlight)) {
+  if (task.canDeleteUserDemand) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -676,10 +725,7 @@ Widget? _buildUserBottom(BuildContext context, WidgetRef ref, TaskVo task) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (watchEntry != null) ...[
-            watchEntry,
-            const SizedBox(height: 8),
-          ],
+          if (watchEntry != null) ...[watchEntry, const SizedBox(height: 8)],
           if (contactButton != null)
             SizedBox(width: double.infinity, child: contactButton),
         ],
@@ -704,10 +750,8 @@ class _WatchLiveEntry extends StatelessWidget {
       onPressed: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => LiveWatchPage(
-              deviceId: deviceId,
-              orderNum: orderNum,
-            ),
+            builder: (_) =>
+                LiveWatchPage(deviceId: deviceId, orderNum: orderNum),
           ),
         );
       },
@@ -733,14 +777,10 @@ class _PilotMatchSection extends ConsumerStatefulWidget {
   final TaskVo task;
   final VoidCallback onTaskRefreshed;
 
-  const _PilotMatchSection({
-    required this.task,
-    required this.onTaskRefreshed,
-  });
+  const _PilotMatchSection({required this.task, required this.onTaskRefreshed});
 
   @override
-  ConsumerState<_PilotMatchSection> createState() =>
-      _PilotMatchSectionState();
+  ConsumerState<_PilotMatchSection> createState() => _PilotMatchSectionState();
 }
 
 class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
@@ -803,9 +843,7 @@ class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
   Widget build(BuildContext context) {
     final myJobs = ref.watch(myRiderTasksProvider);
     final inMyJobs = myJobs.activeTasks.any((t) => t.taskNum == task.taskNum);
-    final showApply = task.canApply &&
-        _applied == null &&
-        !inMyJobs;
+    final showApply = task.canApply && _applied == null && !inMyJobs;
     final awaitingConfirm = task.isAwaitingRiderConfirm;
     final confirmed = task.isConfirmedForFlight || task.isInProgress;
 
@@ -827,69 +865,85 @@ class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
     }
 
     if (_error != null && !showApply) {
-      children.add(Text(
-        _error!,
-        style: const TextStyle(fontSize: 13, color: AppColors.error),
-      ));
+      children.add(
+        Text(
+          _error!,
+          style: const TextStyle(fontSize: 13, color: AppColors.error),
+        ),
+      );
       children.add(const SizedBox(height: 8));
     }
 
     if (awaitingConfirm) {
-      children.add(SizedBox(
-        width: double.infinity,
-        child: FilledButton(
-          onPressed: _confirming ? null : _onConfirm,
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      children.add(
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _confirming ? null : _onConfirm,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              _confirming ? '确认中…' : '确认订单',
+              style: const TextStyle(fontSize: 16),
+            ),
           ),
-          child: Text(_confirming ? '确认中…' : '确认订单',
-              style: const TextStyle(fontSize: 16)),
         ),
-      ));
+      );
     }
 
     if (confirmed) {
-      children.add(SizedBox(
-        width: double.infinity,
-        child: OutlinedButton.icon(
-          onPressed: _onOpenDjifly,
-          icon: const Icon(Icons.flight_takeoff, size: 18),
-          label: const Text('打开 djifly', style: TextStyle(fontSize: 16)),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            side: const BorderSide(color: AppColors.primary),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      children.add(
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _onOpenDjifly,
+            icon: const Icon(Icons.flight_takeoff, size: 18),
+            label: const Text('打开 djifly', style: TextStyle(fontSize: 16)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
           ),
         ),
-      ));
+      );
     }
 
     // 订单内聊天：已应征/已选定/已确认后可与用户沟通（同 taskNum 会话）。
     if (!showApply) {
       final creating = ref.watch(sessionListProvider).creatingSession;
-      children.add(SizedBox(
-        width: double.infinity,
-        child: OutlinedButton.icon(
-          onPressed: creating ? null : _onContactUser,
-          icon: creating
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.chat_bubble_outline, size: 18),
-          label: Text(creating ? '正在连接' : '联系用户'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            side: const BorderSide(color: AppColors.primary),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      children.add(
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: creating ? null : _onContactUser,
+            icon: creating
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.chat_bubble_outline, size: 18),
+            label: Text(creating ? '正在连接' : '联系用户'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
           ),
         ),
-      ));
+      );
     }
 
     return Padding(
@@ -920,7 +974,10 @@ class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
       return [
         Text(
           '尚未绑定已映射机型的无人机，无法应征吊运任务。',
-          style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
+          style: const TextStyle(
+            fontSize: 14,
+            color: AppColors.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -932,7 +989,9 @@ class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ),
@@ -965,9 +1024,9 @@ class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
         onChanged: _submitting
             ? null
             : (value) => setState(() {
-                  _selectedModelId = value;
-                  _error = null;
-                }),
+                _selectedModelId = value;
+                _error = null;
+              }),
       ),
       const SizedBox(height: 8),
       if (_error != null)
@@ -985,10 +1044,14 @@ class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.primary,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
-          child: Text(_submitting ? '应征中…' : '应征任务',
-              style: const TextStyle(fontSize: 16)),
+          child: Text(
+            _submitting ? '应征中…' : '应征任务',
+            style: const TextStyle(fontSize: 16),
+          ),
         ),
       ),
     ];
@@ -1008,7 +1071,10 @@ class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
       ),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 14, color: AppColors.statusInProgressText),
+        style: const TextStyle(
+          fontSize: 14,
+          color: AppColors.statusInProgressText,
+        ),
       ),
     );
   }
@@ -1072,9 +1138,9 @@ class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
       setState(() => _error = result.message ?? '确认失败，请稍后重试');
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已确认订单')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已确认订单')));
     widget.onTaskRefreshed();
   }
 
@@ -1102,7 +1168,9 @@ class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
   /// 订单内聊天（ADR-0003 决定 1）：同 taskNum 建会话（服务端按任务 + 飞手去重），
   /// 应用内刚应征时附 applicationId 精确挂到应征记录。
   Future<void> _onContactUser() async {
-    final session = await ref.read(sessionListProvider.notifier).createDirectSession(
+    final session = await ref
+        .read(sessionListProvider.notifier)
+        .createDirectSession(
           name: '${task.taskTypeName} - ${task.taskName}',
           userId: task.userId,
           taskNum: task.taskNum,
@@ -1146,7 +1214,9 @@ Widget? _buildPilotBottom(BuildContext context, WidgetRef ref, TaskVo task) {
                 foregroundColor: AppColors.error,
                 side: const BorderSide(color: AppColors.error),
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               child: const Text('取消接单'),
             ),
@@ -1158,7 +1228,9 @@ Widget? _buildPilotBottom(BuildContext context, WidgetRef ref, TaskVo task) {
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.success,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               child: const Text('完成任务'),
             ),
@@ -1178,7 +1250,10 @@ Future<void> _onCancel(BuildContext context, WidgetRef ref, TaskVo task) async {
       title: const Text('确认取消'),
       content: Text('确定要取消「${task.taskName}」的接单吗？'),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('再想想')),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('再想想'),
+        ),
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(true),
           child: const Text('确定取消', style: TextStyle(color: AppColors.error)),
@@ -1189,23 +1264,39 @@ Future<void> _onCancel(BuildContext context, WidgetRef ref, TaskVo task) async {
 
   if (confirm != true || !context.mounted) return;
 
-  final ok = await ref.read(myRiderTasksProvider.notifier).cancelTask(task.taskNum);
+  final ok = await ref
+      .read(myRiderTasksProvider.notifier)
+      .cancelTask(task.taskNum);
   if (!context.mounted) return;
 
   ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(ok ? '已取消接单' : ref.read(myRiderTasksProvider).error ?? '取消失败')),
+    SnackBar(
+      content: Text(
+        ok ? '已取消接单' : ref.read(myRiderTasksProvider).error ?? '取消失败',
+      ),
+    ),
   );
-  if (ok) WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/pilot/tasks'));
+  if (ok)
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => context.go('/pilot/tasks'),
+    );
 }
 
-Future<void> _onComplete(BuildContext context, WidgetRef ref, TaskVo task) async {
+Future<void> _onComplete(
+  BuildContext context,
+  WidgetRef ref,
+  TaskVo task,
+) async {
   final confirm = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('确认完成'),
       content: Text('确定「${task.taskName}」已经完成了吗？'),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('再等等')),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('再等等'),
+        ),
         FilledButton(
           onPressed: () => Navigator.of(ctx).pop(true),
           style: FilledButton.styleFrom(backgroundColor: AppColors.success),
@@ -1217,23 +1308,39 @@ Future<void> _onComplete(BuildContext context, WidgetRef ref, TaskVo task) async
 
   if (confirm != true || !context.mounted) return;
 
-  final ok = await ref.read(myRiderTasksProvider.notifier).completeTask(task.taskNum);
+  final ok = await ref
+      .read(myRiderTasksProvider.notifier)
+      .completeTask(task.taskNum);
   if (!context.mounted) return;
 
   ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(ok ? '任务已完成' : ref.read(myRiderTasksProvider).error ?? '操作失败')),
+    SnackBar(
+      content: Text(
+        ok ? '任务已完成' : ref.read(myRiderTasksProvider).error ?? '操作失败',
+      ),
+    ),
   );
-  if (ok) WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/pilot/jobs'));
+  if (ok)
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => context.go('/pilot/jobs'),
+    );
 }
 
-Future<void> _onConfirmUser(BuildContext context, WidgetRef ref, TaskVo task) async {
+Future<void> _onConfirmUser(
+  BuildContext context,
+  WidgetRef ref,
+  TaskVo task,
+) async {
   final confirm = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('确认完成'),
       content: Text('确认「${task.taskName}」已经完成了吗？\n确认后订单将完结。'),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('取消'),
+        ),
         FilledButton(
           onPressed: () => Navigator.of(ctx).pop(true),
           style: FilledButton.styleFrom(backgroundColor: AppColors.success),
@@ -1245,22 +1352,37 @@ Future<void> _onConfirmUser(BuildContext context, WidgetRef ref, TaskVo task) as
 
   if (confirm != true || !context.mounted) return;
 
-  final ok = await ref.read(taskDetailProvider(task.taskNum).notifier).confirmTask(task.taskNum);
+  final ok = await ref
+      .read(taskDetailProvider(task.taskNum).notifier)
+      .confirmTask(task.taskNum);
   if (!context.mounted) return;
 
   ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(ok ? '确认完成成功' : ref.read(taskDetailProvider(task.taskNum)).error ?? '确认失败')),
+    SnackBar(
+      content: Text(
+        ok
+            ? '确认完成成功'
+            : ref.read(taskDetailProvider(task.taskNum)).error ?? '确认失败',
+      ),
+    ),
   );
 }
 
-Future<void> _onDeleteUser(BuildContext context, WidgetRef ref, TaskVo task) async {
+Future<void> _onDeleteUser(
+  BuildContext context,
+  WidgetRef ref,
+  TaskVo task,
+) async {
   final confirm = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('确认删除'),
       content: const Text('删除后无法恢复'),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('取消'),
+        ),
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(true),
           child: const Text('删除', style: TextStyle(color: AppColors.error)),
@@ -1270,12 +1392,17 @@ Future<void> _onDeleteUser(BuildContext context, WidgetRef ref, TaskVo task) asy
   );
 
   if (confirm == true && context.mounted) {
-    final ok = await ref.read(taskDetailProvider(task.taskNum).notifier).deleteTask(task.id);
+    final ok = await ref
+        .read(taskDetailProvider(task.taskNum).notifier)
+        .deleteTask(task.id);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? '已删除' : '删除失败')),
-      );
-      if (ok) WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/orders'));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(ok ? '已删除' : '删除失败')));
+      if (ok)
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => context.go('/orders'),
+        );
     }
   }
 }

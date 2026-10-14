@@ -14,6 +14,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uav_pilot_app/api/http_client.dart';
 import 'package:uav_pilot_app/pages/orders/order_detail_page.dart';
+import 'package:uav_pilot_app/pages/orders/widgets/applications_section.dart';
+import 'package:uav_pilot_app/theme/app_theme.dart';
 import 'package:uav_pilot_app/pages/pay/pay_page.dart';
 import 'package:uav_pilot_app/providers/auth_provider.dart';
 import 'package:uav_pilot_app/services/token_storage.dart';
@@ -62,16 +64,16 @@ void main() {
 
   /// 选定后的待支付任务（select-rider 成功后的权威状态）。
   Map<String, dynamic> awaitingPaymentTask() => taskJson(
-        matchStatus: 'AWAITING_PAYMENT',
-        actionHint: '已选定飞手，请完成支付',
-        orderNum: 'ORD-1',
-        orderStatus: 'PENDING',
-        totalAmount: 980,
-        quotedAmount: 980,
-        riderId: 8,
-        riderName: '飞手甲',
-        scheduledTime: '2026-09-27 09:00:00',
-      );
+    matchStatus: 'AWAITING_PAYMENT',
+    actionHint: '已选定飞手，请完成支付',
+    orderNum: 'ORD-1',
+    orderStatus: 'PENDING',
+    totalAmount: 980,
+    quotedAmount: 980,
+    riderId: 8,
+    riderName: '飞手甲',
+    scheduledTime: '2026-09-27 09:00:00',
+  );
 
   final applications = <Map<String, dynamic>>[
     {
@@ -125,20 +127,13 @@ void main() {
     List<Map<String, dynamic>>? attachments,
     bool attachmentsFailed = false,
     int confirmStatus = 200,
-    Map<String, dynamic> confirmBody = const {
-      'success': true,
-      'code': 200,
-    },
+    Map<String, dynamic> confirmBody = const {'success': true, 'code': 200},
     Map<String, dynamic>? order,
   }) {
     return StubAdapter((options) async {
       final path = options.uri.path;
       if (path == '/task/detail') {
-        return jsonResponse(200, {
-          'success': true,
-          'code': 200,
-          'data': task,
-        });
+        return jsonResponse(200, {'success': true, 'code': 200, 'data': task});
       }
       if (path == '/task/$taskNum/applications') {
         return jsonResponse(200, {
@@ -152,10 +147,7 @@ void main() {
       }
       if (path == '/tasks/$taskNum/attachments') {
         if (attachmentsFailed) {
-          return jsonResponse(500, {
-            'success': false,
-            'message': '附件服务暂不可用',
-          });
+          return jsonResponse(500, {'success': false, 'message': '附件服务暂不可用'});
         }
         return jsonResponse(200, {
           'success': true,
@@ -170,7 +162,8 @@ void main() {
         return jsonResponse(200, {
           'success': true,
           'code': 200,
-          'data': order ??
+          'data':
+              order ??
               {
                 'orderNum': 'ORD-1',
                 'totalAmount': 980,
@@ -182,25 +175,66 @@ void main() {
       if (path == '/chat/session/list') {
         return jsonResponse(200, {'success': true, 'code': 200, 'data': []});
       }
-      return jsonResponse(200, {'success': false, 'message': 'unexpected stub: $path'});
+      return jsonResponse(200, {
+        'success': false,
+        'message': 'unexpected stub: $path',
+      });
     });
   }
 
-  Widget detailApp() => const MaterialApp(
-        home: OrderDetailPage(taskNum: taskNum),
-      );
+  Widget detailApp() =>
+      const MaterialApp(home: OrderDetailPage(taskNum: taskNum));
 
   /// 页面红线：无任何价格输入控件（ADR-0003 禁止改价/议价 UI）。
   void expectNoPriceInputs(WidgetTester tester) {
-    expect(find.byType(TextField), findsNothing,
-        reason: '不允许出现任何价格输入框');
+    expect(find.byType(TextField), findsNothing, reason: '不允许出现任何价格输入框');
     expect(find.byType(TextFormField), findsNothing);
     expect(find.byType(Slider), findsNothing);
     expect(find.byType(EditableText), findsNothing);
   }
 
-  testWidgets('选定飞手 → 约定时间 → select-rider → 收银台金额 = 系统报价',
-      (tester) async {
+  testWidgets('窄屏大字体与日夜主题：两位飞手分别提供主选择按钮与次聊天入口', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    for (final dark in [false, true]) {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: await buildOverrides(
+            detailAdapter(task: taskJson(), applications: applications),
+          ),
+          child: MaterialApp(
+            theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
+            home: const Scaffold(
+              body: SingleChildScrollView(
+                child: ApplicationsSection(taskNum: taskNum, inMatching: true),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final choices = find.widgetWithText(FilledButton, '选定飞手');
+      expect(choices, findsNWidgets(2));
+      expect(find.widgetWithText(OutlinedButton, '聊一聊'), findsNWidgets(2));
+      expect(find.text('可先沟通比较，再选定一位飞手下单'), findsOneWidget);
+      expect(tester.getSize(choices.first).height, greaterThanOrEqualTo(48));
+      expect(tester.getSize(choices.first).width, greaterThan(240));
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(choices.first);
+      await tester.tap(choices.first);
+      await tester.pumpAndSettle();
+      expect(find.text('选定飞手下单'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(find.text('选定飞手下单'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+  testWidgets('选定飞手 → 约定时间 → select-rider → 收银台金额 = 系统报价', (tester) async {
     var selected = false;
     Map<String, dynamic>? selectBody;
     // 桩按 selected 标志动态返回：下单前招募中，下单后待支付。
@@ -252,7 +286,10 @@ void main() {
           },
         });
       }
-      return jsonResponse(200, {'success': false, 'message': 'unexpected stub: $path'});
+      return jsonResponse(200, {
+        'success': false,
+        'message': 'unexpected stub: $path',
+      });
     });
 
     await tester.pumpWidget(
@@ -266,6 +303,7 @@ void main() {
     expect(find.text('选定飞手'), findsNWidgets(2), reason: '招募阶段每条应征可选定');
 
     // 打开选定弹窗：系统报价只读展示 + 未选时间拒绝提交 + 无价格输入控件。
+    await tester.ensureVisible(find.text('选定飞手').first);
     await tester.tap(find.text('选定飞手').first);
     await tester.pumpAndSettle();
     expect(find.text('选定飞手下单'), findsOneWidget);
@@ -314,11 +352,12 @@ void main() {
       reason: '约定作业时间为 yyyy-MM-dd HH:mm:ss',
     );
     expect(
-      selectBody!.keys
-          .where((k) =>
-              k.toLowerCase().contains('amount') ||
-              k.toLowerCase().contains('price') ||
-              k.toLowerCase().contains('quote')),
+      selectBody!.keys.where(
+        (k) =>
+            k.toLowerCase().contains('amount') ||
+            k.toLowerCase().contains('price') ||
+            k.toLowerCase().contains('quote'),
+      ),
       isEmpty,
       reason: 'ADR-0003 禁止客户端提交任何金额字段',
     );
@@ -357,11 +396,7 @@ void main() {
     await tester.tap(find.text('去支付'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.byType(PayPage),
-      findsNothing,
-      reason: '锁价不一致拒绝发起支付',
-    );
+    expect(find.byType(PayPage), findsNothing, reason: '锁价不一致拒绝发起支付');
     expect(
       adapter.requests.where((r) => r.uri.path.startsWith('/pay/')),
       isEmpty,
@@ -374,8 +409,7 @@ void main() {
     );
   });
 
-  testWidgets('待飞手确认：状态 + 双确认时间 + 联系飞手，不落删除分支',
-      (tester) async {
+  testWidgets('待飞手确认：状态 + 双确认时间 + 联系飞手，不落删除分支', (tester) async {
     final adapter = detailAdapter(
       task: taskJson(
         matchStatus: 'AWAITING_RIDER_CONFIRM',
@@ -438,7 +472,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('双方已确认，可以开始作业'), findsOneWidget);
-    expect(find.text('已确认'), findsOneWidget);
+    expect(find.text('可以开始作业'), findsOneWidget);
     expect(find.text('用户确认时间'), findsOneWidget);
     expect(find.text('飞手确认时间'), findsOneWidget);
     expect(find.text('2026-09-26 12:00'), findsOneWidget);
@@ -511,18 +545,17 @@ void main() {
 
     expect(find.text('交付成果'), findsOneWidget, reason: '证据列表可见');
     expect(
-      adapter.requests
-          .where((r) => r.uri.path == '/tasks/$taskNum/attachments'),
+      adapter.requests.where(
+        (r) => r.uri.path == '/tasks/$taskNum/attachments',
+      ),
       isNotEmpty,
       reason: '证据列表已拉取',
     );
-    final confirm = tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, '确认完成'));
-    expect(confirm.onPressed, isNull, reason: '无证据时禁用确认完成');
-    expect(
-      find.text('暂无履约证据，待飞手上传后方可确认完成'),
-      findsOneWidget,
+    final confirm = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '确认完成'),
     );
+    expect(confirm.onPressed, isNull, reason: '无证据时禁用确认完成');
+    expect(find.text('暂无履约证据，待飞手上传后方可确认完成'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(FilledButton, '确认完成'));
     await tester.pumpAndSettle();
@@ -565,8 +598,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final confirm = tester
-        .widget<FilledButton>(find.widgetWithText(FilledButton, '确认完成'));
+    final confirm = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '确认完成'),
+    );
     expect(confirm.onPressed, isNotNull, reason: '证据状态未知时交由服务端裁决');
 
     await tester.tap(find.widgetWithText(FilledButton, '确认完成'));

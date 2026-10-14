@@ -34,7 +34,7 @@ void main() {
   });
 
   testWidgets(
-    'Real stats, four separate entry endpoints and server pagination',
+    'Customer stats display exact backend counts without selling or shopping entries',
     (tester) async {
       tester.view.physicalSize = const Size(360, 800);
       tester.view.devicePixelRatio = 1;
@@ -91,14 +91,26 @@ void main() {
       final router = container.read(goRouterProvider);
       router.go('/profile');
       await tester.pumpAndSettle();
-      expect(find.text('已完成 130 笔 · 累计 250 单'), findsOneWidget);
-      expect(find.text('99+'), findsOneWidget);
+      expect(find.text('130'), findsOneWidget);
+      expect(find.text('250'), findsOneWidget);
+      expect(find.text('12'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('99+'), findsNothing);
+      expect(find.text('我卖出的'), findsNothing);
+      expect(find.text('我买到的'), findsNothing);
+      expect(find.byKey(const ValueKey('trade-sold')), findsNothing);
+      final statsBeforeTap = statsCalls;
+      await tester.tap(find.byKey(const ValueKey('trade-published')));
+      await tester.pumpAndSettle();
+      expect(find.byType(TradeListPage), findsNothing);
+      expect(statsCalls, statsBeforeTap);
       expect(tester.takeException(), isNull);
       await tester.tap(find.byTooltip('切换夜晚模式'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      for (final kind in ['published', 'sold', 'bought', 'review']) {
-        await tester.tap(find.byKey(ValueKey('trade-$kind')));
+      // Existing list pages remain independently testable through their routes.
+      for (final kind in ['published', 'bought', 'review']) {
+        router.push('/trade/$kind');
         await tester.pumpAndSettle();
         expect(
           tester.widget<TradeListPage>(find.byType(TradeListPage)).kind,
@@ -116,44 +128,55 @@ void main() {
         await tester.pumpAndSettle();
       }
       expect(
-        requests.any((path) => path.contains('/order/sold?page=1')),
-        isTrue,
+        requests.any(
+          (path) =>
+              Uri.parse(path).path == '/order/sold' &&
+              Uri.parse(path).queryParameters['page'] == '1',
+        ),
+        isFalse,
       );
       expect(
-        requests.any((path) => path.contains('/order/pending-review?page=1')),
+        requests.any(
+          (path) =>
+              Uri.parse(path).path == '/order/pending-review' &&
+              Uri.parse(path).queryParameters['page'] == '1',
+        ),
         isTrue,
       );
-      expect(statsCalls, greaterThan(1));
+      expect(statsCalls, statsBeforeTap);
       expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets('Stats failure shows retry and keeps entries available', (
-    tester,
-  ) async {
-    var fail = true;
-    final container = await pumpLoggedInApp(
-      tester,
-      handler: (options) async {
-        if (options.uri.path == '/order/stats') {
-          return jsonResponse(
-            200,
-            fail
-                ? {'success': false, 'message': 'failed'}
-                : {'success': true, 'data': counts},
-          );
-        }
-        return jsonResponse(200, {'success': false, 'message': 'stub'});
-      },
-    );
-    container.read(goRouterProvider).go('/profile');
-    await tester.pumpAndSettle();
-    expect(find.text('统计暂未加载'), findsOneWidget);
-    expect(find.byKey(const ValueKey('trade-review')), findsOneWidget);
-    fail = false;
-    await tester.tap(find.text('重试'));
-    await tester.pumpAndSettle();
-    expect(find.text('已完成 130 笔 · 累计 250 单'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'Stats failure shows placeholders and retry rather than fabricated zeros',
+    (tester) async {
+      var fail = true;
+      final container = await pumpLoggedInApp(
+        tester,
+        handler: (options) async {
+          if (options.uri.path == '/order/stats') {
+            return jsonResponse(
+              200,
+              fail
+                  ? {'success': false, 'message': 'failed'}
+                  : {'success': true, 'data': counts},
+            );
+          }
+          return jsonResponse(200, {'success': false, 'message': 'stub'});
+        },
+      );
+      container.read(goRouterProvider).go('/profile');
+      await tester.pumpAndSettle();
+      expect(find.text('统计暂未加载'), findsOneWidget);
+      expect(find.byKey(const ValueKey('trade-review')), findsOneWidget);
+      expect(find.text('—'), findsNWidgets(4));
+      fail = false;
+      await tester.tap(find.text('重试'));
+      await tester.pumpAndSettle();
+      expect(find.text('130'), findsOneWidget);
+      expect(find.text('250'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

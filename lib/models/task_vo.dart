@@ -196,6 +196,46 @@ class TaskVo {
   bool get isInProgress => taskStatus == 'IN_PROGRESS';
   bool get isCompleted => taskStatus == 'COMPLETED';
   bool get isWaitingConfirm => orderStatus == 'WAITING_CONFIRM';
+  bool get canDeleteUserDemand =>
+      isIdle &&
+      const [null, 'MATCHING', 'PENDING', 'CANCELLED'].contains(orderStatus) &&
+      const [
+        null,
+        'SEEKING_RIDER',
+        'NEGOTIATING',
+        'AWAITING_PAYMENT',
+      ].contains(matchStatus);
+
+  /// REQ-APP-002: user-facing stages, shared by home, orders and details.
+  /// Task COMPLETED means delivered; it does not prove the customer accepted it.
+  String get userStageLabel {
+    if (orderStatus == 'DISPUTED') return '争议中';
+    if (orderStatus == 'REFUNDED') return '已退款';
+    if (orderStatus == 'CANCELLED') return '已取消';
+    if (orderStatus == 'COMPLETED') return '已完成';
+    if (orderStatus == 'WAITING_CONFIRM' || matchStatus == 'PENDING_ACCEPTANCE')
+      return '待验收';
+    switch (matchStatus) {
+      case 'SEEKING_RIDER':
+        return '招募飞手';
+      case 'NEGOTIATING':
+        return '洽谈中';
+      case 'AWAITING_PAYMENT':
+        return '待支付';
+      case 'AWAITING_RIDER_CONFIRM':
+        return '待飞手确认';
+      case 'CONFIRMED':
+        return isInProgress ? '进行中' : '可以开始作业';
+      case 'CLOSED':
+        return isCompleted ? '已完成' : '已结案';
+    }
+    if (isInProgress) return '进行中';
+    if (orderStatus == 'PAID') return '待飞手确认';
+    if (orderStatus == 'PENDING') return '待支付';
+    if (isCompleted) return '交付状态待确认';
+    if (orderStatus == 'MATCHING' || isIdle) return '招募飞手';
+    return '状态待确认';
+  }
 
   /// 是否处于招募/洽谈阶段（未选定飞手）：决定详情页应征区块的空状态是否展示。
   bool get isInMatchingStage =>

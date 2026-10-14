@@ -12,6 +12,8 @@ import '../../providers/task_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../models/task_vo.dart';
 import '../pay/pay_page.dart';
+import 'pay_entry.dart';
+import '../../widgets/data_refresh.dart';
 
 class OrderListPage extends ConsumerStatefulWidget {
   const OrderListPage({super.key});
@@ -35,6 +37,10 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
   List<OrderVo>? _orders;
   bool _loading = true;
   String? _error;
+  int _page = 0;
+  int _totalPages = 0;
+  int _queriedTab = 0;
+  int _requestVersion = 0;
 
   OrderApi get _orderApi => OrderApi(ref.read(httpClientProvider));
 
@@ -42,6 +48,9 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.index != _queriedTab) _loadOrders();
+    });
     _loadOrders();
   }
 
@@ -51,17 +60,24 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     super.dispose();
   }
 
-  Future<void> _loadOrders() async {
+  Future<void> _loadOrders({int page = 0}) async {
+    final requestVersion = ++_requestVersion;
+    _queriedTab = _tabController.index;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final result = await _orderApi.listOrders();
-      if (!mounted) return;
+      final result = await _orderApi.listOrders(
+        page: page,
+        status: _statusFilters[_queriedTab]?.toString(),
+      );
+      if (!mounted || requestVersion != _requestVersion) return;
       if (result.success && result.data != null) {
         setState(() {
           _orders = result.data!.orders;
+          _page = result.data!.currentPage;
+          _totalPages = result.data!.totalPages;
           _loading = false;
         });
       } else {
@@ -71,7 +87,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
         });
       }
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || requestVersion != _requestVersion) return;
       setState(() {
         _error = '加载失败，请检查网络';
         _loading = false;
@@ -80,6 +96,20 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
   }
 
   Future<void> _goPay(OrderVo order) async {
+    final task = _taskForOrder(
+      ref.read(taskListProvider).tasks,
+      order.orderNum,
+    );
+    if (task != null) {
+      await openPayEntry(
+        context,
+        ref,
+        taskNum: task.taskNum,
+        quotedAmount: task.quotedAmount,
+      );
+      if (mounted) _loadOrders();
+      return;
+    }
     final paid = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => PayPage(orderNum: order.orderNum)),
     );
@@ -136,7 +166,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
       body: _loading
           ? Center(child: CircularProgressIndicator())
           : _error != null
-          ? _buildErrorView()
+          ? DataRefresh(onRefresh: _loadOrders, child: _buildErrorView())
           : TabBarView(
               controller: _tabController,
               children: _statusFilters.map((status) {
@@ -144,17 +174,24 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                 final filtered = status == null
                     ? orders
                     : orders.where((o) => o.orderStatus == status).toList();
-                if (filtered.isEmpty) return _buildEmpty();
+                if (filtered.isEmpty && _totalPages <= 1)
+                  return DataRefresh(
+                    onRefresh: _loadOrders,
+                    child: _buildEmpty(),
+                  );
                 return RefreshIndicator(
                   onRefresh: _loadOrders,
                   child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.all(16),
-                    itemCount: filtered.length,
-                    itemBuilder: (_, i) => _buildCard(
-                      filtered[i],
-                      unread: unreadByOrder[filtered[i].orderNum] ?? 0,
-                      task: _taskForOrder(tasks, filtered[i].orderNum),
-                    ),
+                    itemCount: filtered.length + (_totalPages > 1 ? 1 : 0),
+                    itemBuilder: (_, i) => i == filtered.length
+                        ? _pagination()
+                        : _buildCard(
+                            filtered[i],
+                            unread: unreadByOrder[filtered[i].orderNum] ?? 0,
+                            task: _taskForOrder(tasks, filtered[i].orderNum),
+                          ),
                   ),
                 );
               }).toList(),
@@ -206,20 +243,26 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                   child: state.loading
                       ? Center(child: CircularProgressIndicator())
                       : state.error != null
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(state.error!),
-                              TextButton(
-                                onPressed: notifier.loadTasks,
-                                child: Text('重试'),
-                              ),
-                            ],
+                      ? DataRefresh(
+                          onRefresh: notifier.loadTasks,
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(state.error!),
+                                TextButton(
+                                  onPressed: notifier.loadTasks,
+                                  child: Text('重试'),
+                                ),
+                              ],
+                            ),
                           ),
                         )
                       : state.tasks.isEmpty
-                      ? Center(child: Text('暂无已发布任务'))
+                      ? DataRefresh(
+                          onRefresh: notifier.loadTasks,
+                          child: Center(child: Text('暂无已发布任务')),
+                        )
                       : RefreshIndicator(
                           onRefresh: notifier.loadTasks,
                           child: ListView.separated(
@@ -319,7 +362,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
             children: [
               Row(
                 children: [
-                  _statusTag(order.orderStatus),
+                  _statusTag(order.orderStatus, label: task?.userStageLabel),
                   if (unread > 0) ...[
                     SizedBox(width: 8),
                     Container(
@@ -340,9 +383,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                   ],
                   Spacer(),
                   Text(
-                    order.totalAmount != null
-                        ? '¥${order.totalAmount!.toStringAsFixed(2)}'
-                        : '价格待确认',
+                    order.priceLabel,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -451,8 +492,8 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     );
   }
 
-  Widget _statusTag(int status) {
-    final label = OrderStatusCode.labelOf(status);
+  Widget _statusTag(int status, {String? label}) {
+    label ??= OrderStatusCode.labelOf(status);
     Color bg;
     Color text;
     switch (status) {
@@ -518,6 +559,23 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     ),
   );
 
+  Widget _pagination() => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      TextButton(
+        onPressed: _page > 0 ? () => _loadOrders(page: _page - 1) : null,
+        child: const Text('上一页'),
+      ),
+      Text('${_page + 1} / $_totalPages'),
+      TextButton(
+        onPressed: _page + 1 < _totalPages
+            ? () => _loadOrders(page: _page + 1)
+            : null,
+        child: const Text('下一页'),
+      ),
+    ],
+  );
+
   String _orderHint(int status) {
     switch (status) {
       case OrderStatusCode.pending:
@@ -532,6 +590,10 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
         return '订单已取消';
       case OrderStatusCode.refunded:
         return '订单已退款';
+      case OrderStatusCode.matching:
+        return '等待飞手应征，选定飞手后再下单支付';
+      case OrderStatusCode.disputed:
+        return '订单存在争议，等待平台处理';
       default:
         return '状态待确认，请刷新或进入详情查询';
     }
@@ -622,22 +684,29 @@ class OrderRecordDetailViewState extends ConsumerState<OrderRecordDetailView> {
       body: _loading
           ? Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ? DataRefresh(
+              onRefresh: _load,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 16),
-                  OutlinedButton(onPressed: _load, child: Text('重试')),
-                ],
+                    SizedBox(height: 16),
+                    OutlinedButton(onPressed: _load, child: Text('重试')),
+                  ],
+                ),
               ),
             )
-          : _buildBody(),
+          : DataRefresh(
+              onRefresh: _load,
+              scrollable: true,
+              child: _buildBody(),
+            ),
       bottomNavigationBar: (_order?.isPending ?? false)
           ? Container(
               padding: EdgeInsets.all(16),
@@ -661,6 +730,7 @@ class OrderRecordDetailViewState extends ConsumerState<OrderRecordDetailView> {
     final order = _order!;
     final taskNum = _taskNumForOrder;
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(16),
       children: [
         _statusFlow(order.orderStatus),

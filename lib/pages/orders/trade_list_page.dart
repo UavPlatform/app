@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../api/order_api.dart';
-import '../../api/generated/openapi_paths.dart';
+import '../../api/trade_api.dart';
 import '../../models/task_vo.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/task_provider.dart';
 import 'order_list_page.dart';
+import '../../widgets/data_refresh.dart';
 
 class TradeListPage extends ConsumerStatefulWidget {
   const TradeListPage({super.key, required this.kind});
@@ -55,19 +56,15 @@ class _TradeListPageState extends ConsumerState<TradeListPage> {
           _total = data.totalElements;
         });
       } else {
-        final path = switch (widget.kind) {
-          'sold' => '/order/sold',
-          'review' => '/order/pending-review',
-          _ => ApiPaths.orderList,
+        final client = ref.read(httpClientProvider);
+        final result = await switch (widget.kind) {
+          'sold' => TradeApi(client).sold(page: page),
+          'review' => TradeApi(client).pendingReview(page: page),
+          _ => OrderApi(client).listOrders(page: page),
         };
-        final response = await ref
-            .read(httpClientProvider)
-            .dio
-            .get(path, queryParameters: {'page': page, 'size': 20});
-        final body = response.data as Map<String, dynamic>;
-        if (body['success'] != true || body['data'] == null)
-          throw Exception(body['message'] ?? '订单加载失败');
-        final data = OrderListVo.fromJson(body['data'] as Map<String, dynamic>);
+        if (!result.success || result.data == null)
+          throw Exception(result.message ?? '订单加载失败');
+        final data = result.data!;
         if (!mounted) return;
         setState(() {
           _orders = data.orders;
@@ -102,17 +99,20 @@ class _TradeListPageState extends ConsumerState<TradeListPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(_error!),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: () => _load(_page),
-                    child: const Text('重试'),
-                  ),
-                ],
+          ? DataRefresh(
+              onRefresh: () => _load(0),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_error!),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: () => _load(_page),
+                      child: const Text('重试'),
+                    ),
+                  ],
+                ),
               ),
             )
           : RefreshIndicator(
@@ -142,7 +142,7 @@ class _TradeListPageState extends ConsumerState<TradeListPage> {
                           ),
                           title: Text(task.taskName),
                           subtitle: Text(
-                            '${task.taskNum}\n${task.taskStatusName}',
+                            '${task.taskNum}\n${task.userStageLabel}',
                             style: const TextStyle(height: 1.6),
                           ),
                           trailing: const Icon(Icons.chevron_right),
@@ -166,9 +166,7 @@ class _TradeListPageState extends ConsumerState<TradeListPage> {
                             style: const TextStyle(height: 1.6),
                           ),
                           trailing: Text(
-                            order.totalAmount == null
-                                ? '金额待确认'
-                                : '¥${order.totalAmount!.toStringAsFixed(2)}',
+                            order.priceLabel,
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: scheme.primary,

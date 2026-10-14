@@ -16,6 +16,9 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        flutterEngine.platformViewsController.registry.registerViewFactory(
+            "com.fuwaki.app/amap", NativeAmapFactory(this, flutterEngine.dartExecutor.binaryMessenger)
+        )
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
@@ -30,8 +33,11 @@ class MainActivity : FlutterActivity() {
                     }
                     "getLocation" -> {
                         if (!sdkReady) {
-                            result.success(mapOf("errorCode" to -1, "errorInfo" to "SDK未初始化"))
-                            return@setMethodCallHandler
+                            // Preserve SDK positioning independently of map rendering.
+                            // Do not overwrite a manifest/cached SDK key with an empty value.
+                            AMapLocationClient.updatePrivacyShow(this@MainActivity, true, true)
+                            AMapLocationClient.updatePrivacyAgree(this@MainActivity, true)
+                            sdkReady = true
                         }
                         getLocation(result)
                     }

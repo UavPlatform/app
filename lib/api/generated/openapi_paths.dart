@@ -1,14 +1,14 @@
 // GENERATED — DO NOT EDIT.
 // 契约路径表：调用点只允许通过本表拼 URL。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: f9b0e1130982cb2af458693901e3a93de7c9b8394b6ab8bd256c96e15c27d22a)
+// 事实源：openapi/drone-backend.openapi.json (sha256: acb809d3dbe0438683a8f22d2f6103a01916b98d3fb8e0ac2c46b5baa377c955)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端端点路径与查询参数的契约映射：路径写错、必填查询参数漏传都会在编译期暴露。
 class ApiPaths {
   ApiPaths._();
 
-  static const String generatedFromSha256 = 'f9b0e1130982cb2af458693901e3a93de7c9b8394b6ab8bd256c96e15c27d22a';
+  static const String generatedFromSha256 = 'acb809d3dbe0438683a8f22d2f6103a01916b98d3fb8e0ac2c46b5baa377c955';
 
   /// GET /task/init
   static const String taskInit = '/task/init';
@@ -149,13 +149,26 @@ class ApiPaths {
 
   /// GET /order/list
   static const String orderList = '/order/list';
-  static Map<String, dynamic> orderListQuery({int? page, int? size}) =>
-      <String, dynamic>{'page': page, 'size': size};
+  static Map<String, dynamic> orderListQuery({int? size, String? status, int? page}) =>
+      <String, dynamic>{'size': size, 'status': status, 'page': page};
 
   /// GET /order/detail
   static const String orderDetail = '/order/detail';
   static Map<String, dynamic> orderDetailQuery({required String orderNum}) =>
       <String, dynamic>{'orderNum': orderNum};
+
+  /// GET /order/stats
+  static const String orderStats = '/order/stats';
+
+  /// GET /order/sold
+  static const String orderSold = '/order/sold';
+  static Map<String, dynamic> orderSoldQuery({int? size, String? status, int? page}) =>
+      <String, dynamic>{'size': size, 'status': status, 'page': page};
+
+  /// GET /order/pending-review
+  static const String orderPendingReview = '/order/pending-review';
+  static Map<String, dynamic> orderPendingReviewQuery({int? size, int? page}) =>
+      <String, dynamic>{'size': size, 'page': page};
 
   /// POST /pay/{orderNum}
   static const String pay = '/pay/{orderNum}';

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uav_pilot_app/api/http_client.dart';
 import 'package:uav_pilot_app/pages/messages/system_messages_view.dart';
 import 'package:uav_pilot_app/providers/auth_provider.dart';
+import 'package:uav_pilot_app/providers/chat_provider.dart';
 import 'package:uav_pilot_app/services/token_storage.dart';
 
 import '../test_support.dart';
@@ -27,8 +28,15 @@ void main() {
   }
 
   testWidgets('聚合展示系统会话中的系统消息卡片（过滤普通消息）', (tester) async {
+    var readCalls = 0;
     final adapter = StubAdapter((options) async {
       final path = options.uri.path;
+      if (path == '/chat/Message/read') {
+        expect(options.method, 'POST');
+        expect(options.uri.queryParameters['sessionId'], '99');
+        readCalls++;
+        return jsonResponse(200, {'success': true});
+      }
       if (path == '/chat/session/list') {
         return jsonResponse(200, {
           'success': true,
@@ -110,6 +118,21 @@ void main() {
     expect(find.text('您的任务已支付成功，等待飞手接单'), findsOneWidget);
     expect(find.text('任务已被接单'), findsOneWidget);
     expect(find.textContaining('不应出现的普通消息'), findsNothing);
+    expect(readCalls, 1);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SystemMessagesView)),
+    );
+    expect(
+      container
+          .read(sessionListProvider)
+          .sessions
+          .singleWhere((s) => s.id == 99)
+          .unreadCount,
+      0,
+    );
+    // 重建页面不能重复发送已读请求。
+    await tester.pump();
+    expect(readCalls, 1);
   });
 
   testWidgets('已知 sessionId 时直接拉取系统会话消息', (tester) async {

@@ -6,8 +6,12 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:uav_pilot_app/providers/map_provider.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:uav_pilot_app/widgets/mission_map.dart';
+import 'package:uav_pilot_app/models/amap_config.dart';
+import 'package:latlong2/latlong.dart';
+import '../../map_test_support.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -66,12 +70,18 @@ StubAdapter homeAdapter({
 }
 
 /// 以真实路由泵入首页（/home、/map/pick、订单详情占位）。
-Future<void> pumpHome(WidgetTester tester, StubAdapter adapter) async {
+Future<void> pumpHome(
+  WidgetTester tester,
+  StubAdapter adapter, {
+  bool guideDismissed = true,
+}) async {
+  mockNativeMaps(tester);
   tester.view.physicalSize = const Size(800, 1600);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
   SharedPreferences.setMockInitialValues({
+    'task_flow_guide_dismissed_v1': guideDismissed,
     'jwt_token': makeJwt(userId: 7),
     'server_url': 'http://stub.local:8081',
   });
@@ -93,6 +103,9 @@ Future<void> pumpHome(WidgetTester tester, StubAdapter adapter) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        amapMapConfigProvider.overrideWith(
+          (ref) async => AmapConfig(key: 'test-key', securityKey: ''),
+        ),
         sharedPreferencesProvider.overrideWithValue(prefs),
         httpClientProvider.overrideWithValue(client),
       ],
@@ -106,15 +119,17 @@ Future<void> pumpHome(WidgetTester tester, StubAdapter adapter) async {
 Future<void> tapHomeMap(WidgetTester tester) async {
   final destination = find.byKey(const ValueKey('home-destination-row'));
   await tester.ensureVisible(destination);
+  await tester.pumpAndSettle();
   await tester.tap(destination);
   await tester.pumpAndSettle();
-  final center = tester.getCenter(
-    find.descendant(
-      of: find.byType(MapPickerPage),
-      matching: find.byType(FlutterMap),
-    ),
-  );
-  await tester.tapAt(center + const Offset(60, -30));
+  tester
+      .widget<MissionMap>(
+        find.descendant(
+          of: find.byType(MapPickerPage),
+          matching: find.byType(MissionMap),
+        ),
+      )
+      .onTap!(const LatLng(27.91, 112.91));
   await tester.pump(const Duration(milliseconds: 100));
   await tester.tap(find.widgetWithText(ElevatedButton, '确认'));
   await tester.pumpAndSettle();
@@ -261,6 +276,9 @@ void main() {
       await tester.pumpAndSettle();
       await tapHomeMap(tester);
       await tapPublish(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('confirm-publish')));
+      await tester.pumpAndSettle();
       expect(body?['cargoCategory'], entry.key);
       expect(body?['taskName'], '${label}吊运');
       expect(body?['description'], '');
@@ -325,6 +343,25 @@ void main() {
     await tapPublish(tester);
     await tester.pumpAndSettle();
 
+    expect(createBody, isNull, reason: '打开确认弹窗不发送发布请求');
+    expect(find.textContaining('货物重量：12.5 kg'), findsOneWidget);
+    await tester.tap(find.text('返回修改'));
+    await tester.pumpAndSettle();
+    expect(createBody, isNull, reason: '取消发布不发送请求');
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('home-cargo-weight-field')),
+          )
+          .controller!
+          .text,
+      '12.5',
+    );
+    await tapPublish(tester);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('confirm-publish')));
+    await tester.pumpAndSettle();
+
     expect(find.text('发布成功，等待飞手应征'), findsOneWidget);
     expect(createBody, isNotNull);
     final body = createBody!;
@@ -363,7 +400,7 @@ void main() {
     await drainSnackBars(tester);
   });
 
-  testWidgets('首页不再展示本人任务列表（收敛到订单 Tab）', (tester) async {
+  testWidgets('首页展示本人吊运需求摘要，待验收不提前显示为已完成', (tester) async {
     final adapter = homeAdapter(
       tasks: [
         {
@@ -373,14 +410,73 @@ void main() {
           'userId': 7,
           'taskType': 'TRANSPORT',
           'taskStatus': 'IDLE',
+          'matchStatus': 'NEGOTIATING',
           'createTime': '2026-09-26 10:00:00',
+        },
+        {
+          'id': 2,
+          'taskNum': 'T-2',
+          'taskName': '等待验收的设备吊运',
+          'userId': 7,
+          'taskType': 'TRANSPORT',
+          'taskStatus': 'COMPLETED',
+          'matchStatus': 'PENDING_ACCEPTANCE',
+          'orderStatus': 'WAITING_CONFIRM',
+        },
+        {
+          'id': 3,
+          'taskNum': 'T-3',
+          'taskName': '已结案需求',
+          'userId': 7,
+          'taskType': 'TRANSPORT',
+          'taskStatus': 'COMPLETED',
+          'matchStatus': 'CLOSED',
+          'orderStatus': 'COMPLETED',
         },
       ],
     );
     await pumpHome(tester, adapter);
 
-    expect(find.text('我发布的任务'), findsNothing);
-    expect(find.text('建材吊运'), findsNothing);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -1800));
+    await tester.pumpAndSettle();
+    expect(find.text('我的吊运需求'), findsOneWidget);
+    expect(find.text('建材吊运'), findsOneWidget);
+    expect(find.text('洽谈中'), findsOneWidget);
+    expect(find.text('等待验收的设备吊运'), findsOneWidget);
+    expect(find.text('待验收'), findsOneWidget);
+    expect(find.text('已结案需求'), findsNothing);
+  });
+
+  testWidgets('首页刷新重新拉取本人需求且保留未发布的货物信息', (tester) async {
+    final adapter = homeAdapter();
+    await pumpHome(tester, adapter);
+    await tester.enterText(
+      find.byKey(const ValueKey('home-cargo-weight-field')),
+      '33',
+    );
+    final before = adapter.requests
+        .where((request) => request.uri.path == '/task/list')
+        .length;
+    final refresh = tester
+        .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+        .show();
+    await tester.pumpAndSettle();
+    await refresh;
+    expect(
+      adapter.requests
+          .where((request) => request.uri.path == '/task/list')
+          .length,
+      before + 1,
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('home-cargo-weight-field')),
+          )
+          .controller!
+          .text,
+      '33',
+    );
   });
 
   testWidgets('首页收敛：无服务四宫格/推荐飞手/任务广场', (tester) async {
@@ -404,10 +500,9 @@ void main() {
 
     final pickerMap = find.descendant(
       of: find.byType(MapPickerPage),
-      matching: find.byType(FlutterMap),
+      matching: find.byType(MissionMap),
     );
-    final center = tester.getCenter(pickerMap);
-    await tester.tapAt(center + const Offset(60, -40));
+    tester.widget<MissionMap>(pickerMap).onTap!(const LatLng(27.91, 112.91));
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.tap(find.widgetWithText(ElevatedButton, '确认'));

@@ -1,7 +1,7 @@
 // GENERATED — DO NOT EDIT.
 // 契约模型：后端 components.schemas 的 Dart 映射。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: f9b0e1130982cb2af458693901e3a93de7c9b8394b6ab8bd256c96e15c27d22a)
+// 事实源：openapi/drone-backend.openapi.json (sha256: acb809d3dbe0438683a8f22d2f6103a01916b98d3fb8e0ac2c46b5baa377c955)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端统一返回体 Result<T> 的契约映射。
@@ -1057,6 +1057,50 @@ class ApiTokenRefreshVO {
     final Map<String, dynamic> json = <String, dynamic>{};
     if (token != null) {
       json['token'] = token;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.TradeStatsVO
+class ApiTradeStatsVO {
+  final int? boughtOrderCount;
+  final int? completedTradeCount;
+  final int? pendingReviewCount;
+  final int? publishedTaskCount;
+  final int? soldOrderCount;
+  final int? totalOrderCount;
+
+  const ApiTradeStatsVO({this.boughtOrderCount, this.completedTradeCount, this.pendingReviewCount, this.publishedTaskCount, this.soldOrderCount, this.totalOrderCount});
+
+  factory ApiTradeStatsVO.fromJson(Map<String, dynamic> json) => ApiTradeStatsVO(
+    boughtOrderCount: (json['boughtOrderCount'] as num?)?.toInt(),
+    completedTradeCount: (json['completedTradeCount'] as num?)?.toInt(),
+    pendingReviewCount: (json['pendingReviewCount'] as num?)?.toInt(),
+    publishedTaskCount: (json['publishedTaskCount'] as num?)?.toInt(),
+    soldOrderCount: (json['soldOrderCount'] as num?)?.toInt(),
+    totalOrderCount: (json['totalOrderCount'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (boughtOrderCount != null) {
+      json['boughtOrderCount'] = boughtOrderCount;
+    }
+    if (completedTradeCount != null) {
+      json['completedTradeCount'] = completedTradeCount;
+    }
+    if (pendingReviewCount != null) {
+      json['pendingReviewCount'] = pendingReviewCount;
+    }
+    if (publishedTaskCount != null) {
+      json['publishedTaskCount'] = publishedTaskCount;
+    }
+    if (soldOrderCount != null) {
+      json['soldOrderCount'] = soldOrderCount;
+    }
+    if (totalOrderCount != null) {
+      json['totalOrderCount'] = totalOrderCount;
     }
     return json;
   }

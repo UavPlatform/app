@@ -41,7 +41,8 @@ kotlin {
 }
 
 dependencies {
-    implementation("com.amap.api:location:6.1.0")
+    // Map, location and search are packaged together; do not also add location.
+    implementation("com.amap.api:3dmap-location-search:11.3.100_loc11.3.000_sea9.8.1")
 }
 
 flutter {

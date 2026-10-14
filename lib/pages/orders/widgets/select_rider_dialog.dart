@@ -20,10 +20,8 @@ Future<bool?> showSelectRiderDialog(
 }) {
   return showDialog<bool>(
     context: context,
-    builder: (_) => SelectRiderDialog(
-      taskNum: taskNum,
-      application: application,
-    ),
+    builder: (_) =>
+        SelectRiderDialog(taskNum: taskNum, application: application),
   );
 }
 
@@ -59,10 +57,7 @@ class _SelectRiderDialogState extends ConsumerState<SelectRiderDialog> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showScrollDatePicker(
-      context,
-      initial: _date,
-    );
+    final picked = await showScrollDatePicker(context, initial: _date);
     if (picked != null && mounted) {
       setState(() {
         _date = picked;
@@ -72,10 +67,7 @@ class _SelectRiderDialogState extends ConsumerState<SelectRiderDialog> {
   }
 
   Future<void> _pickTime() async {
-    final picked = await showScrollTimePicker(
-      context,
-      initial: _time,
-    );
+    final picked = await showScrollTimePicker(context, initial: _time);
     if (picked != null && mounted) {
       setState(() {
         _time = picked;
@@ -90,7 +82,9 @@ class _SelectRiderDialogState extends ConsumerState<SelectRiderDialog> {
       _submitting = true;
       _error = null;
     });
-    final result = await ref.read(taskApiProvider).selectRider(
+    final result = await ref
+        .read(taskApiProvider)
+        .selectRider(
           taskNum: widget.taskNum,
           applicationId: widget.application.applicationId!,
           scheduledTime: _scheduledTime,
@@ -123,10 +117,7 @@ class _SelectRiderDialogState extends ConsumerState<SelectRiderDialog> {
             const Divider(height: 16),
             const Text(
               '约定作业时间',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Row(
@@ -158,9 +149,7 @@ class _SelectRiderDialogState extends ConsumerState<SelectRiderDialog> {
             ),
             const SizedBox(height: 8),
             Text(
-              _timePicked
-                  ? '将于 $_scheduledTime 开始作业'
-                  : '未选择约定作业时间，无法提交下单',
+              _timePicked ? '将于 $_scheduledTime 开始作业' : '未选择约定作业时间，无法提交下单',
               style: TextStyle(
                 fontSize: 12,
                 color: _timePicked
@@ -180,13 +169,17 @@ class _SelectRiderDialogState extends ConsumerState<SelectRiderDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+          onPressed: _submitting
+              ? null
+              : () => Navigator.of(context).pop(false),
           child: const Text('取消'),
         ),
         FilledButton(
           onPressed: _timePicked && !_submitting ? _submit : null,
           style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
+            backgroundColor: const Color(0xFFC45100),
+            foregroundColor: Colors.white,
+            minimumSize: const Size(120, 48),
           ),
           child: Text(_submitting ? '下单中…' : '确认下单'),
         ),
@@ -210,9 +203,7 @@ class _SelectRiderDialogState extends ConsumerState<SelectRiderDialog> {
               ),
             ),
           ),
-          Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 14)),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
         ],
       ),
     );

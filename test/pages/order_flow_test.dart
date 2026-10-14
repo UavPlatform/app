@@ -23,7 +23,9 @@ void main() {
       final path = options.uri.path;
       if (path == '/order/list') {
         listCall += 1;
-        final status = listCall == 1 ? OrderStatusCode.pending : OrderStatusCode.paid;
+        final status = listCall == 1
+            ? OrderStatusCode.pending
+            : OrderStatusCode.paid;
         return jsonResponse(200, {
           'success': true,
           'code': 200,
@@ -52,7 +54,9 @@ void main() {
             'totalAmount': 128.5,
             'distance': 3200,
             'taskName': '航拍任务',
-            'orderStatus': OrderStatusCode.pending,
+            'orderStatus': payCall > 0
+                ? OrderStatusCode.paid
+                : OrderStatusCode.pending,
           },
         });
       }
@@ -102,16 +106,20 @@ void main() {
     expect(find.byType(PayPage), findsOneWidget);
     expect(find.text('应付金额'), findsOneWidget);
     expect(find.text('¥128.50'), findsWidgets);
-    expect(find.text('模拟支付 ¥128.50'), findsOneWidget);
+    expect(find.text('确认支付 ¥128.50'), findsOneWidget);
 
     // 模拟支付 → POST /pay/{orderNum} → 成功弹窗
     // 注意：提交态 spinner 为持续动画，此处用固定 pump 而非 pumpAndSettle
-    await tester.tap(find.text('模拟支付 ¥128.50'));
+    await tester.tap(find.text('确认支付 ¥128.50'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(payCall, 1);
     expect(find.text('支付成功'), findsOneWidget);
-    expect(find.textContaining('mock-prepay-ORD-1'), findsOneWidget);
+    expect(
+      find.textContaining('mock-prepay-ORD-1'),
+      findsNothing,
+      reason: '预支付编号不是支付交易流水号',
+    );
 
     // 关闭弹窗 → 返回列表 → 自动重载 → PAID
     await tester.tap(find.text('好的'));
@@ -277,7 +285,8 @@ void main() {
           },
         });
       }
-      if (path == '/task/T-3/applications' || path == '/task/T-3/chat-sessions') {
+      if (path == '/task/T-3/applications' ||
+          path == '/task/T-3/chat-sessions') {
         return jsonResponse(200, {'success': true, 'code': 200, 'data': []});
       }
       return jsonResponse(200, {'success': false, 'message': 'stub'});
@@ -325,7 +334,10 @@ void main() {
 
     expect(find.byType(OrderDetailPage), findsOneWidget);
     expect(find.text('等待飞手接单'), findsOneWidget, reason: '撮合中心空状态');
-    expect(find.text('等待飞手应征，选定后下单支付'), findsOneWidget,
-        reason: '文案来自服务端 actionHint');
+    expect(
+      find.text('等待飞手应征，选定后下单支付'),
+      findsOneWidget,
+      reason: '文案来自服务端 actionHint',
+    );
   });
 }

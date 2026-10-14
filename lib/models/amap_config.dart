@@ -11,7 +11,8 @@ class AmapConfig {
     final c = ApiAmapConfigVO.fromJson(json);
     return AmapConfig(
       key: c.key as String,
-      securityKey: c.securityKey as String,//实则安卓的key没有这个字段，不想改后端了，暂且这样
+      // Android SDK credentials do not require the JS API security key.
+      securityKey: c.securityKey ?? '',
     );
   }
 
