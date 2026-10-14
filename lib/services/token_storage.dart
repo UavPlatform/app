@@ -27,15 +27,30 @@ class TokenStorage {
     final trimmed = url?.trim();
     if (trimmed == null || trimmed.isEmpty) return trimmed;
 
-    final uri = Uri.tryParse(trimmed);
-    if (uri == null) return trimmed;
+    // 用户常只填 host:port（如 192.168.1.1:8080）；Dart Uri 无法解析无 scheme 的 host:port，
+    // Dio baseUrl 会无效并表现为「网络请求失败」。
+    final withScheme = _ensureHttpScheme(trimmed);
+
+    final uri = Uri.tryParse(withScheme);
+    if (uri == null) return withScheme;
 
     if (uri.scheme == 'ws' || uri.scheme == 'wss') {
       return uri
           .replace(scheme: uri.scheme == 'wss' ? 'https' : 'http')
           .toString();
     }
-    return trimmed;
+    return withScheme;
+  }
+
+  static String _ensureHttpScheme(String trimmed) {
+    final lower = trimmed.toLowerCase();
+    if (lower.startsWith('http://') ||
+        lower.startsWith('https://') ||
+        lower.startsWith('ws://') ||
+        lower.startsWith('wss://')) {
+      return trimmed;
+    }
+    return 'http://$trimmed';
   }
 
   Future<void> saveTokens({

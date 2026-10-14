@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 开发/自建后端常用 HTTP；生产 HTTPS 不受影响 -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

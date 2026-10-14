@@ -24,7 +24,7 @@ class HttpClient {
   HttpClient(this._tokenStorage, {this.adapter}) {
     dio = Dio(
       BaseOptions(
-        baseUrl: ApiConfig.resolveBaseUrl(_tokenStorage.getServerUrl()),
+        baseUrl: ApiConfig.resolveHttpBaseUrl(_tokenStorage.getServerUrl()),
         connectTimeout: ApiConfig.connectTimeout,
         receiveTimeout: ApiConfig.receiveTimeout,
         headers: {'Content-Type': 'application/json'},
@@ -42,7 +42,9 @@ class HttpClient {
   }
 
   void updateBaseUrl(String url) {
-    dio.options.baseUrl = TokenStorage.normalizeHttpServerUrl(url) ?? '';
+    dio.options.baseUrl = ApiConfig.resolveHttpBaseUrl(
+      TokenStorage.normalizeHttpServerUrl(url),
+    );
   }
 
   InterceptorsWrapper _droneCheckInterceptor() {
@@ -126,7 +128,7 @@ class HttpClient {
 
     final refreshDio = Dio(
       BaseOptions(
-        baseUrl: ApiConfig.resolveBaseUrl(_tokenStorage.getServerUrl()),
+        baseUrl: ApiConfig.resolveHttpBaseUrl(_tokenStorage.getServerUrl()),
         connectTimeout: ApiConfig.connectTimeout,
         receiveTimeout: ApiConfig.receiveTimeout,
       ),

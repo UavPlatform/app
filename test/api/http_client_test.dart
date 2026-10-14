@@ -29,7 +29,7 @@ void main() {
       final client = await clientWith(const {}, StubAdapter((_) async {
         return jsonResponse(200, {'success': false});
       }));
-      expect(client.dio.options.baseUrl, ApiConfig.defaultBaseUrl);
+      expect(client.dio.options.baseUrl, '${ApiConfig.defaultBaseUrl}/');
     });
 
     test('已持久化地址优先于内置默认地址', () async {
@@ -37,7 +37,7 @@ void main() {
         const {'server_url': 'http://192.168.1.5:9000'},
         StubAdapter((_) async => jsonResponse(200, {'success': false})),
       );
-      expect(client.dio.options.baseUrl, 'http://192.168.1.5:9000');
+      expect(client.dio.options.baseUrl, 'http://192.168.1.5:9000/api/');
     });
 
     test('空白 serverUrl 视为未配置，回落默认地址', () async {
@@ -45,7 +45,23 @@ void main() {
         const {'server_url': '   '},
         StubAdapter((_) async => jsonResponse(200, {'success': false})),
       );
-      expect(client.dio.options.baseUrl, ApiConfig.defaultBaseUrl);
+      expect(client.dio.options.baseUrl, '${ApiConfig.defaultBaseUrl}/');
+    });
+
+    test('仅 host:port 时自动补 http:// 且经网关时 REST 走 /api/', () async {
+      final client = await clientWith(
+        const {'server_url': '120.77.170.101:8888'},
+        StubAdapter((_) async => jsonResponse(200, {'success': false})),
+      );
+      expect(client.dio.options.baseUrl, 'http://120.77.170.101:8888/api/');
+    });
+
+    test('直连 Spring :8081 时不加 /api 前缀', () async {
+      final client = await clientWith(
+        const {'server_url': 'http://192.168.1.5:8081'},
+        StubAdapter((_) async => jsonResponse(200, {'success': false})),
+      );
+      expect(client.dio.options.baseUrl, 'http://192.168.1.5:8081/');
     });
   });
 

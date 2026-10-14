@@ -171,7 +171,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   controller: _serverController,
                   textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(
-                    hintText: '请输入服务器地址，如 http://192.168.1.1:8080',
+                    hintText: '公网示例 120.77.x.x:8888；局域网直连 192.168.x.x:8081',
                     prefixIcon: Icon(Icons.dns_outlined, size: 20),
                   ),
                   onChanged: (v) {
