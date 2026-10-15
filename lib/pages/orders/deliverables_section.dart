@@ -23,11 +23,7 @@ class DeliverablesSection extends ConsumerStatefulWidget {
   /// 文件选择来源（未注入时点击上传会提示能力即将开放）
   final AttachmentPicker? picker;
 
-  const DeliverablesSection({
-    super.key,
-    required this.taskNum,
-    this.picker,
-  });
+  const DeliverablesSection({super.key, required this.taskNum, this.picker});
 
   @override
   ConsumerState<DeliverablesSection> createState() =>
@@ -93,9 +89,9 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('未能获取文件，请检查相机/相册权限后重试')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未能获取文件，请检查相机/相册权限后重试')));
       return;
     }
     if (!mounted || candidate == null) return;
@@ -125,9 +121,7 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
                   if (sheetContext.mounted) Navigator.pop(sheetContext);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('未能获取文件，请检查相机/相册权限后重试'),
-                      ),
+                      const SnackBar(content: Text('未能获取文件，请检查相机/相册权限后重试')),
                     );
                   }
                 }
@@ -146,9 +140,7 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
                   if (sheetContext.mounted) Navigator.pop(sheetContext);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('未能获取文件，请检查相机/相册权限后重试'),
-                      ),
+                      const SnackBar(content: Text('未能获取文件，请检查相机/相册权限后重试')),
                     );
                   }
                 }
@@ -167,9 +159,7 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
                   if (sheetContext.mounted) Navigator.pop(sheetContext);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('未能获取文件，请检查相机/相册权限后重试'),
-                      ),
+                      const SnackBar(content: Text('未能获取文件，请检查相机/相册权限后重试')),
                     );
                   }
                 }
@@ -198,8 +188,9 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
           _uploading = false;
           _uploadStatus = null;
         });
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(violation)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(violation)));
         return;
       }
 
@@ -229,7 +220,7 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
       }
       final ticket = ticketResult.data!;
 
-      // 3) 直传 MinIO（presigned PUT）
+      // 3) 直传对象存储（REQ-APP-002，presigned PUT）
       setState(() => _uploadStatus = '正在上传文件…');
       await _attachmentApi.uploadToStorage(
         uploadUrl: ticket.uploadUrl,
@@ -238,14 +229,19 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
       );
       if (!mounted) return;
 
-      // 4) 刷新列表
+      // 4) 后端验证对象存在、大小正确后才提示成功。
+      setState(() => _uploadStatus = '正在确认上传…');
+      await _attachmentApi.confirmUpload(widget.taskNum, ticket.objectKey);
+      if (!mounted) return;
+
+      // 5) 刷新列表
       setState(() {
         _uploading = false;
         _uploadStatus = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('上传成功')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('上传成功')));
       await _load();
     } catch (_) {
       if (!mounted) return;
@@ -280,7 +276,10 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
     if (_error != null) {
       return Column(
         children: [
-          Text(_error!, style: const TextStyle(color: AppColors.onSurfaceVariant)),
+          Text(
+            _error!,
+            style: const TextStyle(color: AppColors.onSurfaceVariant),
+          ),
           const SizedBox(height: 8),
           OutlinedButton(onPressed: _load, child: const Text('重试')),
         ],
@@ -327,8 +326,7 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
           child: OutlinedButton.icon(
             onPressed: _uploading ? null : _startUpload,
             icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-            label: const Text('补充上传照片/视频',
-                style: TextStyle(fontSize: 14)),
+            label: const Text('补充上传照片/视频', style: TextStyle(fontSize: 14)),
           ),
         ),
       ],
@@ -357,10 +355,11 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
                     ? Image.network(
                         preview,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Icon(
-                          Icons.image_outlined,
-                          color: AppColors.onSurfaceVariant,
-                        ),
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                              Icons.image_outlined,
+                              color: AppColors.onSurfaceVariant,
+                            ),
                       )
                     : const Icon(
                         Icons.insert_drive_file_outlined,
@@ -389,7 +388,11 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, size: 18, color: AppColors.outline),
+              const Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: AppColors.outline,
+              ),
             ],
           ),
         ),
@@ -413,8 +416,10 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
                   errorBuilder: (context, error, stackTrace) => const SizedBox(
                     height: 80,
                     child: Center(
-                      child: Icon(Icons.broken_image_outlined,
-                          color: AppColors.onSurfaceVariant),
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        color: AppColors.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -422,13 +427,18 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
             else
               Text(
                 '该附件类型不支持在线预览，可复制下载链接获取文件。',
-                style:
-                    const TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
             const SizedBox(height: 12),
             Text(
               '大小：${attachment.sizeLabel}',
-              style: const TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -464,7 +474,10 @@ class _DeliverablesSectionState extends ConsumerState<DeliverablesSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          ),
           const SizedBox(height: 16),
           child,
         ],

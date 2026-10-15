@@ -65,6 +65,7 @@ const List<List<String>> endpoints = <List<String>>[
   <String>['post', '/pay/{orderNum}'],
   <String>['get', '/tasks/{taskNum}/attachments'],
   <String>['post', '/tasks/{taskNum}/attachments/upload-url'],
+  <String>['post', '/tasks/{taskNum}/attachments/confirm-upload'],
   <String>['post', '/review/submit'],
   <String>['get', '/review/{orderNum}'],
   <String>['get', '/review/my'],

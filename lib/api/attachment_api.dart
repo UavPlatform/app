@@ -1,4 +1,4 @@
-// 交付物附件 API（t44：t43 presigned PUT 直传 MinIO 契约）。
+// 履约附件 API（REQ-APP-002；TASK-PLATFORM-002）：存储直传后由后端确认有效对象。
 // - GET  /tasks/{taskNum}/attachments：附件列表（逐条含 downloadUrl，15 分钟有效）；
 // - POST /tasks/{taskNum}/attachments/upload-url?fileName&contentType&sizeBytes：
 //   预签名上传凭证（objectKey/uploadUrl/method/expireSeconds）；
@@ -28,7 +28,10 @@ class AttachmentUploadRules {
   ];
 
   /// 校验 contentType 与大小；违规返回用户可读文案，合规返回 null。
-  static String? validate({required String contentType, required int sizeBytes}) {
+  static String? validate({
+    required String contentType,
+    required int sizeBytes,
+  }) {
     final isImage = allowedImageTypes.contains(contentType);
     final isVideo = allowedVideoTypes.contains(contentType);
     if (!isImage && !isVideo) {
@@ -36,9 +39,7 @@ class AttachmentUploadRules {
     }
     final limit = isImage ? maxImageBytes : maxVideoBytes;
     if (sizeBytes > limit) {
-      return isImage
-          ? '图片超过大小限制（≤20MB）'
-          : '视频超过大小限制（≤500MB）';
+      return isImage ? '图片超过大小限制（≤20MB）' : '视频超过大小限制（≤500MB）';
     }
     return null;
   }
@@ -51,6 +52,7 @@ class AttachmentVo {
   final String? contentType;
   final int? sizeBytes;
   final String? downloadUrl;
+  final String? uploadStatus;
 
   const AttachmentVo({
     required this.objectKey,
@@ -58,22 +60,31 @@ class AttachmentVo {
     this.contentType,
     this.sizeBytes,
     this.downloadUrl,
+    this.uploadStatus,
   });
 
   factory AttachmentVo.fromJson(Map<String, dynamic> json) {
     return AttachmentVo(
-      objectKey: json['objectKey'] as String? ?? json['object_key'] as String? ?? '',
+      objectKey:
+          json['objectKey'] as String? ?? json['object_key'] as String? ?? '',
       fileName: (json['fileName'] ?? json['file_name']) as String?,
       contentType: (json['contentType'] ?? json['content_type']) as String?,
-      sizeBytes: (json['sizeBytes'] as num?)?.toInt() ??
+      sizeBytes:
+          (json['sizeBytes'] as num?)?.toInt() ??
           (json['size_bytes'] as num?)?.toInt(),
       downloadUrl: (json['downloadUrl'] ?? json['download_url']) as String?,
+      uploadStatus: json['uploadStatus'] as String?,
     );
   }
 
+  bool get isVerified =>
+      uploadStatus == 'UPLOADED' &&
+      objectKey.isNotEmpty &&
+      (sizeBytes ?? 0) > 0 &&
+      (downloadUrl?.isNotEmpty ?? false);
+
   bool get isImage =>
-      (contentType?.startsWith('image/') ?? false) ||
-      _hasImageExtension;
+      (contentType?.startsWith('image/') ?? false) || _hasImageExtension;
 
   bool get _hasImageExtension {
     final name = fileName?.toLowerCase() ?? '';
@@ -92,7 +103,7 @@ class AttachmentVo {
   }
 }
 
-/// 预签名上传凭证（后端返回，客户端直传 MinIO）。
+/// 预签名上传凭证（后端返回，客户端直传对象存储）。
 class UploadTicket {
   final String objectKey;
   final String uploadUrl;
@@ -119,12 +130,25 @@ class UploadTicket {
 class AttachmentApi {
   final HttpClient _client;
 
-  AttachmentApi(this._client);
+  final Dio _storage = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      sendTimeout: const Duration(minutes: 5),
+      receiveTimeout: const Duration(seconds: 60),
+    ),
+  );
+
+  AttachmentApi(this._client) {
+    // Test transports can be shared; business interceptors and headers cannot.
+    if (_client.adapter != null) _storage.httpClientAdapter = _client.adapter!;
+  }
 
   /// 附件列表（任务所有者/接单飞手可见）。
   Future<Result<List<AttachmentVo>>> listAttachments(String taskNum) async {
     try {
-      final response = await _client.dio.get(ApiPaths.tasksAttachmentsPath(taskNum));
+      final response = await _client.dio.get(
+        ApiPaths.tasksAttachmentsPath(taskNum),
+      );
       final data = response.data;
       if (data is Map<String, dynamic> && data['success'] == true) {
         final list = data['data'];
@@ -132,7 +156,8 @@ class AttachmentApi {
         if (list is List) {
           for (final item in list) {
             if (item is Map<String, dynamic>) {
-              attachments.add(AttachmentVo.fromJson(item));
+              final attachment = AttachmentVo.fromJson(item);
+              if (attachment.isVerified) attachments.add(attachment);
             }
           }
         }
@@ -189,18 +214,31 @@ class AttachmentApi {
     }
   }
 
-  /// 直传 MinIO（presigned PUT，绝对地址；测试经注入适配器拦截）。
+  Future<void> confirmUpload(String taskNum, String objectKey) async {
+    final response = await _client.dio.post(
+      ApiPaths.tasksAttachmentsConfirmUploadPath(taskNum),
+      queryParameters: {'objectKey': objectKey},
+    );
+    final data = response.data;
+    if (data is! Map<String, dynamic> ||
+        data['success'] != true ||
+        data['data'] is! Map ||
+        data['data']['uploadStatus'] != 'UPLOADED' ||
+        data['data']['objectKey'] != objectKey) {
+      throw StateError('文件上传确认失败');
+    }
+  }
+
+  /// 直传对象存储（presigned PUT，独立客户端，不携带业务 Authorization）。
   Future<void> uploadToStorage({
     required String uploadUrl,
     required Uint8List bytes,
     required String contentType,
   }) async {
-    await _client.dio.put(
+    await _storage.put(
       uploadUrl,
       data: bytes,
-      options: Options(
-        headers: {'Content-Type': contentType},
-      ),
+      options: Options(headers: {'Content-Type': contentType}),
     );
   }
 }

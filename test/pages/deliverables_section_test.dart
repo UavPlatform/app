@@ -14,9 +14,7 @@ import 'package:uav_pilot_app/services/token_storage.dart';
 import '../test_support.dart';
 
 void main() {
-  Future<List<Override>> buildOverrides({
-    required StubAdapter adapter,
-  }) async {
+  Future<List<Override>> buildOverrides({required StubAdapter adapter}) async {
     SharedPreferences.setMockInitialValues({
       'jwt_token': makeJwt(userId: 7),
       'server_url': 'http://stub.local:8081',
@@ -51,6 +49,7 @@ void main() {
               'fileName': '成片1.jpg',
               'contentType': 'image/jpeg',
               'sizeBytes': 204800,
+              'uploadStatus': 'UPLOADED',
               'downloadUrl': 'https://minio.local/get-1',
             },
             {
@@ -58,6 +57,7 @@ void main() {
               'fileName': '剪辑.mp4',
               'contentType': 'video/mp4',
               'sizeBytes': 104857600,
+              'uploadStatus': 'UPLOADED',
               'downloadUrl': 'https://minio.local/get-2',
             },
           ],
@@ -116,6 +116,7 @@ void main() {
           'fileName': 'new.png',
           'contentType': 'image/png',
           'sizeBytes': 3,
+          'uploadStatus': 'UPLOADED',
           'downloadUrl': 'https://minio.local/get-new',
         },
       ];
@@ -142,7 +143,16 @@ void main() {
           },
         });
       }
+      if (options.uri.path.endsWith('/confirm-upload')) {
+        expect(putCalled, true);
+        expect(options.headers['Authorization'], startsWith('Bearer '));
+        return jsonResponse(200, {
+          'success': true,
+          'data': {'objectKey': 'tasks/T1/new.png', 'uploadStatus': 'UPLOADED'},
+        });
+      }
       if (options.uri.path == '/put-new') {
+        expect(options.headers.containsKey('Authorization'), false);
         putCalled = true;
         return jsonResponse(200, {'success': true});
       }
@@ -258,8 +268,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('拍照上传'), findsNothing, reason: '弹窗已关闭');
-      expect(find.text('未能获取文件，请检查相机/相册权限后重试'), findsNothing,
-          reason: '取消不应报错');
+      expect(find.text('未能获取文件，请检查相机/相册权限后重试'), findsNothing, reason: '取消不应报错');
     });
   });
 }
