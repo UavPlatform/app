@@ -48,10 +48,9 @@ jobs:
 
       - name: Generate token from GitHub App if credentials exist
         id: app-token
-        if: vars.CONTRACT_BOT_APP_ID != ''
         uses: actions/create-github-app-token@4b7e5d527b8fe5ff47439c3e82ba3cf3ab3b120d # v2.1.1
         with:
-          app-id: ${{ vars.CONTRACT_BOT_APP_ID }}
+          app-id: ${{ secrets.CONTRACT_BOT_APP_ID }}
           private-key: ${{ secrets.CONTRACT_BOT_PRIVATE_KEY }}
         continue-on-error: true
 
