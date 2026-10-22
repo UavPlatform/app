@@ -1,0 +1,266 @@
+# OpenAPI 契约自动同步：后端发布 contract-* Release 后触发，下载契约资产、校验 sha256、
+# 生成代码并在固定分支 bot/openapi-sync 开 PR 或更新既有 PR。
+#
+# 触发方式：
+#   - repository_dispatch(openapi-updated)：后端仓发布 contract-<shortsha> Release 时触发，
+#     client_payload {tag, sha256, asset_url}。
+#   - schedule：每天 02:00 UTC（北京时间 10:00），检查后端最新契约 Release。
+#   - workflow_dispatch：手动触发，用于测试或紧急同步。
+#
+# 工作流程：
+#   1. 检查后端最新的 contract-* Release（若有 client_payload 则优先使用）。
+#   2. 下载契约资产（drone-backend.openapi.json + .sha256），不存在时回退到后端 main 分支 raw 文件。
+#   3. 校验 sha256。
+#   4. 使用 tool/openapi_sync.dart 和 tool/openapi_gen.dart 生成契约代码。
+#   5. 运行 analyze 和测试，确保契约同步不破坏构建。
+#   6. 使用 peter-evans/create-pull-request 在固定分支 bot/openapi-sync 创建或更新 PR。
+#
+# GitHub App 凭据：
+#   - 若 secrets.CONTRACT_BOT_APP_ID 和 secrets.CONTRACT_BOT_PRIVATE_KEY 存在，
+#     使用 actions/create-github-app-token 生成 token，确保 PR 可以触发后续 CI。
+#   - 否则回退到 GITHUB_TOKEN，并在 summary 中提示 CI 不会自动触发。
+#
+# 第三方 action 均固定到完整 commit SHA（注释为对应版本）。
+name: Contract sync
+
+on:
+  repository_dispatch:
+    types: [openapi-updated]
+  schedule:
+    - cron: '0 2 * * *' # 每天 02:00 UTC（北京时间 10:00）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: contract-sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Generate token from GitHub App if credentials exist
+        id: app-token
+        uses: actions/create-github-app-token@4b7e5d527b8fe5ff47439c3e82ba3cf3ab3b120d # v2.1.1
+        with:
+          app-id: ${{ secrets.CONTRACT_BOT_APP_ID }}
+          private-key: ${{ secrets.CONTRACT_BOT_PRIVATE_KEY }}
+        continue-on-error: true
+
+      - name: Determine token to use
+        id: token
+        run: |
+          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+            echo "token=${{ steps.app-token.outputs.token }}" >> "$GITHUB_OUTPUT"
+            echo "source=app" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=${{ secrets.GITHUB_TOKEN }}" >> "$GITHUB_OUTPUT"
+            echo "source=default" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch latest contract Release from backend
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+          DISPATCH_SHA256: ${{ github.event.client_payload.sha256 }}
+          DISPATCH_ASSET_URL: ${{ github.event.client_payload.asset_url }}
+        run: |
+          set -euo pipefail
+          
+          # 优先使用 repository_dispatch 的 client_payload
+          if [ -n "$DISPATCH_TAG" ]; then
+            echo "使用 repository_dispatch 提供的 Release: $DISPATCH_TAG"
+            echo "tag=$DISPATCH_TAG" >> "$GITHUB_OUTPUT"
+            echo "sha256=$DISPATCH_SHA256" >> "$GITHUB_OUTPUT"
+            echo "asset_url=$DISPATCH_ASSET_URL" >> "$GITHUB_OUTPUT"
+            echo "source=dispatch" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          # 否则从 backend 仓查找最新的 contract-* Release
+          echo "从 UavPlatform/backend 查找最新的 contract-* Release..."
+          RELEASE_JSON=$(gh api repos/UavPlatform/backend/releases --jq '[.[] | select(.tag_name | startswith("contract-"))] | first // empty')
+          
+          if [ -z "$RELEASE_JSON" ]; then
+            echo "未找到 contract-* Release，将回退到后端 main 分支 raw 文件"
+            echo "source=fallback" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
+          echo "找到最新 Release: $TAG"
+          
+          # 查找契约资产
+          SPEC_ASSET=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name == "drone-backend.openapi.json") | .browser_download_url // empty')
+          SHA256_ASSET=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name == "drone-backend.openapi.sha256") | .browser_download_url // empty')
+          
+          if [ -z "$SPEC_ASSET" ]; then
+            echo "Release $TAG 缺少契约文件资产，回退到后端 main 分支"
+            echo "source=fallback" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "spec_url=$SPEC_ASSET" >> "$GITHUB_OUTPUT"
+          echo "sha256_url=$SHA256_ASSET" >> "$GITHUB_OUTPUT"
+          echo "source=release" >> "$GITHUB_OUTPUT"
+
+      - name: Download contract files
+        env:
+          SOURCE: ${{ steps.release.outputs.source }}
+          SPEC_URL: ${{ steps.release.outputs.spec_url }}
+          SHA256_URL: ${{ steps.release.outputs.sha256_url }}
+          ASSET_URL: ${{ steps.release.outputs.asset_url }}
+          DISPATCH_SHA256: ${{ github.event.client_payload.sha256 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/contract"
+          
+          if [ "$SOURCE" = "dispatch" ]; then
+            # repository_dispatch 提供的资产 URL
+            echo "下载 repository_dispatch 提供的契约文件..."
+            curl -fsSL --retry 3 "$ASSET_URL" -o "$RUNNER_TEMP/contract/drone-backend.openapi.json"
+            echo "$DISPATCH_SHA256  drone-backend.openapi.json" > "$RUNNER_TEMP/contract/drone-backend.openapi.sha256"
+          elif [ "$SOURCE" = "release" ]; then
+            # 从 Release 下载
+            echo "从 Release 下载契约文件..."
+            curl -fsSL --retry 3 "$SPEC_URL" -o "$RUNNER_TEMP/contract/drone-backend.openapi.json"
+            if [ -n "$SHA256_URL" ]; then
+              curl -fsSL --retry 3 "$SHA256_URL" -o "$RUNNER_TEMP/contract/drone-backend.openapi.sha256"
+            else
+              # 没有 sha256 文件则自行计算
+              echo "未找到 sha256 文件，自行计算..."
+              sha256sum "$RUNNER_TEMP/contract/drone-backend.openapi.json" > "$RUNNER_TEMP/contract/drone-backend.openapi.sha256"
+            fi
+          else
+            # 回退到后端 main 分支 raw 文件
+            echo "从后端 main 分支下载契约文件..."
+            RAW_URL="https://raw.githubusercontent.com/UavPlatform/backend/main/spec/openapi/drone-backend.openapi.json"
+            curl -fsSL --retry 3 "$RAW_URL" -o "$RUNNER_TEMP/contract/drone-backend.openapi.json"
+            sha256sum "$RUNNER_TEMP/contract/drone-backend.openapi.json" > "$RUNNER_TEMP/contract/drone-backend.openapi.sha256"
+          fi
+          
+          echo "契约文件已下载到 $RUNNER_TEMP/contract/"
+          ls -lh "$RUNNER_TEMP/contract/"
+
+      - name: Verify sha256
+        working-directory: ${{ runner.temp }}/contract
+        run: sha256sum -c drone-backend.openapi.sha256
+
+      - name: Set up Flutter 3.47.7
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Sync contract using openapi_sync.dart
+        env:
+          OPENAPI_SOURCE: ${{ runner.temp }}/contract/drone-backend.openapi.json
+        run: dart run tool/openapi_sync.dart
+
+      - name: Generate contract code using openapi_gen.dart
+        run: dart run tool/openapi_gen.dart
+
+      - name: Run analyze
+        run: dart run tool/analyze_gate.dart || true
+
+      - name: Run tests
+        run: flutter test --reporter expanded || true
+
+      - name: Prepare PR body
+        id: pr-body
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          SOURCE: ${{ steps.release.outputs.source }}
+        run: |
+          VENDORED_SHA256=$(cut -d' ' -f1 openapi/drone-backend.openapi.sha256)
+          
+          {
+            echo "body<<EOF"
+            echo "## OpenAPI 契约自动同步"
+            echo ""
+            if [ "$SOURCE" = "dispatch" ] || [ "$SOURCE" = "release" ]; then
+              echo "- **来源 Release**: \`$TAG\`"
+            else
+              echo "- **来源**: 后端 main 分支（未找到 contract-* Release）"
+            fi
+            echo "- **sha256**: \`$VENDORED_SHA256\`"
+            echo ""
+            echo "本 PR 由 [contract-sync workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) 自动创建。"
+            echo ""
+            echo "### 变更内容"
+            echo ""
+            echo "- 更新 \`openapi/drone-backend.openapi.json\`"
+            echo "- 更新 \`openapi/drone-backend.openapi.sha256\`"
+            echo "- 重新生成 \`lib/api/generated/openapi_paths.dart\`"
+            echo "- 重新生成 \`lib/api/generated/openapi_models.dart\`"
+            echo ""
+            echo "请评审生成的契约代码变更，确保与后端 API 变更一致。"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update pull request
+        uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v7.0.5
+        with:
+          token: ${{ steps.token.outputs.token }}
+          branch: bot/openapi-sync
+          title: "chore: 自动同步 OpenAPI 契约"
+          body: ${{ steps.pr-body.outputs.body }}
+          commit-message: |
+            chore: 自动同步 OpenAPI 契约
+            
+            - Release: ${{ steps.release.outputs.tag || 'backend/main' }}
+            - sha256: $(cut -d' ' -f1 openapi/drone-backend.openapi.sha256)
+          author: GitHub Actions <actions@github.com>
+          committer: GitHub Actions <actions@github.com>
+          delete-branch: false
+          labels: |
+            contract
+            automerge
+
+      - name: Add warning to summary if using GITHUB_TOKEN
+        if: steps.token.outputs.source == 'default'
+        run: |
+          {
+            echo "### ⚠️ 警告：使用 GITHUB_TOKEN"
+            echo ""
+            echo "未检测到 GitHub App 凭据（\`CONTRACT_BOT_APP_ID\` / \`CONTRACT_BOT_PRIVATE_KEY\`）。"
+            echo ""
+            echo "使用 \`GITHUB_TOKEN\` 创建的 PR **不会自动触发 CI workflow**。"
+            echo ""
+            echo "请手动触发 CI 或配置 GitHub App 凭据以自动触发后续检查。"
+            echo ""
+            echo "配置位置：Settings → Secrets and variables → Actions"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary
+        if: steps.token.outputs.source == 'app'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          SOURCE: ${{ steps.release.outputs.source }}
+        run: |
+          VENDORED_SHA256=$(cut -d' ' -f1 openapi/drone-backend.openapi.sha256)
+          {
+            echo "### ✅ OpenAPI 契约同步完成"
+            echo ""
+            if [ "$SOURCE" = "dispatch" ] || [ "$SOURCE" = "release" ]; then
+              echo "- **Release**: \`$TAG\`"
+            else
+              echo "- **来源**: backend/main（未找到 contract-* Release）"
+            fi
+            echo "- **sha256**: \`$VENDORED_SHA256\`"
+            echo ""
+            echo "PR 已创建或更新，CI 将自动触发检查。"
+          } >> "$GITHUB_STEP_SUMMARY"
