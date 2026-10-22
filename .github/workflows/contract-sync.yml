@@ -16,7 +16,8 @@
 #   6. 使用 peter-evans/create-pull-request 在固定分支 bot/openapi-sync 创建或更新 PR。
 #
 # Token 配置：
-#   - 优先使用 secrets.CONTRACT_BOT_TOKEN（细粒度 PAT），确保 PR 可以触发后续 CI。
+#   - 若 secrets.CONTRACT_BOT_APP_ID 和 secrets.CONTRACT_BOT_PRIVATE_KEY 存在，
+#     使用 actions/create-github-app-token 生成 token，确保 PR 可以触发后续 CI。
 #   - 否则回退到 GITHUB_TOKEN，并在 summary 中提示 CI 不会自动触发。
 #
 # 第三方 action 均固定到完整 commit SHA（注释为对应版本）。
@@ -45,12 +46,20 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Generate token from GitHub App if credentials exist
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ secrets.CONTRACT_BOT_APP_ID }}
+          private-key: ${{ secrets.CONTRACT_BOT_PRIVATE_KEY }}
+        continue-on-error: true
+
       - name: Determine token to use
         id: token
         run: |
-          if [ -n "${{ secrets.CONTRACT_BOT_TOKEN }}" ]; then
-            echo "token=${{ secrets.CONTRACT_BOT_TOKEN }}" >> "$GITHUB_OUTPUT"
-            echo "source=pat" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+            echo "token=${{ steps.app-token.outputs.token }}" >> "$GITHUB_OUTPUT"
+            echo "source=app" >> "$GITHUB_OUTPUT"
           else
             echo "token=${{ secrets.GITHUB_TOKEN }}" >> "$GITHUB_OUTPUT"
             echo "source=default" >> "$GITHUB_OUTPUT"
@@ -91,7 +100,7 @@ jobs:
           
           # 查找契约资产
           SPEC_ASSET=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name == "drone-backend.openapi.json") | .browser_download_url // empty')
-          SHA256_ASSET=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name == "drone-backend.openapi.sha256") | .browser_download_url // empty')
+          SHA256_ASSET=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name == "drone-backend.openapi.json.sha256") | .browser_download_url // empty')
           
           if [ -z "$SPEC_ASSET" ]; then
             echo "Release $TAG 缺少契约文件资产，回退到后端 main 分支"
@@ -227,17 +236,17 @@ jobs:
           {
             echo "### ⚠️ 警告：使用 GITHUB_TOKEN"
             echo ""
-            echo "未检测到细粒度 PAT（\`CONTRACT_BOT_TOKEN\`）。"
+            echo "未检测到 GitHub App 凭据（\`CONTRACT_BOT_APP_ID\` / \`CONTRACT_BOT_PRIVATE_KEY\`）。"
             echo ""
             echo "使用 \`GITHUB_TOKEN\` 创建的 PR **不会自动触发 CI workflow**。"
             echo ""
-            echo "请手动触发 CI 或配置细粒度 PAT 以自动触发后续检查。"
+            echo "请手动触发 CI 或配置 GitHub App 凭据以自动触发后续检查。"
             echo ""
             echo "配置位置：Settings → Secrets and variables → Actions → Secrets"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summary
-        if: steps.token.outputs.source == 'pat'
+        if: steps.token.outputs.source == 'app'
         env:
           TAG: ${{ steps.release.outputs.tag }}
           SOURCE: ${{ steps.release.outputs.source }}
