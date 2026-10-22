@@ -30,9 +30,13 @@ tool/openapi_sync.dart                # vendor + 写 sha256
 tool/openapi_gen.dart                 # 生成（--check 只校验漂移）
 ```
 
+### 自动同步
+
+后端发布 `contract-<shortsha>` Release 时会触发 `.github/workflows/contract-sync.yml`，自动下载契约、生成代码并在 `bot/openapi-sync` 分支开 PR。详见 [UavPlatform/docs ADR-契约跨仓同步](https://github.com/UavPlatform/docs)（取代旧的"跨仓不做自动同步、vendor + sha256 对账"规则）。
+
 | 目的 | 命令 |
 |---|---|
-| vendor 规格 | `dart run tool/openapi_sync.dart` |
+| 手动 vendor 规格（紧急情况） | `OPENAPI_SOURCE=<路径> dart run tool/openapi_sync.dart` |
 | 生成契约代码 | `dart run tool/openapi_gen.dart` |
 | 校验生成物未过期（CI/门禁） | `dart run tool/openapi_gen.dart --check` |
 | 契约门禁 + 全量测试 | `flutter test`（含 `test/api_contract_test.dart`） |
@@ -48,6 +52,6 @@ tool/openapi_gen.dart                 # 生成（--check 只校验漂移）
 ## CI
 
 - `.github/workflows/ci.yml`（job 名 `app-tests`；所有 pull_request（含叠加 PR、改目标分支）与 push → main 触发）：Flutter 3.47.7 → `flutter pub get` → 规格 sha256 对账 → `dart run tool/openapi_gen.dart --check` → `analyze_gate --self-test` → 基线只减不增（与目标分支的 `tool/analyze_baseline.txt` 比较）→ `dart run tool/analyze_gate.dart` → `flutter test`（含 `test/api_contract_test.dart`），失败时上传 `build/reports/flutter-test.json`。
-- `.github/workflows/contract-drift.yml`（job 名 `contract-drift`，每天 01:00 UTC 与手动触发）：比较 vendored 规格 sha256 与 backend main 的规格，不一致即失败告警。
+- `.github/workflows/contract-sync.yml`（job 名 `contract-sync`）：后端 `repository_dispatch(openapi-updated)` 触发、每日 02:00 UTC 定时触发或手动触发。下载最新 contract-* Release 资产（不存在时回退后端 main 的 raw 文件），校验 sha256，使用 `tool/openapi_sync.dart` 和 `tool/openapi_gen.dart` 生成代码，在 `bot/openapi-sync` 分支创建或更新 PR。若配置了 `CONTRACT_BOT_APP_ID` / `CONTRACT_BOT_PRIVATE_KEY`，使用 GitHub App token 确保 PR 触发 CI；否则回退 `GITHUB_TOKEN` 并在 summary 中提示。
 - analyze 基线：`dart run tool/analyze_gate.dart --update` 只能收紧；放宽须人工加 `--allow-increase` 并在 PR 中说明，CI 会拒绝任何放宽。
 - `.github/CODEOWNERS`：门禁与对账文件由 @Fuwaki 评审（需在分支保护中开启「Require review from Code Owners」并把 `app-tests` 设为必需检查后生效）。

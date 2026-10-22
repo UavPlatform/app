@@ -2,6 +2,9 @@
 //
 // 用法：dart run tool/openapi_sync.dart
 //   OPENAPI_SOURCE 环境变量可覆盖来源路径（默认 ../backend/spec/openapi/drone-backend.openapi.json）。
+//
+// 注意：正常情况下由 .github/workflows/contract-sync.yml 自动同步，无需手动执行。
+// 手动执行仅用于紧急情况或本地开发调试。
 // ignore_for_file: prefer_interpolation_to_compose_strings
 import 'dart:convert';
 import 'dart:io';
