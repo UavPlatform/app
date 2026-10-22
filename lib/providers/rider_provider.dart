@@ -137,11 +137,17 @@ class MyRiderTasksNotifier extends StateNotifier<MyRiderTasksState> {
         state = state.copyWith(error: result.message ?? '操作失败');
         return false;
       }
-      final completed = state.activeTasks.firstWhere((t) => t.taskNum == taskNum);
+      // REQ-APP-002: a successful delivery does not depend on this list cache.
+      // Detail entry may complete a task absent from the paginated active list.
       state = state.copyWith(
-        activeTasks: state.activeTasks.where((t) => t.taskNum != taskNum).toList(),
-        historyTasks: [completed, ...state.historyTasks],
+        activeTasks: state.activeTasks
+            .where((t) => t.taskNum != taskNum)
+            .toList(),
+        error: null,
       );
+      // Reload authoritative states instead of moving a stale IN_PROGRESS object.
+      // loadTasks reports refresh errors separately; they do not undo delivery.
+      await loadTasks();
       return true;
     } catch (_) {
       state = state.copyWith(error: '操作失败');

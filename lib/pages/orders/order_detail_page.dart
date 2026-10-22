@@ -1323,7 +1323,7 @@ Future<void> _onComplete(
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(
-        ok ? '任务已完成' : ref.read(myRiderTasksProvider).error ?? '操作失败',
+        ok ? '已提交送达，等待用户验收' : ref.read(myRiderTasksProvider).error ?? '操作失败',
       ),
     ),
   );
