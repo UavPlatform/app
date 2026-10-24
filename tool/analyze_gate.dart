@@ -15,6 +15,7 @@
 //   - WARNING / INFO：与 tool/analyze_baseline.txt 比较。按「严重级别|诊断码|文件」计数（不含行号，
 //     避免无关改动导致行号漂移误报）；任一键的数量超过基线即失败。
 //   - 问题比基线少：通过，并提示执行 --update 收紧基线。
+import 'dart:convert';
 import 'dart:io';
 
 const baselinePath = 'tool/analyze_baseline.txt';
@@ -144,11 +145,13 @@ void compareBaseline(String oldPath) {
 }
 
 Future<void> gate({required bool update, required bool allowIncrease}) async {
-  final result = await Process.run('dart', [
-    'analyze',
-    '--format=machine',
-    '--fatal-infos',
-  ], runInShell: true);
+  final result = await Process.run(
+    'dart',
+    ['analyze', '--format=machine', '--fatal-infos'],
+    runInShell: true,
+    stdoutEncoding: utf8,
+    stderrEncoding: utf8,
+  );
   final analyzed = evaluate(
     result.exitCode,
     '${result.stdout}\n${result.stderr}',
@@ -230,6 +233,19 @@ void selfTest() {
         r.counts['INFO|DEPRECATED_MEMBER_USE|lib/b.dart'] == 1,
   );
   check('ERROR 单独记录', evaluate(3, '$err\n', root).errors.length == 1);
+  check(
+    'UTF-8 workspace paths remain relative',
+    evaluate(
+          1,
+          utf8.decode(
+            utf8.encode(
+              'INFO|HINT|DEPRECATED_MEMBER_USE|C:/工作区/应用/lib/b.dart|3|5|4|deprecated',
+            ),
+          ),
+          'C:/工作区/应用',
+        ).counts['INFO|DEPRECATED_MEMBER_USE|lib/b.dart'] ==
+        1,
+  );
   check(
     'Windows 转义路径使用仓库相对路径',
     evaluate(

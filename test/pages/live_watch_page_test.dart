@@ -17,6 +17,7 @@ void main() {
     'roomId': 'drone_UAV-001',
     'userId': '7',
     'userSig': 'sig-abc',
+    'privateMapKey': 'test-legacy-room-ticket',
     'sdkAppId': 1400000000,
     'wsUrl': 'ws://stub.local:8081/ws/drone/UAV-001',
     'liveState': 'RUNNING',
@@ -45,10 +46,11 @@ void main() {
     return StubAdapter((options) async {
       if (options.uri.path == '/live/get') {
         expect(options.uri.queryParameters['deviceId'], 'UAV-001');
-        return jsonResponse(
-          200,
-          {'success': true, 'code': 200, 'data': credential},
-        );
+        return jsonResponse(200, {
+          'success': true,
+          'code': 200,
+          'data': credential,
+        });
       }
       return jsonResponse(200, {'success': false, 'message': 'stub'});
     });
@@ -77,6 +79,7 @@ void main() {
       reason: 'userId 使用 /live/get 响应值',
     );
     expect(engine.entered.single.userSig, 'sig-abc');
+    expect(engine.entered.single.privateMapKey, 'test-legacy-room-ticket');
     expect(engine.entered.single.sdkAppId, 1400000000);
     expect(find.byKey(const Key('live-video-placeholder')), findsOneWidget);
     expect(find.text('作业直播进行中'), findsOneWidget);
@@ -143,7 +146,10 @@ void main() {
               builder: (context) => TextButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const LiveWatchPage(deviceId: 'UAV-001', useRealVideoView: false),
+                    builder: (_) => const LiveWatchPage(
+                      deviceId: 'UAV-001',
+                      useRealVideoView: false,
+                    ),
                   ),
                 ),
                 child: const Text('open'),

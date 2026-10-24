@@ -4,4 +4,10 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Local Android map compatibility diagnostic: use the legacy renderer
+         in debug builds while investigating the device's Vulkan buffer errors. -->
+    <application>
+        <meta-data android:name="io.flutter.embedding.android.EnableImpeller"
+                   android:value="false" />
+    </application>
 </manifest>
