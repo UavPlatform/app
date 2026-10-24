@@ -10,6 +10,7 @@ import '../models/task_chat_session_vo.dart';
 import '../services/chat_websocket_service.dart';
 import 'auth_provider.dart';
 import 'task_provider.dart';
+import 'waybill_draft_provider.dart';
 
 final chatApiProvider = Provider<ChatApi>(
   (ref) => ChatApi(ref.watch(httpClientProvider)),
@@ -478,6 +479,7 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
 
 final messageListProvider = StateNotifierProvider.autoDispose
     .family<MessageListNotifier, MessageListState, int>((ref, sessionId) {
+      ref.watch(waybillDraftScopeProvider);
       final service = ref.watch(chatWebSocketServiceProvider);
       return MessageListNotifier(
         ref.watch(chatApiProvider),

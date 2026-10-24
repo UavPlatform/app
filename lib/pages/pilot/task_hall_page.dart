@@ -6,6 +6,8 @@ import '../../models/task_vo.dart';
 import '../../providers/rider_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../home/task_flow_guide.dart';
+import '../../providers/waybill_draft_provider.dart';
+import 'dispatch_pilot_pages.dart';
 
 class TaskHallPage extends ConsumerStatefulWidget {
   const TaskHallPage({super.key});
@@ -31,6 +33,7 @@ class _TaskHallPageState extends ConsumerState<TaskHallPage> {
   @override
   void initState() {
     super.initState();
+    if (ref.read(dispatchWaybillEnabledProvider)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
       final prefs = ref.read(sharedPreferencesProvider);
@@ -42,6 +45,9 @@ class _TaskHallPageState extends ConsumerState<TaskHallPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (ref.watch(dispatchWaybillEnabledProvider)) {
+      return const DispatchPilotHallPage();
+    }
     final state = ref.watch(taskSquareProvider);
 
     final tasks = state.tasks.where((t) {

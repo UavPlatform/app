@@ -77,7 +77,9 @@ class _LiveWatchPageState extends ConsumerState<LiveWatchPage> {
         });
         return;
       }
-      final controller = LivePlayerController(engine: ref.watch(liveEngineProvider));
+      final controller = LivePlayerController(
+        engine: ref.watch(liveEngineProvider),
+      );
       _controller = controller;
       _watchStarted = true;
       _endedSub?.cancel();
@@ -93,6 +95,7 @@ class _LiveWatchPageState extends ConsumerState<LiveWatchPage> {
           strRoomId: credential.roomId,
           userId: credential.userId,
           userSig: credential.userSig,
+          privateMapKey: credential.privateMapKey,
         ),
       );
       if (!mounted) return;
@@ -144,18 +147,15 @@ class _LiveWatchPageState extends ConsumerState<LiveWatchPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('观看直播'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: _close,
-        ),
+        leading: IconButton(icon: const Icon(Icons.close), onPressed: _close),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _buildError()
-              : _ended
-                  ? _buildEnded()
-                  : _buildLive(),
+          ? _buildError()
+          : _ended
+          ? _buildEnded()
+          : _buildLive(),
     );
   }
 
@@ -164,7 +164,10 @@ class _LiveWatchPageState extends ConsumerState<LiveWatchPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(_error!, style: const TextStyle(color: AppColors.onSurfaceVariant)),
+          Text(
+            _error!,
+            style: const TextStyle(color: AppColors.onSurfaceVariant),
+          ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -212,9 +215,7 @@ class _LiveWatchPageState extends ConsumerState<LiveWatchPage> {
                       controller.attachView(viewId);
                     },
                   )
-                : const SizedBox.expand(
-                    key: Key('live-video-placeholder'),
-                  ),
+                : const SizedBox.expand(key: Key('live-video-placeholder')),
           ),
         ),
         const ListTile(
