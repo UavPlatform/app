@@ -1,14 +1,177 @@
 // GENERATED — DO NOT EDIT.
 // 契约路径表：调用点只允许通过本表拼 URL。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: cd361a3ba6901157db67f531aaec0d3229fc3e224867a92429c546d74df42656)
+// 事实源：openapi/drone-backend.openapi.json (sha256: 033d9e34048bc544e268f9a206e40831f9b71c55dc760fcfafa22ebc5fe5130c)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端端点路径与查询参数的契约映射：路径写错、必填查询参数漏传都会在编译期暴露。
 class ApiPaths {
   ApiPaths._();
 
-  static const String generatedFromSha256 = 'cd361a3ba6901157db67f531aaec0d3229fc3e224867a92429c546d74df42656';
+  static const String generatedFromSha256 = '033d9e34048bc544e268f9a206e40831f9b71c55dc760fcfafa22ebc5fe5130c';
+
+  /// GET /dispatch/events
+  static const String dispatchEvents = '/dispatch/events';
+
+  /// POST /dispatch/pilot/position-session
+  static const String dispatchPilotPositionSession = '/dispatch/pilot/position-session';
+
+  /// PUT /dispatch/pilot/position
+  static const String dispatchPilotPosition = '/dispatch/pilot/position';
+
+  /// DELETE /dispatch/pilot/position
+  static const String deleteDispatchPilotPosition = '/dispatch/pilot/position';
+  static Map<String, dynamic> deleteDispatchPilotPositionQuery({String? sessionKey}) =>
+      <String, dynamic>{'sessionKey': sessionKey};
+
+  /// GET /dispatch/pilot/nearby-hall
+  static const String dispatchPilotNearbyHall = '/dispatch/pilot/nearby-hall';
+  static Map<String, dynamic> dispatchPilotNearbyHallQuery({int? page}) =>
+      <String, dynamic>{'page': page};
+
+  /// GET /dispatch/orders/{orderId}/nearby-dispatch
+  static const String dispatchOrdersNearbyDispatch = '/dispatch/orders/{orderId}/nearby-dispatch';
+  static String dispatchOrdersNearbyDispatchPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/nearby-dispatch';
+
+  /// POST /dispatch/orders/{orderId}/chat
+  static const String dispatchOrdersChat = '/dispatch/orders/{orderId}/chat';
+  static String dispatchOrdersChatPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/chat';
+
+  /// GET /dispatch/orders/{orderId}/live
+  static const String dispatchOrdersLive = '/dispatch/orders/{orderId}/live';
+  static String dispatchOrdersLivePath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/live';
+
+  /// POST /dispatch/orders/{orderId}/live/{liveId}/watch
+  static const String dispatchOrdersLiveWatch = '/dispatch/orders/{orderId}/live/{liveId}/watch';
+  static String dispatchOrdersLiveWatchPath(String liveId, String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/live/' + Uri.encodeComponent(liveId) + '/watch';
+
+  /// GET /dispatch/orders/{orderId}/flight
+  static const String dispatchOrdersFlight = '/dispatch/orders/{orderId}/flight';
+  static String dispatchOrdersFlightPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/flight';
+
+  /// GET /dispatch/orders/{orderId}/flight/track
+  static const String dispatchOrdersFlightTrack = '/dispatch/orders/{orderId}/flight/track';
+  static String dispatchOrdersFlightTrackPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/flight/track';
+  static Map<String, dynamic> dispatchOrdersFlightTrackQuery({int? after}) =>
+      <String, dynamic>{'after': after};
+
+  /// GET /equipment/pilot/drones
+  static const String equipmentPilotDrones = '/equipment/pilot/drones';
+  static Map<String, dynamic> equipmentPilotDronesQuery({String? page, int? providerId}) =>
+      <String, dynamic>{'page': page, 'providerId': providerId};
+
+  /// GET /equipment/pilot/borrows
+  static const String equipmentPilotBorrows = '/equipment/pilot/borrows';
+  static Map<String, dynamic> equipmentPilotBorrowsQuery({String? page}) =>
+      <String, dynamic>{'page': page};
+
+  /// POST /equipment/pilot/borrows
+  static const String postEquipmentPilotBorrows = '/equipment/pilot/borrows';
+
+  /// POST /equipment/pilot/borrows/{borrowId}/return
+  static const String equipmentPilotBorrowsReturn = '/equipment/pilot/borrows/{borrowId}/return';
+  static String equipmentPilotBorrowsReturnPath(String borrowId) => '/equipment/pilot/borrows/' + Uri.encodeComponent(borrowId) + '/return';
+
+  /// GET /dispatch/notifications
+  static const String dispatchNotifications = '/dispatch/notifications';
+  static Map<String, dynamic> dispatchNotificationsQuery({String? page}) =>
+      <String, dynamic>{'page': page};
+
+  /// GET /dispatch/notifications/unread-count
+  static const String dispatchNotificationsUnreadCount = '/dispatch/notifications/unread-count';
+
+  /// POST /dispatch/notifications/{notificationId}/read
+  static const String dispatchNotificationsRead = '/dispatch/notifications/{notificationId}/read';
+  static String dispatchNotificationsReadPath(String notificationId) => '/dispatch/notifications/' + Uri.encodeComponent(notificationId) + '/read';
+
+  /// GET /dispatch/config
+  static const String dispatchConfig = '/dispatch/config';
+
+  /// GET /dispatch/waybill-draft
+  static const String dispatchWaybillDraft = '/dispatch/waybill-draft';
+
+  /// PUT /dispatch/waybill-draft
+  static const String putDispatchWaybillDraft = '/dispatch/waybill-draft';
+
+  /// GET /dispatch/readiness
+  static const String dispatchReadiness = '/dispatch/readiness';
+
+  /// POST /dispatch/assessments
+  static const String dispatchAssessments = '/dispatch/assessments';
+
+  /// GET /dispatch/orders
+  static const String dispatchOrders = '/dispatch/orders';
+
+  /// POST /dispatch/orders
+  static const String postDispatchOrders = '/dispatch/orders';
+
+  /// GET /dispatch/orders/{orderId}
+  static const String getDispatchOrders = '/dispatch/orders/{orderId}';
+  static String getDispatchOrdersPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId);
+
+  /// POST /dispatch/orders/{orderId}/simulate-payment
+  static const String dispatchOrdersSimulatePayment = '/dispatch/orders/{orderId}/simulate-payment';
+  static String dispatchOrdersSimulatePaymentPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/simulate-payment';
+
+  /// POST /dispatch/orders/{orderId}/cancel
+  static const String dispatchOrdersCancel = '/dispatch/orders/{orderId}/cancel';
+  static String dispatchOrdersCancelPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/cancel';
+
+  /// GET /dispatch/pilot/hall
+  static const String dispatchPilotHall = '/dispatch/pilot/hall';
+  static Map<String, dynamic> dispatchPilotHallQuery({int? page}) =>
+      <String, dynamic>{'page': page};
+
+  /// GET /dispatch/pilot/orders
+  static const String dispatchPilotOrders = '/dispatch/pilot/orders';
+
+  /// GET /dispatch/pilot/orders/{orderId}
+  static const String getDispatchPilotOrders = '/dispatch/pilot/orders/{orderId}';
+  static String getDispatchPilotOrdersPath(String orderId) => '/dispatch/pilot/orders/' + Uri.encodeComponent(orderId);
+
+  /// POST /dispatch/pilot/orders/{orderId}/claim
+  static const String dispatchPilotOrdersClaim = '/dispatch/pilot/orders/{orderId}/claim';
+  static String dispatchPilotOrdersClaimPath(String orderId) => '/dispatch/pilot/orders/' + Uri.encodeComponent(orderId) + '/claim';
+
+  /// POST /dispatch/pilot/orders/{orderId}/arrive
+  static const String dispatchPilotOrdersArrive = '/dispatch/pilot/orders/{orderId}/arrive';
+  static String dispatchPilotOrdersArrivePath(String orderId) => '/dispatch/pilot/orders/' + Uri.encodeComponent(orderId) + '/arrive';
+
+  /// POST /dispatch/pilot/orders/{orderId}/release
+  static const String dispatchPilotOrdersRelease = '/dispatch/pilot/orders/{orderId}/release';
+  static String dispatchPilotOrdersReleasePath(String orderId) => '/dispatch/pilot/orders/' + Uri.encodeComponent(orderId) + '/release';
+
+  /// POST /dispatch/orders/{orderId}/start-transport
+  static const String dispatchOrdersStartTransport = '/dispatch/orders/{orderId}/start-transport';
+  static String dispatchOrdersStartTransportPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/start-transport';
+
+  /// POST /dispatch/orders/{orderId}/deliver
+  static const String dispatchOrdersDeliver = '/dispatch/orders/{orderId}/deliver';
+  static String dispatchOrdersDeliverPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/deliver';
+
+  /// POST /dispatch/orders/{orderId}/receipt
+  static const String dispatchOrdersReceipt = '/dispatch/orders/{orderId}/receipt';
+  static String dispatchOrdersReceiptPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/receipt';
+
+  /// POST /dispatch/orders/{orderId}/settle
+  static const String dispatchOrdersSettle = '/dispatch/orders/{orderId}/settle';
+  static String dispatchOrdersSettlePath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/settle';
+
+  /// POST /dispatch/orders/{orderId}/review
+  static const String dispatchOrdersReview = '/dispatch/orders/{orderId}/review';
+  static String dispatchOrdersReviewPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/review';
+
+  /// GET /dispatch/orders/{orderId}/materials
+  static const String dispatchOrdersMaterials = '/dispatch/orders/{orderId}/materials';
+  static String dispatchOrdersMaterialsPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/materials';
+
+  /// POST /dispatch/orders/{orderId}/materials/upload-ticket
+  static const String dispatchOrdersMaterialsUploadTicket = '/dispatch/orders/{orderId}/materials/upload-ticket';
+  static String dispatchOrdersMaterialsUploadTicketPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/materials/upload-ticket';
+
+  /// POST /dispatch/orders/{orderId}/materials/{materialId}/confirm
+  static const String dispatchOrdersMaterialsConfirm = '/dispatch/orders/{orderId}/materials/{materialId}/confirm';
+  static String dispatchOrdersMaterialsConfirmPath(String materialId, String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/materials/' + Uri.encodeComponent(materialId) + '/confirm';
 
   /// GET /task/init
   static const String taskInit = '/task/init';
