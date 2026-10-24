@@ -24,6 +24,48 @@ import '../tool/sha256.dart';
 /// 不能残留字面量。TASK-APP-005 追加 3 条：飞手任务详情 / 应征 / 确认订单。
 /// TASK-APP-004 追加 1 条：用户选定飞手下单（select-rider）。
 const List<List<String>> calledEndpoints = <List<String>>[
+  <String>['get', '/dispatch/events'],
+  <String>['post', '/dispatch/pilot/position-session'],
+  <String>['put', '/dispatch/pilot/position'],
+  <String>['delete', '/dispatch/pilot/position'],
+  <String>['get', '/dispatch/pilot/nearby-hall'],
+  <String>['get', '/dispatch/orders/{orderId}/nearby-dispatch'],
+  <String>['post', '/dispatch/orders/{orderId}/chat'],
+  <String>['get', '/dispatch/orders/{orderId}/live'],
+  <String>['post', '/dispatch/orders/{orderId}/live/{liveId}/watch'],
+  <String>['get', '/dispatch/orders/{orderId}/flight'],
+  <String>['get', '/dispatch/orders/{orderId}/flight/track'],
+  <String>['get', '/equipment/pilot/drones'],
+  <String>['get', '/equipment/pilot/borrows'],
+  <String>['post', '/equipment/pilot/borrows'],
+  <String>['post', '/equipment/pilot/borrows/{borrowId}/return'],
+  <String>['get', '/dispatch/notifications'],
+  <String>['get', '/dispatch/notifications/unread-count'],
+  <String>['post', '/dispatch/notifications/{notificationId}/read'],
+  <String>['get', '/dispatch/config'],
+  <String>['get', '/dispatch/waybill-draft'],
+  <String>['put', '/dispatch/waybill-draft'],
+  <String>['get', '/dispatch/readiness'],
+  <String>['post', '/dispatch/assessments'],
+  <String>['get', '/dispatch/orders'],
+  <String>['post', '/dispatch/orders'],
+  <String>['get', '/dispatch/orders/{orderId}'],
+  <String>['post', '/dispatch/orders/{orderId}/simulate-payment'],
+  <String>['post', '/dispatch/orders/{orderId}/cancel'],
+  <String>['get', '/dispatch/pilot/hall'],
+  <String>['get', '/dispatch/pilot/orders'],
+  <String>['get', '/dispatch/pilot/orders/{orderId}'],
+  <String>['post', '/dispatch/pilot/orders/{orderId}/claim'],
+  <String>['post', '/dispatch/pilot/orders/{orderId}/arrive'],
+  <String>['post', '/dispatch/pilot/orders/{orderId}/release'],
+  <String>['post', '/dispatch/orders/{orderId}/start-transport'],
+  <String>['post', '/dispatch/orders/{orderId}/deliver'],
+  <String>['post', '/dispatch/orders/{orderId}/receipt'],
+  <String>['post', '/dispatch/orders/{orderId}/settle'],
+  <String>['post', '/dispatch/orders/{orderId}/review'],
+  <String>['get', '/dispatch/orders/{orderId}/materials'],
+  <String>['post', '/dispatch/orders/{orderId}/materials/upload-ticket'],
+  <String>['post', '/dispatch/orders/{orderId}/materials/{materialId}/confirm'],
   <String>['get', '/task/init'],
   <String>['post', '/task/create'],
   <String>['get', '/task/list'],
@@ -80,7 +122,10 @@ const List<List<String>> calledEndpoints = <List<String>>[
 /// /rider/register 是 App 内飞手注册页的导航路由（GoRoute path / context.push），
 /// 不经过 HttpClient，因此不是后端调用点；除此之外任何与契约路径同名的 lib
 /// 字符串字面量都视为漏网的后端调用点。
-const Set<String> navigationRouteLiterals = <String>{'/rider/register'};
+const Set<String> navigationRouteLiterals = <String>{
+  '/rider/register',
+  '/dispatch/orders',
+};
 
 /// 契约路径（含 {param} 模板）集合。
 Set<String> specPathSet = <String>{};
@@ -109,6 +154,42 @@ List<String> scanBackendPathLiterals(String source) {
 }
 
 void main() {
+  test('required nested order waybill serializes as a nonnull object', () {
+    const input = ApiDispatchOrderDTO(
+      assessmentId: 'assessment',
+      requestKey: 'stable-key',
+      declarationAccepted: true,
+      waybill: ApiWaybillDraftDTO(
+        schemaVersion: 1,
+        step: 4,
+        fields: {'category': '普通'},
+      ),
+    );
+    expect(input.toJson()['waybill'], {
+      'schemaVersion': 1,
+      'step': 4,
+      'fields': {'category': '普通'},
+    });
+  });
+  test(
+    'required draft map decodes from the generated contract and rejects null',
+    () {
+      final value = ApiWaybillDraftDTO.fromJson({
+        'schemaVersion': 1,
+        'step': 0,
+        'fields': {'category': '普通'},
+      });
+      expect(value.fields, {'category': '普通'});
+      expect(
+        () => ApiWaybillDraftDTO.fromJson({
+          'schemaVersion': 1,
+          'step': 0,
+          'fields': null,
+        }),
+        throwsA(isA<TypeError>()),
+      );
+    },
+  );
   final Directory libDir = Directory('lib');
   final File specFile = File('openapi/drone-backend.openapi.json');
   final Map<String, dynamic> spec =
@@ -139,7 +220,7 @@ void main() {
 
   group('调用端点登记表', () {
     test('每条登记端点都存在于 vendored 规格（method + path）', () {
-      expect(calledEndpoints, hasLength(49));
+      expect(calledEndpoints, hasLength(91));
       for (final List<String> endpoint in calledEndpoints) {
         final String method = endpoint[0].toLowerCase();
         final String path = endpoint[1];
@@ -164,14 +245,11 @@ void main() {
       expect(calledEndpoints.map(key).toSet(), endpoints.map(key).toSet());
     });
 
-    test(
-      '登记表无重复（含交易统计 /order/stats、/order/sold、/order/pending-review 等共 49 条）',
-      () {
-        String key(List<String> endpoint) =>
-            '${endpoint[0].toLowerCase()} ${endpoint[1]}';
-        expect(calledEndpoints.map(key).toSet(), hasLength(49));
-      },
-    );
+    test('登记表无重复（含附近派单共 91 条）', () {
+      String key(List<String> endpoint) =>
+          '${endpoint[0].toLowerCase()} ${endpoint[1]}';
+      expect(calledEndpoints.map(key).toSet(), hasLength(91));
+    });
   });
 
   group('后端路径字面量零残留', () {
