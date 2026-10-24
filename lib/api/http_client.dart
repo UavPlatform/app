@@ -47,7 +47,7 @@ class HttpClient {
           requestHeader: false,
           logPrint: (message) => debugPrint(
             message.toString().replaceAllMapped(
-              RegExp(r'("(?:key|securityKey|apiKey)"\s*:\s*")[^"]*(")'),
+              RegExp(r'("(?:key|securityKey|apiKey|uploadUrl|downloadUrl|userSig|privateMapKey)"\s*:\s*")[^"]*(")'),
               (match) => '${match[1]}<redacted>${match[2]}',
             ),
           ),

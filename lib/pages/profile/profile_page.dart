@@ -1,3 +1,4 @@
+import '../../widgets/dispatch_notification_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -156,6 +157,7 @@ class ProfilePage extends ConsumerWidget {
               ),
               const SizedBox(height: 20),
               const TradeSummary(),
+              const DispatchNotificationEntry(menu: true),
               const SizedBox(height: 24),
               Padding(
                 padding: const EdgeInsets.only(left: 2, bottom: 12),
@@ -242,8 +244,11 @@ class ProfilePage extends ConsumerWidget {
       context: context,
       applicationName: '飞翼通',
       applicationVersion: '1.0.0',
-      applicationIcon:
-          const Icon(Icons.flight, size: 40, color: AppColors.primary),
+      applicationIcon: const Icon(
+        Icons.flight,
+        size: 40,
+        color: AppColors.primary,
+      ),
       children: const [
         Text(
           '面向山区、林场、屋顶等场景的无人机吊运撮合平台：发布吊运需求，平台按距离、'

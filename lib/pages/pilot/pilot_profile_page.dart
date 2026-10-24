@@ -1,3 +1,5 @@
+import '../../providers/waybill_draft_provider.dart';
+import '../../widgets/dispatch_notification_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -76,6 +78,7 @@ class PilotProfilePage extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           _buildQuickGrid(context),
+          const DispatchNotificationEntry(menu: true),
 
           const SizedBox(height: 16),
 
@@ -88,7 +91,10 @@ class PilotProfilePage extends ConsumerWidget {
           const SizedBox(height: 8),
           _buildMenuItem(context, icon: Icons.badge_outlined, title: '飞手资料与驾驶资质',
               onTap: () => context.push('/pilot/info')),
-          _buildMenuItem(context, icon: Icons.flight, title: '我的无人机',
+          if (ref.watch(dispatchWaybillEnabledProvider))
+            _buildMenuItem(context, icon: Icons.flight_takeoff, title: '设备借用与归还',
+                onTap: () => context.push('/pilot/equipment')),
+          _buildMenuItem(context, icon: Icons.flight, title: ref.watch(dispatchWaybillEnabledProvider) ? '旧版绑定设备' : '我的无人机',
               onTap: () => context.push('/pilot/drones')),
           _buildMenuItem(context, icon: Icons.info_outline, title: '关于飞翼通',
               onTap: () => showAboutDialog(
