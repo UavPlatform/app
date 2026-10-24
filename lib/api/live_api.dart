@@ -19,6 +19,7 @@ class LiveCredential {
   final String roomId;
   final String userId;
   final String userSig;
+  final String? privateMapKey;
   final int sdkAppId;
   final String? wsUrl;
   final String liveState;
@@ -28,6 +29,7 @@ class LiveCredential {
     required this.roomId,
     required this.userId,
     required this.userSig,
+    this.privateMapKey,
     required this.sdkAppId,
     this.wsUrl,
     required this.liveState,
@@ -40,6 +42,7 @@ class LiveCredential {
       roomId: c.roomId ?? '',
       userId: c.userId ?? '',
       userSig: c.userSig ?? '',
+      privateMapKey: c.privateMapKey,
       sdkAppId: c.sdkAppId ?? 0,
       wsUrl: c.wsUrl,
       liveState: c.liveState ?? 'IDLE',
