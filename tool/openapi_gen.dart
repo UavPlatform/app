@@ -22,6 +22,48 @@ const String pathsPath = 'lib/api/generated/openapi_paths.dart';
 /// 本端调用的端点清单（消费清单，人工维护）。
 /// 新增调用点必须在此登记；门禁测试会核对「登记表 ↔ 代码」双向一致。
 const List<List<String>> endpoints = <List<String>>[
+  <String>['get', '/dispatch/events'],
+  <String>['post', '/dispatch/pilot/position-session'],
+  <String>['put', '/dispatch/pilot/position'],
+  <String>['delete', '/dispatch/pilot/position'],
+  <String>['get', '/dispatch/pilot/nearby-hall'],
+  <String>['get', '/dispatch/orders/{orderId}/nearby-dispatch'],
+  <String>['post', '/dispatch/orders/{orderId}/chat'],
+  <String>['get', '/dispatch/orders/{orderId}/live'],
+  <String>['post', '/dispatch/orders/{orderId}/live/{liveId}/watch'],
+  <String>['get', '/dispatch/orders/{orderId}/flight'],
+  <String>['get', '/dispatch/orders/{orderId}/flight/track'],
+  <String>['get', '/equipment/pilot/drones'],
+  <String>['get', '/equipment/pilot/borrows'],
+  <String>['post', '/equipment/pilot/borrows'],
+  <String>['post', '/equipment/pilot/borrows/{borrowId}/return'],
+  <String>['get', '/dispatch/notifications'],
+  <String>['get', '/dispatch/notifications/unread-count'],
+  <String>['post', '/dispatch/notifications/{notificationId}/read'],
+  <String>['get', '/dispatch/config'],
+  <String>['get', '/dispatch/waybill-draft'],
+  <String>['put', '/dispatch/waybill-draft'],
+  <String>['get', '/dispatch/readiness'],
+  <String>['post', '/dispatch/assessments'],
+  <String>['get', '/dispatch/orders'],
+  <String>['post', '/dispatch/orders'],
+  <String>['get', '/dispatch/orders/{orderId}'],
+  <String>['post', '/dispatch/orders/{orderId}/simulate-payment'],
+  <String>['post', '/dispatch/orders/{orderId}/cancel'],
+  <String>['get', '/dispatch/pilot/hall'],
+  <String>['get', '/dispatch/pilot/orders'],
+  <String>['get', '/dispatch/pilot/orders/{orderId}'],
+  <String>['post', '/dispatch/pilot/orders/{orderId}/claim'],
+  <String>['post', '/dispatch/pilot/orders/{orderId}/arrive'],
+  <String>['post', '/dispatch/pilot/orders/{orderId}/release'],
+  <String>['post', '/dispatch/orders/{orderId}/start-transport'],
+  <String>['post', '/dispatch/orders/{orderId}/deliver'],
+  <String>['post', '/dispatch/orders/{orderId}/receipt'],
+  <String>['post', '/dispatch/orders/{orderId}/settle'],
+  <String>['post', '/dispatch/orders/{orderId}/review'],
+  <String>['get', '/dispatch/orders/{orderId}/materials'],
+  <String>['post', '/dispatch/orders/{orderId}/materials/upload-ticket'],
+  <String>['post', '/dispatch/orders/{orderId}/materials/{materialId}/confirm'],
   <String>['get', '/task/init'],
   <String>['post', '/task/create'],
   <String>['get', '/task/list'],
@@ -83,12 +125,18 @@ void main(List<String> args) {
   }
   final List<int> bytes = specFile.readAsBytesSync();
   final String sha = sha256Hex(bytes);
-  final Map<String, dynamic> spec = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+  final Map<String, dynamic> spec =
+      jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
   final Map<String, dynamic> paths = spec['paths'] as Map<String, dynamic>;
   final Map<String, dynamic> schemas =
-      (spec['components'] as Map<String, dynamic>)['schemas'] as Map<String, dynamic>;
+      (spec['components'] as Map<String, dynamic>)['schemas']
+          as Map<String, dynamic>;
 
-  final Generator generator = Generator(paths: paths, schemas: schemas, sha: sha);
+  final Generator generator = Generator(
+    paths: paths,
+    schemas: schemas,
+    sha: sha,
+  );
   final Map<String, String> outputs = <String, String>{};
   try {
     outputs[modelsPath] = generator.buildModels();
@@ -111,22 +159,38 @@ void main(List<String> args) {
     } else {
       file.parent.createSync(recursive: true);
       file.writeAsStringSync(content);
-      stdout.writeln('[openapi] 已写入 ' + path + '（' + content.length.toString() + ' 字节）');
+      stdout.writeln(
+        '[openapi] 已写入 ' + path + '（' + content.length.toString() + ' 字节）',
+      );
     }
   });
 
   if (check) {
     if (drift > 0) {
-      stderr.writeln('[openapi] FAIL：' + drift.toString() + ' 个生成物过期，请运行 dart run tool/openapi_gen.dart');
+      stderr.writeln(
+        '[openapi] FAIL：' +
+            drift.toString() +
+            ' 个生成物过期，请运行 dart run tool/openapi_gen.dart',
+      );
       exit(1);
     }
-    stdout.writeln('[openapi] OK：生成物与规格同步（sha256=' + sha +
-        '，端点=' + endpoints.length.toString() + '）');
+    stdout.writeln(
+      '[openapi] OK：生成物与规格同步（sha256=' +
+          sha +
+          '，端点=' +
+          endpoints.length.toString() +
+          '）',
+    );
     return;
   }
-  stdout.writeln('[openapi] sha256=' + sha +
-      ' 端点=' + endpoints.length.toString() +
-      ' 变更文件=' + drift.toString());
+  stdout.writeln(
+    '[openapi] sha256=' +
+        sha +
+        ' 端点=' +
+        endpoints.length.toString() +
+        ' 变更文件=' +
+        drift.toString(),
+  );
 }
 
 String? refName(dynamic schema) {
@@ -241,8 +305,9 @@ class Generator {
 
   /// allOf 拍平：契约里 Java 继承关系会展开成 allOf，Dart 侧合并成一个类。
   Map<String, dynamic> merged(String name) {
-    final Map<String, dynamic> root =
-        resolve(<String, dynamic>{r'$ref': '#/components/schemas/' + name});
+    final Map<String, dynamic> root = resolve(<String, dynamic>{
+      r'$ref': '#/components/schemas/' + name,
+    });
     final Map<String, dynamic> properties = <String, dynamic>{};
     final Set<String> required = <String>{};
     void absorb(Map<String, dynamic> part) {
@@ -255,6 +320,7 @@ class Generator {
         required.addAll(req.cast<String>());
       }
     }
+
     final dynamic allOf = root['allOf'];
     if (allOf is List) {
       for (final dynamic part in allOf) {
@@ -262,7 +328,10 @@ class Generator {
       }
     }
     absorb(root);
-    return <String, dynamic>{'properties': properties, 'required': required.toList()};
+    return <String, dynamic>{
+      'properties': properties,
+      'required': required.toList(),
+    };
   }
 
   String typeOf(dynamic schema, bool nullable) {
@@ -324,7 +393,8 @@ class Generator {
       if (isEnvelope(ref)) {
         return access;
       }
-      final String call = 'Api' + ref + '.fromJson(' + access + ' as Map<String, dynamic>)';
+      final String call =
+          'Api' + ref + '.fromJson(' + access + ' as Map<String, dynamic>)';
       if (nullable) {
         return '(' + access + ' == null ? null : ' + call + ')';
       }
@@ -342,40 +412,53 @@ class Generator {
           : '((' + access + ' as num?)?.toDouble() ?? 0)';
     }
     if (type == 'boolean') {
-      return nullable ? access + ' as bool?' : '((' + access + ' as bool?) ?? false)';
+      return nullable
+          ? access + ' as bool?'
+          : '((' + access + ' as bool?) ?? false)';
     }
     if (type == 'string') {
-      return nullable ? access + ' as String?' : '((' + access + ' as String?) ?? "")';
+      return nullable
+          ? access + ' as String?'
+          : '((' + access + ' as String?) ?? "")';
     }
     if (type == 'array') {
       final String item = typeOf(schema['items'], false);
       if (item.startsWith('Map') || item == 'dynamic') {
         return access + ' as List<dynamic>?';
       }
-      final String mapped = '(' + access + ' as List<dynamic>?)?.map((dynamic e) => ' +
-          itemReader(schema['items']) + ').toList()';
+      final String mapped =
+          '(' +
+          access +
+          ' as List<dynamic>?)?.map((dynamic e) => ' +
+          itemReader(schema['items']) +
+          ').toList()';
       return nullable ? mapped : '(' + mapped + ' ?? <' + item + '>[])';
     }
     if (type == 'object') {
-      return access + ' as Map<String, dynamic>?';
+      return access +
+          (nullable ? ' as Map<String, dynamic>?' : ' as Map<String, dynamic>');
     }
     return access;
   }
 
-  String writeExpr(dynamic schema, String field) {
+  String writeExpr(dynamic schema, String field, bool nullable) {
     final String? ref = refName(schema);
     if (ref != null && !isEnvelope(ref)) {
-      return field + '?.toJson()';
+      return field + (nullable ? '?.toJson()' : '.toJson()');
     }
     return field;
   }
 
   String header(String what) {
     return '// GENERATED — DO NOT EDIT.\n'
-        '// ' + what + '\n'
-        '// 生成命令：dart run tool/openapi_gen.dart\n'
-        '// 事实源：openapi/drone-backend.openapi.json (sha256: ' + sha + ')\n'
-        '// ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields';
+            '// ' +
+        what +
+        '\n'
+            '// 生成命令：dart run tool/openapi_gen.dart\n'
+            '// 事实源：openapi/drone-backend.openapi.json (sha256: ' +
+        sha +
+        ')\n'
+            '// ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields';
   }
 
   String buildModels() {
@@ -390,7 +473,9 @@ class Generator {
     out.writeln('/// 可空性取自契约的 required 列表：springdoc 不把基本类型标为 required，');
     out.writeln('/// 因此除显式 required 外一律可空（业务侧的默认值收敛在各自模型适配器里）。');
     out.writeln('class ApiResult<T> {');
-    out.writeln('  const ApiResult({this.success, this.code, this.errorCode, this.message, this.data});');
+    out.writeln(
+      '  const ApiResult({this.success, this.code, this.errorCode, this.message, this.data});',
+    );
     out.writeln();
     out.writeln('  final bool? success;');
     out.writeln('  final int? code;');
@@ -408,14 +493,17 @@ class Generator {
     out.writeln('      code: (json["code"] as num?)?.toInt(),');
     out.writeln('      errorCode: json["errorCode"] as String?,');
     out.writeln('      message: json["message"] as String?,');
-    out.writeln('      data: raw == null ? null : parseData(raw as Map<String, dynamic>),');
+    out.writeln(
+      '      data: raw == null ? null : parseData(raw as Map<String, dynamic>),',
+    );
     out.writeln('    );');
     out.writeln('  }');
     out.writeln('}');
 
     for (final String name in names) {
       final Map<String, dynamic> shape = merged(name);
-      final Map<String, dynamic> props = shape['properties'] as Map<String, dynamic>;
+      final Map<String, dynamic> props =
+          shape['properties'] as Map<String, dynamic>;
       final Set<String> required = (shape['required'] as List<String>).toSet();
       out.writeln();
       out.writeln('/// 契约 components.schemas.' + name);
@@ -423,7 +511,13 @@ class Generator {
       if (props.isEmpty) {
         out.writeln('  const Api' + name + '();');
         out.writeln();
-        out.writeln('  factory Api' + name + '.fromJson(Map<String, dynamic> json) => const Api' + name + '();');
+        out.writeln(
+          '  factory Api' +
+              name +
+              '.fromJson(Map<String, dynamic> json) => const Api' +
+              name +
+              '();',
+        );
         out.writeln('  Map<String, dynamic> toJson() => <String, dynamic>{};');
         out.writeln('}');
         continue;
@@ -438,17 +532,35 @@ class Generator {
         ctor.add(isRequired ? 'required this.' + key : 'this.' + key);
         reads.add('    ' + key + ': ' + readExpr(schema, key, nullable) + ',');
         if (isRequired) {
-          writes.add("    json['" + key + "'] = " + writeExpr(schema, key) + ';');
+          writes.add(
+            "    json['" +
+                key +
+                "'] = " +
+                writeExpr(schema, key, nullable) +
+                ';',
+          );
         } else {
           writes.add('    if (' + key + ' != null) {');
-          writes.add("      json['" + key + "'] = " + writeExpr(schema, key) + ';');
+          writes.add(
+            "      json['" +
+                key +
+                "'] = " +
+                writeExpr(schema, key, nullable) +
+                ';',
+          );
           writes.add('    }');
         }
       });
       out.writeln();
       out.writeln('  const Api' + name + '({' + ctor.join(', ') + '});');
       out.writeln();
-      out.writeln('  factory Api' + name + '.fromJson(Map<String, dynamic> json) => Api' + name + '(');
+      out.writeln(
+        '  factory Api' +
+            name +
+            '.fromJson(Map<String, dynamic> json) => Api' +
+            name +
+            '(',
+      );
       for (final String line in reads) {
         out.writeln(line);
       }
@@ -481,8 +593,9 @@ class Generator {
     return buffer.toString();
   }
 
-  String nameOf(String path) =>
-      camel(path.replaceAll(RegExp('[{][^}]*[}]'), '/').replaceAll(RegExp('/+'), '/'));
+  String nameOf(String path) => camel(
+    path.replaceAll(RegExp('[{][^}]*[}]'), '/').replaceAll(RegExp('/+'), '/'),
+  );
 
   String buildPaths() {
     final StringBuffer out = StringBuffer();
@@ -501,7 +614,10 @@ class Generator {
       final String base = nameOf(path);
       String name = base;
       if (!used.add(name)) {
-        name = method.toLowerCase() + base.substring(0, 1).toUpperCase() + base.substring(1);
+        name =
+            method.toLowerCase() +
+            base.substring(0, 1).toUpperCase() +
+            base.substring(1);
         used.add(name);
       }
       out.writeln();
@@ -525,7 +641,9 @@ class Generator {
       if (pathParams.isNotEmpty) {
         final List<String> args = <String>[];
         for (final Map<String, dynamic> param in pathParams) {
-          args.add(typeOf(param['schema'], false) + ' ' + (param['name'] as String));
+          args.add(
+            typeOf(param['schema'], false) + ' ' + (param['name'] as String),
+          );
         }
         final List<String> parts = <String>[];
         final RegExp re = RegExp('[{]([^}]+)[}]');
@@ -543,20 +661,31 @@ class Generator {
             }
           }
           if (declared == null) {
-            throw StateError('路径 ' + path + ' 的参数 ' + paramName + ' 未在契约 parameters 中声明');
+            throw StateError(
+              '路径 ' + path + ' 的参数 ' + paramName + ' 未在契约 parameters 中声明',
+            );
           }
           final String type = typeOf(declared['schema'], false);
-          parts.add(type == 'String'
-              ? 'Uri.encodeComponent(' + paramName + ')'
-              : paramName + '.toString()');
+          parts.add(
+            type == 'String'
+                ? 'Uri.encodeComponent(' + paramName + ')'
+                : paramName + '.toString()',
+          );
           last = match.end;
         }
         final String tail = path.substring(last);
         if (tail.isNotEmpty) {
           parts.add("'" + tail + "'");
         }
-        out.writeln('  static String ' + name + 'Path(' + args.join(', ') + ') => ' +
-            parts.join(' + ') + ';');
+        out.writeln(
+          '  static String ' +
+              name +
+              'Path(' +
+              args.join(', ') +
+              ') => ' +
+              parts.join(' + ') +
+              ';',
+        );
       }
 
       if (queryParams.isNotEmpty) {
@@ -565,13 +694,21 @@ class Generator {
         for (final Map<String, dynamic> param in queryParams) {
           final bool isRequired = param['required'] == true;
           final String paramName = param['name'] as String;
-          args.add((isRequired ? 'required ' : '') +
-              typeOf(param['schema'], !isRequired) +
-              ' ' +
-              paramName);
+          args.add(
+            (isRequired ? 'required ' : '') +
+                typeOf(param['schema'], !isRequired) +
+                ' ' +
+                paramName,
+          );
           entries.add("'" + paramName + "': " + paramName);
         }
-        out.writeln('  static Map<String, dynamic> ' + name + 'Query({' + args.join(', ') + '}) =>');
+        out.writeln(
+          '  static Map<String, dynamic> ' +
+              name +
+              'Query({' +
+              args.join(', ') +
+              '}) =>',
+        );
         out.writeln('      <String, dynamic>{' + entries.join(', ') + '};');
       }
     }
