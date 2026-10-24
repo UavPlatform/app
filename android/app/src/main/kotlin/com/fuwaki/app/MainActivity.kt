@@ -13,6 +13,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.fuwaki.app/location"
     private var sdkReady = false
+    private val dispatchLocation by lazy { DispatchLocationRequest(this) }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -31,7 +32,7 @@ class MainActivity : FlutterActivity() {
                         sdkReady = true
                         result.success(true)
                     }
-                    "getLocation" -> {
+                    "getLocation", "getDispatchLocation" -> {
                         if (!sdkReady) {
                             // Preserve SDK positioning independently of map rendering.
                             // Do not overwrite a manifest/cached SDK key with an empty value.
@@ -39,7 +40,7 @@ class MainActivity : FlutterActivity() {
                             AMapLocationClient.updatePrivacyAgree(this@MainActivity, true)
                             sdkReady = true
                         }
-                        getLocation(result)
+                        if (call.method == "getDispatchLocation") dispatchLocation.request(result) else getLocation(result)
                     }
                     else -> result.notImplemented()
                 }
@@ -90,5 +91,13 @@ class MainActivity : FlutterActivity() {
         })
 
         client.startLocation()
+    }
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == DispatchLocationRequest.PERMISSION_REQUEST) dispatchLocation.permissionResult()
+    }
+    override fun onDestroy() {
+        dispatchLocation.dispose()
+        super.onDestroy()
     }
 }

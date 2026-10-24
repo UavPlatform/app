@@ -18,6 +18,7 @@ import 'package:uav_pilot_app/pages/messages/message_list_page.dart';
 import 'package:uav_pilot_app/pages/orders/order_list_page.dart';
 import 'package:uav_pilot_app/pages/profile/profile_page.dart';
 import 'package:uav_pilot_app/providers/auth_provider.dart';
+import 'package:uav_pilot_app/providers/waybill_draft_provider.dart';
 import 'package:uav_pilot_app/providers/chat_provider.dart';
 import 'package:uav_pilot_app/routes/app_router.dart';
 import 'package:uav_pilot_app/services/chat_websocket_service.dart';
@@ -32,11 +33,18 @@ import 'package:uav_pilot_app/models/amap_config.dart';
 Future<ProviderContainer> pumpLoggedInApp(
   WidgetTester tester, {
   Future<ResponseBody> Function(RequestOptions options)? handler,
+  bool enableDispatch = false,
+  int role = 0,
 }) async {
+  tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+      FakeAccessibilityFeatures(disableAnimations: true);
+  addTearDown(
+    tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+  );
   mockNativeMaps(tester);
   SharedPreferences.setMockInitialValues({
     'task_flow_guide_dismissed_v1': true,
-    'jwt_token': makeJwt(userId: 7),
+    'jwt_token': makeJwt(userId: 7, role: role),
     'jwt_refresh_token': 'r-1',
     'server_url': 'http://stub.local:8081',
   });
@@ -60,6 +68,7 @@ Future<ProviderContainer> pumpLoggedInApp(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        dispatchWaybillEnabledProvider.overrideWithValue(enableDispatch),
         amapMapConfigProvider.overrideWith(
           (ref) async => AmapConfig(key: 'test-key', securityKey: ''),
         ),
@@ -72,9 +81,7 @@ Future<ProviderContainer> pumpLoggedInApp(
   );
   await tester.pumpAndSettle();
 
-  return ProviderScope.containerOf(
-    tester.element(find.byType(BottomNavigationBar)),
-  );
+  return ProviderScope.containerOf(tester.element(find.byType(MyApp)));
 }
 
 /// 订单列表桩：两笔订单（全部 Tab 下 ORD-1 为首项）。
