@@ -46,9 +46,12 @@ void main() {
         ),
       ];
       LatLng? tapped;
+      double? remaining;
+      String? selectedOrder;
       Future<void> pumpMap({
         LatLng? destination,
         Brightness brightness = Brightness.light,
+        bool flight = false,
       }) async {
         await tester.pumpWidget(
           ProviderScope(
@@ -61,6 +64,24 @@ void main() {
                   center: const LatLng(27, 112),
                   start: const LatLng(27, 112),
                   destination: destination,
+                  aircraft: flight ? const LatLng(28.2, 113.0) : null,
+                  aircraftCoordinatesAreGps: flight,
+                  tracks: flight
+                      ? const [
+                          [LatLng(28.1, 113.0), LatLng(28.2, 113.0)],
+                        ]
+                      : const [],
+                  orderMarkers: const [
+                    MissionOrderMarker(
+                      id: 'order-start',
+                      point: LatLng(27, 112),
+                      label: '等待接单',
+                      color: Colors.orange,
+                      selected: true,
+                    ),
+                  ],
+                  onOrderMarkerTap: (id) => selectedOrder = id,
+                  onRemainingDistance: (meters) => remaining = meters,
                   onTap: (point) => tapped = point,
                 ),
               ),
@@ -82,12 +103,29 @@ void main() {
         (_) {},
       );
       expect(tapped, const LatLng(28, 113));
+      await messenger.handlePlatformMessage(
+        channels.single.name,
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('orderMarkerTap', 'order-start'),
+        ),
+        (_) {},
+      );
+      expect(selectedOrder, 'order-start');
+      expect((commands.last.arguments as Map)['orderMarkers'], hasLength(1));
+      await controller.fit(const [
+        LatLng(27, 112),
+        LatLng(28, 113),
+      ], bottomInset: 240);
+      expect(commands.last.method, 'fit');
+      expect((commands.last.arguments as Map)['points'], hasLength(2));
+      expect((commands.last.arguments as Map)['bottomInset'], 240);
       await tester.tap(find.byKey(const ValueKey('map-type-toggle')));
       await tester.pumpAndSettle();
       expect((commands.last.arguments as Map)['satellite'], true);
       await pumpMap(
         destination: const LatLng(28, 113),
         brightness: Brightness.dark,
+        flight: true,
       );
       expect(
         creates.length,
@@ -99,9 +137,23 @@ void main() {
         'longitude': 113.0,
       });
       expect((commands.last.arguments as Map)['dark'], true);
-      await controller.move(const LatLng(28, 113), 17);
+      expect(
+        (commands.last.arguments as Map)['aircraftCoordinatesAreGps'],
+        true,
+      );
+      expect((commands.last.arguments as Map)['tracks'], hasLength(1));
+      await messenger.handlePlatformMessage(
+        channels.single.name,
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('remainingDistance', 123.5),
+        ),
+        (_) {},
+      );
+      expect(remaining, 123.5);
+      await controller.move(const LatLng(28, 113), 17, gps: true);
       expect(commands.last.method, 'move');
       expect((commands.last.arguments as Map)['zoom'], 17);
+      expect((commands.last.arguments as Map)['centerIsGps'], true);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
