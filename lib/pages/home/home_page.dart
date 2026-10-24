@@ -8,6 +8,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../providers/waybill_draft_provider.dart';
+import '../waybill/waybill_page.dart';
 import 'own_tasks_summary.dart';
 import 'task_flow_guide.dart';
 import 'package:flutter/services.dart';
@@ -356,6 +358,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (ref.watch(dispatchWaybillEnabledProvider)) return const WaybillPage();
     final location = ref.watch(locationProvider);
 
     return Scaffold(

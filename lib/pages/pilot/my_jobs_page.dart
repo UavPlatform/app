@@ -5,6 +5,8 @@ import '../../theme/app_colors.dart';
 import '../../models/task_vo.dart';
 import '../../providers/rider_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/waybill_draft_provider.dart';
+import 'dispatch_pilot_pages.dart';
 
 class MyJobsPage extends ConsumerStatefulWidget {
   const MyJobsPage({super.key});
@@ -25,6 +27,9 @@ class _MyJobsPageState extends ConsumerState<MyJobsPage>
 
   @override
   Widget build(BuildContext context) {
+    if (ref.watch(dispatchWaybillEnabledProvider)) {
+      return const DispatchPilotJobsPage();
+    }
     final state = ref.watch(myRiderTasksProvider);
 
     return Scaffold(
