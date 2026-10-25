@@ -1,7 +1,7 @@
 // GENERATED — DO NOT EDIT.
 // 契约模型：后端 components.schemas 的 Dart 映射。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: d1c26911eb1ed909509d7ed624f9154847eb14b94f43c97592a91babc3eae3d9)
+// 事实源：openapi/drone-backend.openapi.json (sha256: fefef9267c01b64dcfc041bc556a3b4c4ce269de597cb561ef257cc3a892afa9)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端统一返回体 Result<T> 的契约映射。
@@ -1744,11 +1744,9 @@ class ApiProviderDroneVO {
   final double? latitude;
   final double? longitude;
   final String? modelName;
-  final int? providerId;
-  final String? providerName;
   final String? serialNumber;
 
-  const ApiProviderDroneVO({this.aircraftModelId, this.airportName, this.borrowed, this.borrowedByMe, this.currentBorrowId, this.droneId, this.enabled, this.latitude, this.longitude, this.modelName, this.providerId, this.providerName, this.serialNumber});
+  const ApiProviderDroneVO({this.aircraftModelId, this.airportName, this.borrowed, this.borrowedByMe, this.currentBorrowId, this.droneId, this.enabled, this.latitude, this.longitude, this.modelName, this.serialNumber});
 
   factory ApiProviderDroneVO.fromJson(Map<String, dynamic> json) => ApiProviderDroneVO(
     aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
@@ -1761,8 +1759,6 @@ class ApiProviderDroneVO {
     latitude: (json['latitude'] as num?)?.toDouble(),
     longitude: (json['longitude'] as num?)?.toDouble(),
     modelName: json['modelName'] as String?,
-    providerId: (json['providerId'] as num?)?.toInt(),
-    providerName: json['providerName'] as String?,
     serialNumber: json['serialNumber'] as String?,
   );
 
@@ -1797,12 +1793,6 @@ class ApiProviderDroneVO {
     }
     if (modelName != null) {
       json['modelName'] = modelName;
-    }
-    if (providerId != null) {
-      json['providerId'] = providerId;
-    }
-    if (providerName != null) {
-      json['providerName'] = providerName;
     }
     if (serialNumber != null) {
       json['serialNumber'] = serialNumber;
