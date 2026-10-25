@@ -15,18 +15,27 @@ class LiveStreamSession {
   final String strRoomId;
   final String userId;
   final String userSig;
+  final String? privateMapKey;
+  final String? publisherUserId;
 
   const LiveStreamSession({
     required this.sdkAppId,
     required this.strRoomId,
     required this.userId,
     required this.userSig,
+    this.privateMapKey,
+    this.publisherUserId,
   });
 }
 
 enum LivePlayerPhase { idle, entering, playing, exited }
 
-enum TrtcEventKind { remoteVideoAvailable, remoteVideoUnavailable, exited }
+enum TrtcEventKind {
+  remoteVideoAvailable,
+  remoteVideoUnavailable,
+  firstVideoFrame,
+  exited,
+}
 
 class TrtcEvent {
   final TrtcEventKind kind;
@@ -56,34 +65,52 @@ class TrtcEngineImpl implements TrtcEngine {
   TRTCCloudListener? _listener;
   String? _firstRemoteUserId;
   int? _viewId;
+  String? _expectedPublisher;
+  int _generation = 0;
 
   @override
   Stream<TrtcEvent> get events => _events.stream;
 
   @override
   Future<void> enter(LiveStreamSession session) async {
+    final generation = ++_generation;
     final cloud = await TRTCCloud.sharedInstance();
+    if (generation != _generation) return;
+    _expectedPublisher = session.publisherUserId;
     _cloud = cloud;
     final listener = TRTCCloudListener(
       onUserVideoAvailable: (userId, available) {
+        if (generation != _generation ||
+            (_expectedPublisher != null && userId != _expectedPublisher)) {
+          return;
+        }
         if (available && _firstRemoteUserId == null && userId.isNotEmpty) {
           _firstRemoteUserId = userId;
-          _events.add(
-            const TrtcEvent(TrtcEventKind.remoteVideoAvailable),
-          );
+          _events.add(const TrtcEvent(TrtcEventKind.remoteVideoAvailable));
           // 画面已就绪则立即绑定渲染
           final viewId = _viewId;
           if (viewId != null) {
             _bindView(viewId);
           }
         }
-        if (!available) {
+        if (!available && userId == _firstRemoteUserId) {
+          _events.add(const TrtcEvent(TrtcEventKind.remoteVideoUnavailable));
+        }
+      },
+      onFirstVideoFrame: (userId, streamType, width, height) {
+        if (generation == _generation && userId == _firstRemoteUserId) {
           _events.add(
-            const TrtcEvent(TrtcEventKind.remoteVideoUnavailable),
+            TrtcEvent(TrtcEventKind.firstVideoFrame, remoteUserId: userId),
           );
         }
       },
+      onError: (code, message) {
+        if (generation == _generation) {
+          _events.add(const TrtcEvent(TrtcEventKind.exited));
+        }
+      },
       onExitRoom: (reason) {
+        if (generation != _generation) return;
         _events.add(const TrtcEvent(TrtcEventKind.exited));
       },
     );
@@ -97,6 +124,7 @@ class TrtcEngineImpl implements TrtcEngine {
         strRoomId: session.strRoomId,
         roomId: 0,
         role: TRTCRoleType.audience,
+        privateMapKey: session.privateMapKey ?? '',
       ),
       TRTCAppScene.live,
     );
@@ -105,11 +133,7 @@ class TrtcEngineImpl implements TrtcEngine {
   void _bindView(int viewId) {
     final userId = _firstRemoteUserId;
     if (userId == null) return;
-    _cloud?.startRemoteView(
-      userId,
-      TRTCVideoStreamType.big,
-      viewId,
-    );
+    _cloud?.startRemoteView(userId, TRTCVideoStreamType.big, viewId);
   }
 
   @override
@@ -122,16 +146,14 @@ class TrtcEngineImpl implements TrtcEngine {
   Future<void> detachRemoteView() async {
     final userId = _firstRemoteUserId;
     if (userId != null) {
-      _cloud?.stopRemoteView(
-        userId,
-        TRTCVideoStreamType.big,
-      );
+      _cloud?.stopRemoteView(userId, TRTCVideoStreamType.big);
     }
     _viewId = null;
   }
 
   @override
   Future<void> exit() async {
+    _generation++;
     _cloud?.exitRoom();
     final listener = _listener;
     if (listener != null) {
@@ -151,6 +173,8 @@ class LivePlayerController {
   final _phaseController = StreamController<LivePlayerPhase>.broadcast();
   final _endedController = StreamController<void>.broadcast();
   StreamSubscription<TrtcEvent>? _eventSub;
+  int _operation = 0;
+  bool _disposed = false;
 
   LivePlayerPhase get phase => _phase;
   Stream<LivePlayerPhase> get phaseStream => _phaseController.stream;
@@ -158,7 +182,8 @@ class LivePlayerController {
   /// 直播结束信号（远端停流或房间被解散）
   Stream<void> get onEnded => _endedController.stream;
 
-  LivePlayerController({TrtcEngine? engine}) : engine = engine ?? TrtcEngineImpl();
+  LivePlayerController({TrtcEngine? engine})
+    : engine = engine ?? TrtcEngineImpl();
 
   bool get isLive => _phase == LivePlayerPhase.playing;
 
@@ -166,11 +191,14 @@ class LivePlayerController {
     if (_phase != LivePlayerPhase.idle && _phase != LivePlayerPhase.exited) {
       return;
     }
+    final operation = ++_operation;
+    if (_disposed) return;
     _setPhase(LivePlayerPhase.entering);
     _eventSub?.cancel();
     _eventSub = engine.events.listen(_onEngineEvent);
     try {
       await engine.enter(session);
+      if (_disposed || operation != _operation) return;
       _setPhase(LivePlayerPhase.playing);
     } catch (_) {
       _setPhase(LivePlayerPhase.exited);
@@ -186,14 +214,21 @@ class LivePlayerController {
 
   /// 退出观看：停绑画面并退房释放资源（幂等）。
   Future<void> leave() async {
+    _operation++;
     if (_phase == LivePlayerPhase.exited || _phase == LivePlayerPhase.idle) {
       return;
     }
     _eventSub?.cancel();
     _eventSub = null;
-    await engine.detachRemoteView();
-    await engine.exit();
-    _setPhase(LivePlayerPhase.exited);
+    try {
+      await engine.detachRemoteView();
+    } finally {
+      try {
+        await engine.exit();
+      } finally {
+        _setPhase(LivePlayerPhase.exited);
+      }
+    }
   }
 
   void _onEngineEvent(TrtcEvent event) {
@@ -206,16 +241,21 @@ class LivePlayerController {
         _endedController.add(null);
         break;
       case TrtcEventKind.remoteVideoAvailable:
+      case TrtcEventKind.firstVideoFrame:
         break;
     }
   }
 
   void _setPhase(LivePlayerPhase phase) {
     _phase = phase;
+    if (_disposed) return;
     _phaseController.add(phase);
   }
 
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _operation++;
     _eventSub?.cancel();
     _phaseController.close();
     _endedController.close();

@@ -1,19 +1,58 @@
 // 直播播放器生命周期测试（t38⑤：进房/绑画面/退出/结束信号，假引擎驱动）。
 
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uav_pilot_app/services/live_player.dart';
 
 import '../test_support.dart';
 
+class PendingEngine extends FakeTrtcEngine {
+  final gate = Completer<void>();
+  @override
+  Future<void> enter(LiveStreamSession session) async {
+    await gate.future;
+  }
+}
+
+class DetachFailureEngine extends FakeTrtcEngine {
+  @override
+  Future<void> detachRemoteView() async {
+    throw StateError('detach failed');
+  }
+}
+
 void main() {
   LiveStreamSession fixtureSession() => const LiveStreamSession(
-        sdkAppId: 1400000000,
-        strRoomId: 'drone_UAV-001',
-        userId: '7',
-        userSig: 'sig',
-      );
+    sdkAppId: 1400000000,
+    strRoomId: 'drone_UAV-001',
+    userId: '7',
+    userSig: 'sig',
+  );
 
   group('LivePlayerController 生命周期（t38⑤）', () {
+    test(
+      'late enter after leaving and disposal cannot reactivate the player',
+      () async {
+        final engine = PendingEngine();
+        final player = LivePlayerController(engine: engine);
+        final entering = player.enter(fixtureSession());
+        await player.leave();
+        player.dispose();
+        engine.gate.complete();
+        await entering;
+        expect(player.phase, LivePlayerPhase.exited);
+        expect(engine.exitCalls, 1);
+      },
+    );
+    test('view detach failure still exits room and ends player', () async {
+      final engine = DetachFailureEngine();
+      final player = LivePlayerController(engine: engine);
+      await player.enter(fixtureSession());
+      await expectLater(player.leave(), throwsStateError);
+      expect(engine.exitCalls, 1);
+      expect(player.phase, LivePlayerPhase.exited);
+      player.dispose();
+    });
     test('enter → playing，引擎收到进房参数', () async {
       final engine = FakeTrtcEngine();
       final controller = LivePlayerController(engine: engine);
