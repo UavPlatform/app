@@ -133,7 +133,6 @@ void main() {
           expect(options.data, {
             'userName': 'bob',
             'password': 'secret12',
-            'djiId': 'dji-1',
           });
           return jsonResponse(200, {
             'success': true,
@@ -153,7 +152,7 @@ void main() {
     await tester.enterText(fields.at(0), 'bob');
     await tester.enterText(fields.at(1), 'secret12');
     await tester.enterText(fields.at(2), 'secret12');
-    await tester.enterText(fields.at(3), 'dji-1');
+    expect(fields, findsNWidgets(3), reason: '飞手注册不再手填无人机编号');
     await tester.tap(find.text('注册飞手'));
     await tester.pumpAndSettle();
 

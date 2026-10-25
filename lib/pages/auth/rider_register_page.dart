@@ -16,7 +16,6 @@ class _RiderRegisterPageState extends ConsumerState<RiderRegisterPage> {
   final _userNameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
-  final _djiIdController = TextEditingController();
   bool _obscurePassword = true;
   bool _loading = false;
 
@@ -25,7 +24,6 @@ class _RiderRegisterPageState extends ConsumerState<RiderRegisterPage> {
     _userNameController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
-    _djiIdController.dispose();
     super.dispose();
   }
 
@@ -54,7 +52,6 @@ class _RiderRegisterPageState extends ConsumerState<RiderRegisterPage> {
     final ok = await ref.read(riderRegisterProvider.notifier).register(
       userName: _userNameController.text,
       password: _passwordController.text,
-      djiId: _djiIdController.text.trim(),
     );
 
     if (!mounted) return;
@@ -137,15 +134,11 @@ class _RiderRegisterPageState extends ConsumerState<RiderRegisterPage> {
                   prefixIcon: Icon(Icons.lock_outline),
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _djiIdController,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _register(),
-                decoration: const InputDecoration(
-                  hintText: '无人机 DJI ID（选填，可后续绑定）',
-                  prefixIcon: Icon(Icons.flight, size: 20),
-                ),
+              const SizedBox(height: 12),
+              // ADR-0007 #6/#9：不再手填无人机编号；执飞时 djifly 连机自动记录机型与机身号。
+              const Text(
+                '无需填写无人机编号：执飞时 djifly 连上飞机会自动记录机型和机身号。',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
               ),
               const SizedBox(height: 32),
               SizedBox(
