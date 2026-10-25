@@ -2,7 +2,7 @@
 //   1. 任务大厅默认 TRANSPORT 筛选，卡片展示货物并进入任务详情（应征按钮在详情内）；
 //   2. 应征：绑定设备映射机型预选 → apply 只发 taskNum+aircraftModelId（无金额字段），
 //      成功只读展示系统报价 quotedAmount，失败展示服务端 message（超重/机型不可吊运等）；
-//   3. 机型未选拒绝提交；未绑机/未映射 → 引导去绑机页；
+//   3. 机型未选拒绝提交；未绑机/未映射 → 只说明（ADR-0007 不再手动绑机），不引导去绑机页；
 //   4. 我的接单分组：待用户下单 / 待我确认 / 已确认待执飞；确认订单回显约定时间，
 //      未确认前不出现执飞入口，确认后出现「打开 djifly」；
 //   5. 红线：相关页面不存在任何价格输入控件（无议价 UI）。
@@ -449,7 +449,7 @@ void main() {
     );
   });
 
-  testWidgets('未绑机/未映射机型：引导去绑机页，不提供应征提交', (tester) async {
+  testWidgets('未绑机/未映射机型：说明由 djifly 自动记录，不引导去绑机页，不提供应征提交', (tester) async {
     final adapter = pilotAdapter(detail: taskJson(), drones: const []);
 
     await tester.pumpWidget(
@@ -460,8 +460,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('尚未绑定已映射机型的无人机，无法应征吊运任务。'), findsOneWidget);
-    expect(find.text('去绑定设备'), findsOneWidget);
+    expect(find.textContaining('djifly 连机时自动记录'), findsOneWidget);
+    expect(find.text('尚未绑定已映射机型的无人机，无法应征吊运任务。'), findsNothing);
+    expect(find.text('去绑定设备'), findsNothing);
     expect(find.text('应征任务'), findsNothing);
   });
 

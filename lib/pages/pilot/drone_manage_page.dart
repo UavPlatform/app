@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_colors.dart';
-import '../../providers/aircraft_provider.dart';
 import '../../providers/rider_account_provider.dart';
 
 class DroneManagePage extends ConsumerStatefulWidget {
@@ -24,10 +23,6 @@ class _DroneManagePageState extends ConsumerState<DroneManagePage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('我的无人机')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showBindDialog(context),
-        child: const Icon(Icons.add),
-      ),
       body: Builder(
         builder: (context) {
           if (state.loading) {
@@ -47,10 +42,10 @@ class _DroneManagePageState extends ConsumerState<DroneManagePage> {
                               Icon(Icons.flight, size: 64,
                                   color: AppColors.outlineVariant.withOpacity(0.5)),
                               const SizedBox(height: 16),
-                              const Text('还没有绑定无人机',
+                              const Text('无需手动添加无人机',
                                   style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 16)),
                               const SizedBox(height: 8),
-                              const Text('点击右下角按钮添加',
+                              const Text('执飞时 djifly 连上飞机会自动记录机型和机身号',
                                   style: TextStyle(color: AppColors.outline, fontSize: 13)),
                             ],
                           ),
@@ -92,107 +87,6 @@ class _DroneManagePageState extends ConsumerState<DroneManagePage> {
         },
       ),
     );
-  }
-
-  Future<void> _showBindDialog(BuildContext context) async {
-    // 绑机契约（POST /rider/drone/bind）必填 aircraftModelId：先取平台机型目录。
-    await ref.read(aircraftModelsProvider.notifier).load();
-    if (!context.mounted) return;
-    final catalog = ref.read(aircraftModelsProvider);
-    final models = catalog.models;
-    if (models.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(catalog.error ?? '机型目录加载失败，请稍后重试'),
-        ),
-      );
-      return;
-    }
-
-    final controller = TextEditingController();
-    int? selectedModelId;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: const Text('绑定无人机'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(
-                  hintText: '请输入 DJI 无人机 ID',
-                  border: OutlineInputBorder(),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                initialValue: selectedModelId,
-                decoration: const InputDecoration(
-                  labelText: '机型',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  for (final model in models)
-                    DropdownMenuItem<int>(
-                      value: model.id,
-                      child: Text(
-                        [
-                          model.displayName ??
-                              model.modelCode ??
-                              '未知机型',
-                          if (model.maxPayloadKg != null)
-                            '载重 ${model.maxPayloadKg} kg',
-                        ].join(' · '),
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                ],
-                onChanged: (value) =>
-                    setState(() => selectedModelId = value),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
-            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('绑定')),
-          ],
-        ),
-      ),
-    );
-
-    if (ok != true || !context.mounted) {
-      controller.dispose();
-      return;
-    }
-    final djiId = controller.text.trim();
-    final modelId = selectedModelId;
-    if (djiId.isEmpty) {
-      controller.dispose();
-      return;
-    }
-    if (modelId == null) {
-      controller.dispose();
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请选择无人机机型')),
-      );
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      controller.dispose();
-      if (!context.mounted) return;
-      final success = await ref
-          .read(droneListProvider.notifier)
-          .bindDrone(djiId, aircraftModelId: modelId);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(success ? '绑定成功' : ref.read(droneListProvider).error ?? '绑定失败')),
-      );
-    });
   }
 
   Future<void> _showUnbindDialog(BuildContext context, String djiId) async {

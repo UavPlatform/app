@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api/http_client.dart';
 import 'routes/app_router.dart';
@@ -31,19 +30,13 @@ void _setupDroneCheck() {
     showDialog(
       context: nav.context,
       builder: (ctx) => AlertDialog(
-        title: const Text('需要绑定无人机'),
-        content: const Text('您还没有绑定无人机，无法使用此功能。请先绑定至少一台无人机。'),
+        title: const Text('需要无人机信息'),
+        // ADR-0007 #6/#9：不再在 app 手填无人机编号；由 djifly 连机自动记录。
+        content: const Text('无人机由 djifly 在连机时自动记录机型和机身号，无需在此填写。请在 djifly 连接飞机后重试。'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('稍后'),
-          ),
           FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              GoRouter.of(nav.context).push('/pilot/drones');
-            },
-            child: const Text('去绑定'),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('知道了'),
           ),
         ],
       ),
