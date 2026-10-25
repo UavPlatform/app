@@ -1,7 +1,7 @@
 // GENERATED — DO NOT EDIT.
 // 契约模型：后端 components.schemas 的 Dart 映射。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: c1c01a4a306b2ba64bd426793c756796e2060514e51bf993158256e8428fa133)
+// 事实源：openapi/drone-backend.openapi.json (sha256: 033d9e34048bc544e268f9a206e40831f9b71c55dc760fcfafa22ebc5fe5130c)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端统一返回体 Result<T> 的契约映射。
@@ -315,17 +315,19 @@ class ApiPayResultVO {
 class ApiPullCredentialsVO {
   final bool? ackConfirmed;
   final String? liveState;
+  final String? privateMapKey;
   final String? roomId;
   final int? sdkAppId;
   final String? userId;
   final String? userSig;
   final String? wsUrl;
 
-  const ApiPullCredentialsVO({this.ackConfirmed, this.liveState, this.roomId, this.sdkAppId, this.userId, this.userSig, this.wsUrl});
+  const ApiPullCredentialsVO({this.ackConfirmed, this.liveState, this.privateMapKey, this.roomId, this.sdkAppId, this.userId, this.userSig, this.wsUrl});
 
   factory ApiPullCredentialsVO.fromJson(Map<String, dynamic> json) => ApiPullCredentialsVO(
     ackConfirmed: json['ackConfirmed'] as bool?,
     liveState: json['liveState'] as String?,
+    privateMapKey: json['privateMapKey'] as String?,
     roomId: json['roomId'] as String?,
     sdkAppId: (json['sdkAppId'] as num?)?.toInt(),
     userId: json['userId'] as String?,
@@ -340,6 +342,9 @@ class ApiPullCredentialsVO {
     }
     if (liveState != null) {
       json['liveState'] = liveState;
+    }
+    if (privateMapKey != null) {
+      json['privateMapKey'] = privateMapKey;
     }
     if (roomId != null) {
       json['roomId'] = roomId;
