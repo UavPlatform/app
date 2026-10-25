@@ -42,7 +42,7 @@ void main() {
       });
       final overrides = [
         amapMapConfigProvider.overrideWith(
-          (ref) async => AmapConfig(key: 'test-key', securityKey: ''),
+          (ref) async => AmapConfig(key: 'test-key'),
         ),
       ];
       LatLng? tapped;

@@ -64,7 +64,7 @@ Future<ProviderContainer> pumpLoggedInApp(
     ProviderScope(
       overrides: [
         amapMapConfigProvider.overrideWith(
-          (ref) async => AmapConfig(key: 'test-key', securityKey: ''),
+          (ref) async => AmapConfig(key: 'test-key'),
         ),
         sharedPreferencesProvider.overrideWithValue(prefs),
         httpClientProvider.overrideWithValue(client),

@@ -80,7 +80,7 @@ void main() {
             dispatchNearbyApiProvider.overrideWithValue(api),
             dispatchLocationProvider.overrideWithValue(location),
             amapMapConfigProvider.overrideWith(
-              (ref) async => AmapConfig(key: 'test-config', securityKey: ''),
+              (ref) async => AmapConfig(key: 'test-config'),
             ),
             waybillDraftScopeProvider.overrideWith((ref) => ref.watch(scope)),
           ],
@@ -131,7 +131,7 @@ void main() {
             dispatchNearbyApiProvider.overrideWithValue(api),
             dispatchLocationProvider.overrideWithValue(location),
             amapMapConfigProvider.overrideWith(
-              (ref) async => AmapConfig(key: 'test-config', securityKey: ''),
+              (ref) async => AmapConfig(key: 'test-config'),
             ),
             waybillDraftScopeProvider.overrideWithValue('a'),
           ],

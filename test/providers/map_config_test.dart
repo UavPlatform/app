@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:uav_pilot_app/api/generated/openapi_models.dart';
 import 'package:uav_pilot_app/models/amap_config.dart';
 import 'package:uav_pilot_app/providers/map_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,28 +24,27 @@ Future<List<Override>> overrides(StubAdapter adapter) async {
 }
 
 void main() {
-  test('Map configuration comes from the backend task/init endpoint', () async {
+  test('Map configuration comes from GET /config/map', () async {
     final paths = <String>[];
     final adapter = StubAdapter((options) async {
       paths.add(options.uri.path);
       return jsonResponse(200, {
         'success': true,
-        'data': {'key': 'backend-key', 'securityKey': 'backend-security'},
+        'data': {'key': 'backend-key', 'serviceHost': null},
       });
     });
     final container = ProviderContainer(overrides: await overrides(adapter));
     addTearDown(container.dispose);
     final config = await container.read(amapMapConfigProvider.future);
-    expect(paths, ['/task/init']);
+    expect(paths, ['/config/map']);
     expect(config.key, 'backend-key');
-    expect(config.securityKey, 'backend-security');
   });
 
   test('Empty backend Key reports missing credentials', () async {
     final adapter = StubAdapter(
       (_) async => jsonResponse(200, {
         'success': true,
-        'data': {'key': '', 'securityKey': ''},
+        'data': {'key': ''},
       }),
     );
     final container = ProviderContainer(overrides: await overrides(adapter));
@@ -55,18 +55,30 @@ void main() {
     );
   });
 
-  test('Backend configuration can omit the unused JS securityKey', () async {
-    expect(AmapConfig.fromJson({'key': 'android-key'}).securityKey, '');
+  test('Map config exposes key only, never securityKey or other secrets', () async {
+    // 即使后端（误）下发 securityKey，原生端模型也不能携带它。
+    final parsed = AmapConfig.fromJson({
+      'key': 'android-key',
+      'securityKey': 'leaked-secret',
+      'serviceHost': null,
+    });
+    expect(parsed.key, 'android-key');
+    // 契约模型本身就没有 securityKey 字段：序列化只剩 key（及可选 serviceHost）。
+    final vo = ApiMapConfigVO.fromJson({'key': 'android-key', 'securityKey': 'leaked-secret'});
+    final json = vo.toJson();
+    expect(json.containsKey('securityKey'), isFalse);
+    expect(json.keys.toSet().difference({'key', 'serviceHost'}), isEmpty);
+
     final adapter = StubAdapter(
       (_) async => jsonResponse(200, {
         'success': true,
-        'data': {'key': 'backend-key'},
+        'data': {'key': 'backend-key', 'securityKey': 'leaked-secret'},
       }),
     );
     final container = ProviderContainer(overrides: await overrides(adapter));
     addTearDown(container.dispose);
     final config = await container.read(amapMapConfigProvider.future);
     expect(config.key, 'backend-key');
-    expect(config.securityKey, '');
+    expect(config.toString(), isNot(contains('leaked-secret')));
   });
 }
