@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // 主色调 - 深海蓝（品牌主色：稳重 · 安全 · 专业）
-  static const Color primary = Color(0xFF0B3D66);
-  static const Color primaryLight = Color(0xFFDCE7F3);
-  static const Color primaryDark = Color(0xFF062A47);
+  static const Color primary = Color(0xFF205DCD);
+  static const Color primaryLight = Color(0xFFE3EFFF);
+  static const Color primaryDark = Color(0xFF153E88);
 
   // 强调色 - 工程橙（CTA / 选中态 / 强调：力量 · 行动）
   static const Color accent = Color(0xFFF57C00);
@@ -12,7 +12,7 @@ class AppColors {
   static const Color accentDark = Color(0xFFE65100);
 
   // 表面色
-  static const Color surface = Color(0xFFFAFCFF);
+  static const Color surface = Color(0xFFFFFEFB);
   static const Color surfaceVariant = Color(0xFFE7EEF6);
 
   // 文字色
@@ -44,15 +44,15 @@ class AppColors {
 
   // ==================== 派生色 / 语义别名 ====================
   static const Color bgWhite = Colors.white;
-  static const Color bgPage = Color(0xFFF5F6F8);
-  static const Color bgCard = Colors.white;
+  static const Color bgPage = Color(0xFFF6F4EF);
+  static const Color bgCard = Color(0xFFFFFEFB);
   static const Color bgInput = Color(0xFFF3F4F7);
-  static const Color navBg = Colors.white;
+  static const Color navBg = Color(0xFFFFFEFB);
   static const Color navActive = primary;
   static const Color navInactive = Color(0xFF999999);
   static const Color textPrimary = onSurface;
   static const Color divider = Color(0xFFEEEEEE);
-  static const Color border = Color(0xFFDDDDDD);
+  static const Color border = Color(0xFFE5E1D9);
 
   // 别名
   static const Color textSecondary = onSurfaceVariant;
