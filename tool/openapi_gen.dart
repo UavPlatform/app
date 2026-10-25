@@ -64,7 +64,7 @@ const List<List<String>> endpoints = <List<String>>[
   <String>['get', '/dispatch/orders/{orderId}/materials'],
   <String>['post', '/dispatch/orders/{orderId}/materials/upload-ticket'],
   <String>['post', '/dispatch/orders/{orderId}/materials/{materialId}/confirm'],
-  <String>['get', '/task/init'],
+  <String>['get', '/config/map'],
   <String>['post', '/task/create'],
   <String>['get', '/task/list'],
   <String>['get', '/task/detail'],
