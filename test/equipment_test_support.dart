@@ -7,8 +7,6 @@ Map<String, dynamic> equipmentDrone({
   bool borrowed = false,
 }) => {
   'droneId': 'drone1',
-  'providerId': 1,
-  'providerName': '测试机场',
   'aircraftModelId': 1,
   'modelName': 'FC30',
   'serialNumber': 'TEST-SERIAL',

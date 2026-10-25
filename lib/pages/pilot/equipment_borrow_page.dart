@@ -49,7 +49,7 @@ class _EquipmentListState extends ConsumerState<_EquipmentList> {
         '${drone.modelName ?? ''} · ${drone.serialNumber}',
         style: Theme.of(context).textTheme.titleMedium,
       ),
-      Text('服务商：${drone.providerName}\n机场：${drone.airportName}'),
+      Text('机场：${drone.airportName ?? '未知'}'),
       Text('机场坐标：${drone.latitude}, ${drone.longitude}'),
     ],
   );
@@ -105,7 +105,7 @@ class _EquipmentListState extends ConsumerState<_EquipmentList> {
       if (children.isEmpty)
         Padding(
           padding: const EdgeInsets.all(32),
-          child: Text(widget.history ? '暂无本人借还记录' : '暂无可展示设备，请联系服务商完成登记'),
+          child: Text(widget.history ? '暂无本人借还记录' : '暂无可展示设备，请联系机场管理员完成登记'),
         ),
       ...children,
       Row(
