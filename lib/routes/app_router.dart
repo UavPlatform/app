@@ -7,10 +7,14 @@ import '../pages/splash/onboarding_page.dart';
 import '../pages/auth/login_page.dart';
 import '../pages/auth/register_page.dart';
 import '../pages/home/home_page.dart';
+import '../pages/waybill/waybill_page.dart';
+import '../pages/waybill/dispatch_order_pages.dart';
+import '../providers/waybill_draft_provider.dart';
 import '../pages/orders/order_list_page.dart';
 import '../pages/orders/trade_list_page.dart';
 import '../pages/orders/order_detail_page.dart';
 import '../pages/messages/message_list_page.dart';
+import '../pages/messages/dispatch_notification_page.dart';
 import '../pages/profile/my_reviews_page.dart';
 import '../pages/profile/profile_page.dart';
 import '../pages/profile/address_list_page.dart';
@@ -18,11 +22,15 @@ import '../pages/profile/address_edit_page.dart';
 import '../pages/home/map_picker_page.dart';
 import '../pages/pilot/task_hall_page.dart';
 import '../pages/pilot/my_jobs_page.dart';
+import '../pages/pilot/dispatch_pilot_pages.dart';
 import '../pages/pilot/pilot_profile_page.dart';
 import '../pages/pilot/drone_manage_page.dart';
+import '../pages/pilot/equipment_borrow_page.dart';
 import '../pages/pilot/pilot_info_page.dart';
 import '../pages/auth/rider_register_page.dart';
 import '../pages/chat/chat_detail_page.dart';
+import '../pages/chat/dispatch_chat_page.dart';
+import '../pages/pilot/dispatch_nearby_page.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/pilot_bottom_nav.dart';
 
@@ -45,6 +53,19 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authProvider);
       final isLoggedIn = authState.status == AuthStatus.authenticated;
       final location = state.matchedLocation;
+      if ((location.startsWith('/pilot/dispatch/') ||
+              location == '/pilot/equipment') &&
+          !ref.read(dispatchWaybillEnabledProvider)) {
+        return authState.user?.isPilot == true ? '/pilot/tasks' : '/home';
+      }
+      if (location == '/waybill/new' || location.startsWith('/dispatch/')) {
+        if (authState.user?.isPilot == true) return '/pilot/tasks';
+        if (!ref.read(dispatchWaybillEnabledProvider)) return '/home';
+      }
+      if (location == '/notifications' &&
+          !ref.read(dispatchWaybillEnabledProvider)) {
+        return authState.user?.isPilot == true ? '/pilot/tasks' : '/home';
+      }
       final isAuthPage =
           location == '/login' ||
           location == '/register' ||
@@ -72,15 +93,60 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         final isPilot = authState.user?.isPilot ?? false;
         if (!isPilot && location.startsWith('/pilot/')) return '/home';
         if (isPilot &&
-            const ['/home', '/orders', '/profile'].contains(location)) {
+            (const ['/home', '/profile'].contains(location) ||
+                location.startsWith('/orders'))) {
           return '/pilot/tasks';
         }
       }
+      // New dispatch has one canonical order home; retain old incoming links.
+      if (ref.read(dispatchWaybillEnabledProvider) &&
+          (location == '/orders' || location == '/dispatch/orders')) {
+        return '/home';
+      }
+
       // 一级「消息」Tab 已移除（REQ-APP-002 三 Tab）：旧深链统一落到订单列表。
       if (location == '/messages') return '/orders';
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/pilot/dispatch/nearby',
+        builder: (_, state) =>
+            DispatchNearbyPage(orderId: state.uri.queryParameters['orderId']),
+      ),
+      for (final pilot in [false, true])
+        GoRoute(
+          path: '${pilot ? '/pilot' : ''}/dispatch/orders/:orderId/chat',
+          builder: (_, state) => DispatchChatPage(
+            orderId: state.pathParameters['orderId']!,
+            version:
+                int.tryParse(state.uri.queryParameters['version'] ?? '') ?? 0,
+            pilot: pilot,
+          ),
+        ),
+      GoRoute(
+        path: '/pilot/equipment',
+        builder: (_, _) => const EquipmentBorrowPage(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (_, _) => const DispatchNotificationPage(),
+      ),
+      GoRoute(
+        path: '/pilot/dispatch/orders/:orderId',
+        builder: (_, state) =>
+            DispatchPilotOrderPage(orderId: state.pathParameters['orderId']!),
+      ),
+      GoRoute(
+        path: '/dispatch/orders',
+        builder: (_, _) => const DispatchOrderListPage(),
+      ),
+      GoRoute(
+        path: '/dispatch/orders/:orderId',
+        builder: (_, state) =>
+            DispatchOrderPage(orderId: state.pathParameters['orderId']!),
+      ),
+      GoRoute(path: '/waybill/new', builder: (_, _) => const WaybillPage()),
       GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
       GoRoute(
         path: '/onboarding',
@@ -150,11 +216,28 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/', redirect: (_, __) => '/home'),
           GoRoute(
             path: '/home',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: HomePage()),
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: Consumer(
+                builder: (_, ref, _) =>
+                    ref.watch(dispatchWaybillEnabledProvider)
+                    ? const DispatchOrderListPage(tabRoot: true)
+                    : const HomePage(),
+              ),
+            ),
           ),
           GoRoute(
             path: '/orders',
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: Consumer(
+                builder: (_, ref, _) =>
+                    ref.watch(dispatchWaybillEnabledProvider)
+                    ? const DispatchOrderListPage(tabRoot: true)
+                    : const OrderListPage(),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/orders/legacy',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: OrderListPage()),
           ),

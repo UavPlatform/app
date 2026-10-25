@@ -9,7 +9,13 @@ import '../../providers/auth_provider.dart';
 class ChatDetailPage extends ConsumerStatefulWidget {
   final int sessionId;
   final String? sessionName;
-  const ChatDetailPage({super.key, required this.sessionId, this.sessionName});
+  final bool readOnly;
+  const ChatDetailPage({
+    super.key,
+    required this.sessionId,
+    this.sessionName,
+    this.readOnly = false,
+  });
 
   @override
   ConsumerState<ChatDetailPage> createState() => _ChatDetailPageState();
@@ -85,6 +91,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
   }
 
   Future<void> _send() async {
+    if (widget.readOnly) return;
     final text = _textController.text.trim();
     if (text.isEmpty) return;
     _textController.clear();
@@ -273,33 +280,39 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
                   ),
           ),
           const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _textController,
-                    decoration: const InputDecoration(
-                      hintText: '输入消息...',
-                      border: InputBorder.none,
-                    ),
-                    onSubmitted: (_) => _send(),
-                  ),
-                ),
-                IconButton(
-                  icon: state.sending
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send, color: AppColors.primary),
-                  onPressed: state.sending ? null : _send,
-                ),
-              ],
+          if (widget.readOnly)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('订单已结单，聊天记录仅供查看'),
             ),
-          ),
+          if (!widget.readOnly)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _textController,
+                      decoration: const InputDecoration(
+                        hintText: '输入消息...',
+                        border: InputBorder.none,
+                      ),
+                      onSubmitted: (_) => _send(),
+                    ),
+                  ),
+                  IconButton(
+                    icon: state.sending
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send, color: AppColors.primary),
+                    onPressed: state.sending ? null : _send,
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

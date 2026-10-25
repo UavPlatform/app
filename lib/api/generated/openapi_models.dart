@@ -100,6 +100,1356 @@ class ApiAmapConfigVO {
   }
 }
 
+/// 契约 components.schemas.DispatchAssignmentDTO
+class ApiDispatchAssignmentDTO {
+  final int assignmentVersion;
+
+  const ApiDispatchAssignmentDTO({required this.assignmentVersion});
+
+  factory ApiDispatchAssignmentDTO.fromJson(Map<String, dynamic> json) => ApiDispatchAssignmentDTO(
+    assignmentVersion: ((json['assignmentVersion'] as num?)?.toInt() ?? 0),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    json['assignmentVersion'] = assignmentVersion;
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchBillVO
+class ApiDispatchBillVO {
+  final double? balanceAmount;
+  final double? finalAmount;
+  final ApiDispatchQuoteVO? quote;
+  final String? reviewComment;
+  final int? reviewScore;
+  final String? settledAt;
+  final String? settlementReference;
+
+  const ApiDispatchBillVO({this.balanceAmount, this.finalAmount, this.quote, this.reviewComment, this.reviewScore, this.settledAt, this.settlementReference});
+
+  factory ApiDispatchBillVO.fromJson(Map<String, dynamic> json) => ApiDispatchBillVO(
+    balanceAmount: (json['balanceAmount'] as num?)?.toDouble(),
+    finalAmount: (json['finalAmount'] as num?)?.toDouble(),
+    quote: (json['quote'] == null ? null : ApiDispatchQuoteVO.fromJson(json['quote'] as Map<String, dynamic>)),
+    reviewComment: json['reviewComment'] as String?,
+    reviewScore: (json['reviewScore'] as num?)?.toInt(),
+    settledAt: json['settledAt'] as String?,
+    settlementReference: json['settlementReference'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (balanceAmount != null) {
+      json['balanceAmount'] = balanceAmount;
+    }
+    if (finalAmount != null) {
+      json['finalAmount'] = finalAmount;
+    }
+    if (quote != null) {
+      json['quote'] = quote?.toJson();
+    }
+    if (reviewComment != null) {
+      json['reviewComment'] = reviewComment;
+    }
+    if (reviewScore != null) {
+      json['reviewScore'] = reviewScore;
+    }
+    if (settledAt != null) {
+      json['settledAt'] = settledAt;
+    }
+    if (settlementReference != null) {
+      json['settlementReference'] = settlementReference;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchChatVO
+class ApiDispatchChatVO {
+  final int? assignmentVersion;
+  final String? orderId;
+  final int? sessionId;
+
+  const ApiDispatchChatVO({this.assignmentVersion, this.orderId, this.sessionId});
+
+  factory ApiDispatchChatVO.fromJson(Map<String, dynamic> json) => ApiDispatchChatVO(
+    assignmentVersion: (json['assignmentVersion'] as num?)?.toInt(),
+    orderId: json['orderId'] as String?,
+    sessionId: (json['sessionId'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (assignmentVersion != null) {
+      json['assignmentVersion'] = assignmentVersion;
+    }
+    if (orderId != null) {
+      json['orderId'] = orderId;
+    }
+    if (sessionId != null) {
+      json['sessionId'] = sessionId;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchClaimDTO
+class ApiDispatchClaimDTO {
+  final int offerRevision;
+
+  const ApiDispatchClaimDTO({required this.offerRevision});
+
+  factory ApiDispatchClaimDTO.fromJson(Map<String, dynamic> json) => ApiDispatchClaimDTO(
+    offerRevision: ((json['offerRevision'] as num?)?.toInt() ?? 0),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    json['offerRevision'] = offerRevision;
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchConfigVO
+class ApiDispatchConfigVO {
+  final String? currency;
+  final double? depositAmount;
+  final bool? orderingEnabled;
+  final double? pilotServiceFee;
+
+  const ApiDispatchConfigVO({this.currency, this.depositAmount, this.orderingEnabled, this.pilotServiceFee});
+
+  factory ApiDispatchConfigVO.fromJson(Map<String, dynamic> json) => ApiDispatchConfigVO(
+    currency: json['currency'] as String?,
+    depositAmount: (json['depositAmount'] as num?)?.toDouble(),
+    orderingEnabled: json['orderingEnabled'] as bool?,
+    pilotServiceFee: (json['pilotServiceFee'] as num?)?.toDouble(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (currency != null) {
+      json['currency'] = currency;
+    }
+    if (depositAmount != null) {
+      json['depositAmount'] = depositAmount;
+    }
+    if (orderingEnabled != null) {
+      json['orderingEnabled'] = orderingEnabled;
+    }
+    if (pilotServiceFee != null) {
+      json['pilotServiceFee'] = pilotServiceFee;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchDeliveryDTO
+class ApiDispatchDeliveryDTO {
+  final int assignmentVersion;
+  final List<String> materialIds;
+
+  const ApiDispatchDeliveryDTO({required this.assignmentVersion, required this.materialIds});
+
+  factory ApiDispatchDeliveryDTO.fromJson(Map<String, dynamic> json) => ApiDispatchDeliveryDTO(
+    assignmentVersion: ((json['assignmentVersion'] as num?)?.toInt() ?? 0),
+    materialIds: ((json['materialIds'] as List<dynamic>?)?.map((dynamic e) => e as String).toList() ?? <String>[]),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    json['assignmentVersion'] = assignmentVersion;
+    json['materialIds'] = materialIds;
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchEvaluationVO
+class ApiDispatchEvaluationVO {
+  final String? airspace;
+  final double? altitudeDifferenceMeters;
+  final double? distanceMeters;
+  final double? flightMinutes;
+  final String? source;
+  final String? terrain;
+  final List<String>? warnings;
+
+  const ApiDispatchEvaluationVO({this.airspace, this.altitudeDifferenceMeters, this.distanceMeters, this.flightMinutes, this.source, this.terrain, this.warnings});
+
+  factory ApiDispatchEvaluationVO.fromJson(Map<String, dynamic> json) => ApiDispatchEvaluationVO(
+    airspace: json['airspace'] as String?,
+    altitudeDifferenceMeters: (json['altitudeDifferenceMeters'] as num?)?.toDouble(),
+    distanceMeters: (json['distanceMeters'] as num?)?.toDouble(),
+    flightMinutes: (json['flightMinutes'] as num?)?.toDouble(),
+    source: json['source'] as String?,
+    terrain: json['terrain'] as String?,
+    warnings: (json['warnings'] as List<dynamic>?)?.map((dynamic e) => e as String).toList(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (airspace != null) {
+      json['airspace'] = airspace;
+    }
+    if (altitudeDifferenceMeters != null) {
+      json['altitudeDifferenceMeters'] = altitudeDifferenceMeters;
+    }
+    if (distanceMeters != null) {
+      json['distanceMeters'] = distanceMeters;
+    }
+    if (flightMinutes != null) {
+      json['flightMinutes'] = flightMinutes;
+    }
+    if (source != null) {
+      json['source'] = source;
+    }
+    if (terrain != null) {
+      json['terrain'] = terrain;
+    }
+    if (warnings != null) {
+      json['warnings'] = warnings;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchHallVO
+class ApiDispatchHallVO {
+  final bool? hasNext;
+  final List<ApiDispatchOfferVO>? items;
+  final int? page;
+
+  const ApiDispatchHallVO({this.hasNext, this.items, this.page});
+
+  factory ApiDispatchHallVO.fromJson(Map<String, dynamic> json) => ApiDispatchHallVO(
+    hasNext: json['hasNext'] as bool?,
+    items: (json['items'] as List<dynamic>?)?.map((dynamic e) => ApiDispatchOfferVO.fromJson(e as Map<String, dynamic>)).toList(),
+    page: (json['page'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (hasNext != null) {
+      json['hasNext'] = hasNext;
+    }
+    if (items != null) {
+      json['items'] = items;
+    }
+    if (page != null) {
+      json['page'] = page;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchLiveCredentialsVO
+class ApiDispatchLiveCredentialsVO {
+  final String? connectionId;
+  final int? expiresAt;
+  final int? leaseExpiresAt;
+  final String? liveId;
+  final String? privateMapKey;
+  final String? publisherUserId;
+  final String? roomId;
+  final int? sdkAppId;
+  final String? userId;
+  final String? userSig;
+
+  const ApiDispatchLiveCredentialsVO({this.connectionId, this.expiresAt, this.leaseExpiresAt, this.liveId, this.privateMapKey, this.publisherUserId, this.roomId, this.sdkAppId, this.userId, this.userSig});
+
+  factory ApiDispatchLiveCredentialsVO.fromJson(Map<String, dynamic> json) => ApiDispatchLiveCredentialsVO(
+    connectionId: json['connectionId'] as String?,
+    expiresAt: (json['expiresAt'] as num?)?.toInt(),
+    leaseExpiresAt: (json['leaseExpiresAt'] as num?)?.toInt(),
+    liveId: json['liveId'] as String?,
+    privateMapKey: json['privateMapKey'] as String?,
+    publisherUserId: json['publisherUserId'] as String?,
+    roomId: json['roomId'] as String?,
+    sdkAppId: (json['sdkAppId'] as num?)?.toInt(),
+    userId: json['userId'] as String?,
+    userSig: json['userSig'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (connectionId != null) {
+      json['connectionId'] = connectionId;
+    }
+    if (expiresAt != null) {
+      json['expiresAt'] = expiresAt;
+    }
+    if (leaseExpiresAt != null) {
+      json['leaseExpiresAt'] = leaseExpiresAt;
+    }
+    if (liveId != null) {
+      json['liveId'] = liveId;
+    }
+    if (privateMapKey != null) {
+      json['privateMapKey'] = privateMapKey;
+    }
+    if (publisherUserId != null) {
+      json['publisherUserId'] = publisherUserId;
+    }
+    if (roomId != null) {
+      json['roomId'] = roomId;
+    }
+    if (sdkAppId != null) {
+      json['sdkAppId'] = sdkAppId;
+    }
+    if (userId != null) {
+      json['userId'] = userId;
+    }
+    if (userSig != null) {
+      json['userSig'] = userSig;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchLiveStatusVO
+class ApiDispatchLiveStatusVO {
+  final bool? configured;
+  final String? connectionId;
+  final int? leaseExpiresAt;
+  final String? liveId;
+  final String? state;
+
+  const ApiDispatchLiveStatusVO({this.configured, this.connectionId, this.leaseExpiresAt, this.liveId, this.state});
+
+  factory ApiDispatchLiveStatusVO.fromJson(Map<String, dynamic> json) => ApiDispatchLiveStatusVO(
+    configured: json['configured'] as bool?,
+    connectionId: json['connectionId'] as String?,
+    leaseExpiresAt: (json['leaseExpiresAt'] as num?)?.toInt(),
+    liveId: json['liveId'] as String?,
+    state: json['state'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (configured != null) {
+      json['configured'] = configured;
+    }
+    if (connectionId != null) {
+      json['connectionId'] = connectionId;
+    }
+    if (leaseExpiresAt != null) {
+      json['leaseExpiresAt'] = leaseExpiresAt;
+    }
+    if (liveId != null) {
+      json['liveId'] = liveId;
+    }
+    if (state != null) {
+      json['state'] = state;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchMaterialUploadDTO
+class ApiDispatchMaterialUploadDTO {
+  final String contentType;
+  final String fileName;
+  final String purpose;
+  final int sizeBytes;
+
+  const ApiDispatchMaterialUploadDTO({required this.contentType, required this.fileName, required this.purpose, required this.sizeBytes});
+
+  factory ApiDispatchMaterialUploadDTO.fromJson(Map<String, dynamic> json) => ApiDispatchMaterialUploadDTO(
+    contentType: ((json['contentType'] as String?) ?? ""),
+    fileName: ((json['fileName'] as String?) ?? ""),
+    purpose: ((json['purpose'] as String?) ?? ""),
+    sizeBytes: ((json['sizeBytes'] as num?)?.toInt() ?? 0),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    json['contentType'] = contentType;
+    json['fileName'] = fileName;
+    json['purpose'] = purpose;
+    json['sizeBytes'] = sizeBytes;
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchMaterialVO
+class ApiDispatchMaterialVO {
+  final String? confirmedAt;
+  final String? contentType;
+  final String? downloadUrl;
+  final String? fileName;
+  final String? materialId;
+  final String? purpose;
+  final int? sizeBytes;
+  final String? uploadStatus;
+  final int? uploaderId;
+
+  const ApiDispatchMaterialVO({this.confirmedAt, this.contentType, this.downloadUrl, this.fileName, this.materialId, this.purpose, this.sizeBytes, this.uploadStatus, this.uploaderId});
+
+  factory ApiDispatchMaterialVO.fromJson(Map<String, dynamic> json) => ApiDispatchMaterialVO(
+    confirmedAt: json['confirmedAt'] as String?,
+    contentType: json['contentType'] as String?,
+    downloadUrl: json['downloadUrl'] as String?,
+    fileName: json['fileName'] as String?,
+    materialId: json['materialId'] as String?,
+    purpose: json['purpose'] as String?,
+    sizeBytes: (json['sizeBytes'] as num?)?.toInt(),
+    uploadStatus: json['uploadStatus'] as String?,
+    uploaderId: (json['uploaderId'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (confirmedAt != null) {
+      json['confirmedAt'] = confirmedAt;
+    }
+    if (contentType != null) {
+      json['contentType'] = contentType;
+    }
+    if (downloadUrl != null) {
+      json['downloadUrl'] = downloadUrl;
+    }
+    if (fileName != null) {
+      json['fileName'] = fileName;
+    }
+    if (materialId != null) {
+      json['materialId'] = materialId;
+    }
+    if (purpose != null) {
+      json['purpose'] = purpose;
+    }
+    if (sizeBytes != null) {
+      json['sizeBytes'] = sizeBytes;
+    }
+    if (uploadStatus != null) {
+      json['uploadStatus'] = uploadStatus;
+    }
+    if (uploaderId != null) {
+      json['uploaderId'] = uploaderId;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchNearbyHallVO
+class ApiDispatchNearbyHallVO {
+  final bool? hasNext;
+  final List<ApiDispatchNearbyOfferVO>? items;
+  final int? locationExpiresAt;
+  final String? locationState;
+  final int? page;
+  final double? radiusKm;
+
+  const ApiDispatchNearbyHallVO({this.hasNext, this.items, this.locationExpiresAt, this.locationState, this.page, this.radiusKm});
+
+  factory ApiDispatchNearbyHallVO.fromJson(Map<String, dynamic> json) => ApiDispatchNearbyHallVO(
+    hasNext: json['hasNext'] as bool?,
+    items: (json['items'] as List<dynamic>?)?.map((dynamic e) => ApiDispatchNearbyOfferVO.fromJson(e as Map<String, dynamic>)).toList(),
+    locationExpiresAt: (json['locationExpiresAt'] as num?)?.toInt(),
+    locationState: json['locationState'] as String?,
+    page: (json['page'] as num?)?.toInt(),
+    radiusKm: (json['radiusKm'] as num?)?.toDouble(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (hasNext != null) {
+      json['hasNext'] = hasNext;
+    }
+    if (items != null) {
+      json['items'] = items;
+    }
+    if (locationExpiresAt != null) {
+      json['locationExpiresAt'] = locationExpiresAt;
+    }
+    if (locationState != null) {
+      json['locationState'] = locationState;
+    }
+    if (page != null) {
+      json['page'] = page;
+    }
+    if (radiusKm != null) {
+      json['radiusKm'] = radiusKm;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchNearbyOfferVO
+class ApiDispatchNearbyOfferVO {
+  final double? distanceMeters;
+  final ApiDispatchOfferVO? offer;
+
+  const ApiDispatchNearbyOfferVO({this.distanceMeters, this.offer});
+
+  factory ApiDispatchNearbyOfferVO.fromJson(Map<String, dynamic> json) => ApiDispatchNearbyOfferVO(
+    distanceMeters: (json['distanceMeters'] as num?)?.toDouble(),
+    offer: (json['offer'] == null ? null : ApiDispatchOfferVO.fromJson(json['offer'] as Map<String, dynamic>)),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (distanceMeters != null) {
+      json['distanceMeters'] = distanceMeters;
+    }
+    if (offer != null) {
+      json['offer'] = offer?.toJson();
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchNearbyStatusVO
+class ApiDispatchNearbyStatusVO {
+  final int? assignmentVersion;
+  final int? notifiedPilotCount;
+  final String? orderId;
+  final double? radiusKm;
+  final String? reminderAt;
+  final bool? reminderSent;
+  final String? state;
+  final bool? systemPushEnabled;
+  final String? waitingSince;
+
+  const ApiDispatchNearbyStatusVO({this.assignmentVersion, this.notifiedPilotCount, this.orderId, this.radiusKm, this.reminderAt, this.reminderSent, this.state, this.systemPushEnabled, this.waitingSince});
+
+  factory ApiDispatchNearbyStatusVO.fromJson(Map<String, dynamic> json) => ApiDispatchNearbyStatusVO(
+    assignmentVersion: (json['assignmentVersion'] as num?)?.toInt(),
+    notifiedPilotCount: (json['notifiedPilotCount'] as num?)?.toInt(),
+    orderId: json['orderId'] as String?,
+    radiusKm: (json['radiusKm'] as num?)?.toDouble(),
+    reminderAt: json['reminderAt'] as String?,
+    reminderSent: json['reminderSent'] as bool?,
+    state: json['state'] as String?,
+    systemPushEnabled: json['systemPushEnabled'] as bool?,
+    waitingSince: json['waitingSince'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (assignmentVersion != null) {
+      json['assignmentVersion'] = assignmentVersion;
+    }
+    if (notifiedPilotCount != null) {
+      json['notifiedPilotCount'] = notifiedPilotCount;
+    }
+    if (orderId != null) {
+      json['orderId'] = orderId;
+    }
+    if (radiusKm != null) {
+      json['radiusKm'] = radiusKm;
+    }
+    if (reminderAt != null) {
+      json['reminderAt'] = reminderAt;
+    }
+    if (reminderSent != null) {
+      json['reminderSent'] = reminderSent;
+    }
+    if (state != null) {
+      json['state'] = state;
+    }
+    if (systemPushEnabled != null) {
+      json['systemPushEnabled'] = systemPushEnabled;
+    }
+    if (waitingSince != null) {
+      json['waitingSince'] = waitingSince;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchNotificationPageVO
+class ApiDispatchNotificationPageVO {
+  final bool? hasNext;
+  final List<ApiDispatchNotificationVO>? items;
+  final int? page;
+  final int? unreadCount;
+
+  const ApiDispatchNotificationPageVO({this.hasNext, this.items, this.page, this.unreadCount});
+
+  factory ApiDispatchNotificationPageVO.fromJson(Map<String, dynamic> json) => ApiDispatchNotificationPageVO(
+    hasNext: json['hasNext'] as bool?,
+    items: (json['items'] as List<dynamic>?)?.map((dynamic e) => ApiDispatchNotificationVO.fromJson(e as Map<String, dynamic>)).toList(),
+    page: (json['page'] as num?)?.toInt(),
+    unreadCount: (json['unreadCount'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (hasNext != null) {
+      json['hasNext'] = hasNext;
+    }
+    if (items != null) {
+      json['items'] = items;
+    }
+    if (page != null) {
+      json['page'] = page;
+    }
+    if (unreadCount != null) {
+      json['unreadCount'] = unreadCount;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchNotificationVO
+class ApiDispatchNotificationVO {
+  final String? audience;
+  final String? body;
+  final String? createdAt;
+  final String? kind;
+  final String? notificationId;
+  final String? orderId;
+  final String? readAt;
+  final String? title;
+
+  const ApiDispatchNotificationVO({this.audience, this.body, this.createdAt, this.kind, this.notificationId, this.orderId, this.readAt, this.title});
+
+  factory ApiDispatchNotificationVO.fromJson(Map<String, dynamic> json) => ApiDispatchNotificationVO(
+    audience: json['audience'] as String?,
+    body: json['body'] as String?,
+    createdAt: json['createdAt'] as String?,
+    kind: json['kind'] as String?,
+    notificationId: json['notificationId'] as String?,
+    orderId: json['orderId'] as String?,
+    readAt: json['readAt'] as String?,
+    title: json['title'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (audience != null) {
+      json['audience'] = audience;
+    }
+    if (body != null) {
+      json['body'] = body;
+    }
+    if (createdAt != null) {
+      json['createdAt'] = createdAt;
+    }
+    if (kind != null) {
+      json['kind'] = kind;
+    }
+    if (notificationId != null) {
+      json['notificationId'] = notificationId;
+    }
+    if (orderId != null) {
+      json['orderId'] = orderId;
+    }
+    if (readAt != null) {
+      json['readAt'] = readAt;
+    }
+    if (title != null) {
+      json['title'] = title;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchOfferVO
+class ApiDispatchOfferVO {
+  final String? createdAt;
+  final Map<String, dynamic>? fields;
+  final int? offerRevision;
+  final String? orderId;
+  final double? pilotServiceFee;
+
+  const ApiDispatchOfferVO({this.createdAt, this.fields, this.offerRevision, this.orderId, this.pilotServiceFee});
+
+  factory ApiDispatchOfferVO.fromJson(Map<String, dynamic> json) => ApiDispatchOfferVO(
+    createdAt: json['createdAt'] as String?,
+    fields: json['fields'] as Map<String, dynamic>?,
+    offerRevision: (json['offerRevision'] as num?)?.toInt(),
+    orderId: json['orderId'] as String?,
+    pilotServiceFee: (json['pilotServiceFee'] as num?)?.toDouble(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (createdAt != null) {
+      json['createdAt'] = createdAt;
+    }
+    if (fields != null) {
+      json['fields'] = fields;
+    }
+    if (offerRevision != null) {
+      json['offerRevision'] = offerRevision;
+    }
+    if (orderId != null) {
+      json['orderId'] = orderId;
+    }
+    if (pilotServiceFee != null) {
+      json['pilotServiceFee'] = pilotServiceFee;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchOrderDTO
+class ApiDispatchOrderDTO {
+  final String assessmentId;
+  final bool declarationAccepted;
+  final String requestKey;
+  final ApiWaybillDraftDTO waybill;
+
+  const ApiDispatchOrderDTO({required this.assessmentId, required this.declarationAccepted, required this.requestKey, required this.waybill});
+
+  factory ApiDispatchOrderDTO.fromJson(Map<String, dynamic> json) => ApiDispatchOrderDTO(
+    assessmentId: ((json['assessmentId'] as String?) ?? ""),
+    declarationAccepted: ((json['declarationAccepted'] as bool?) ?? false),
+    requestKey: ((json['requestKey'] as String?) ?? ""),
+    waybill: ApiWaybillDraftDTO.fromJson(json['waybill'] as Map<String, dynamic>),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    json['assessmentId'] = assessmentId;
+    json['declarationAccepted'] = declarationAccepted;
+    json['requestKey'] = requestKey;
+    json['waybill'] = waybill.toJson();
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchOrderVO
+class ApiDispatchOrderVO {
+  final int? assignedPilotId;
+  final int? assignmentVersion;
+  final ApiDispatchBillVO? bill;
+  final String? createdAt;
+  final String? currency;
+  final String? deliveredAt;
+  final double? depositAmount;
+  final Map<String, dynamic>? fields;
+  final String? fundsStatus;
+  final String? orderId;
+  final String? paymentMode;
+  final String? paymentReference;
+  final double? pilotServiceFee;
+  final String? receiptAt;
+  final String? refundReference;
+  final String? stage;
+  final String? startedAt;
+  final String? updatedAt;
+
+  const ApiDispatchOrderVO({this.assignedPilotId, this.assignmentVersion, this.bill, this.createdAt, this.currency, this.deliveredAt, this.depositAmount, this.fields, this.fundsStatus, this.orderId, this.paymentMode, this.paymentReference, this.pilotServiceFee, this.receiptAt, this.refundReference, this.stage, this.startedAt, this.updatedAt});
+
+  factory ApiDispatchOrderVO.fromJson(Map<String, dynamic> json) => ApiDispatchOrderVO(
+    assignedPilotId: (json['assignedPilotId'] as num?)?.toInt(),
+    assignmentVersion: (json['assignmentVersion'] as num?)?.toInt(),
+    bill: (json['bill'] == null ? null : ApiDispatchBillVO.fromJson(json['bill'] as Map<String, dynamic>)),
+    createdAt: json['createdAt'] as String?,
+    currency: json['currency'] as String?,
+    deliveredAt: json['deliveredAt'] as String?,
+    depositAmount: (json['depositAmount'] as num?)?.toDouble(),
+    fields: json['fields'] as Map<String, dynamic>?,
+    fundsStatus: json['fundsStatus'] as String?,
+    orderId: json['orderId'] as String?,
+    paymentMode: json['paymentMode'] as String?,
+    paymentReference: json['paymentReference'] as String?,
+    pilotServiceFee: (json['pilotServiceFee'] as num?)?.toDouble(),
+    receiptAt: json['receiptAt'] as String?,
+    refundReference: json['refundReference'] as String?,
+    stage: json['stage'] as String?,
+    startedAt: json['startedAt'] as String?,
+    updatedAt: json['updatedAt'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (assignedPilotId != null) {
+      json['assignedPilotId'] = assignedPilotId;
+    }
+    if (assignmentVersion != null) {
+      json['assignmentVersion'] = assignmentVersion;
+    }
+    if (bill != null) {
+      json['bill'] = bill?.toJson();
+    }
+    if (createdAt != null) {
+      json['createdAt'] = createdAt;
+    }
+    if (currency != null) {
+      json['currency'] = currency;
+    }
+    if (deliveredAt != null) {
+      json['deliveredAt'] = deliveredAt;
+    }
+    if (depositAmount != null) {
+      json['depositAmount'] = depositAmount;
+    }
+    if (fields != null) {
+      json['fields'] = fields;
+    }
+    if (fundsStatus != null) {
+      json['fundsStatus'] = fundsStatus;
+    }
+    if (orderId != null) {
+      json['orderId'] = orderId;
+    }
+    if (paymentMode != null) {
+      json['paymentMode'] = paymentMode;
+    }
+    if (paymentReference != null) {
+      json['paymentReference'] = paymentReference;
+    }
+    if (pilotServiceFee != null) {
+      json['pilotServiceFee'] = pilotServiceFee;
+    }
+    if (receiptAt != null) {
+      json['receiptAt'] = receiptAt;
+    }
+    if (refundReference != null) {
+      json['refundReference'] = refundReference;
+    }
+    if (stage != null) {
+      json['stage'] = stage;
+    }
+    if (startedAt != null) {
+      json['startedAt'] = startedAt;
+    }
+    if (updatedAt != null) {
+      json['updatedAt'] = updatedAt;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchPositionDTO
+class ApiDispatchPositionDTO {
+  final double accuracyMeters;
+  final int capturedAt;
+  final String coordinateSystem;
+  final double latitude;
+  final double longitude;
+  final bool mocked;
+  final String sessionKey;
+
+  const ApiDispatchPositionDTO({required this.accuracyMeters, required this.capturedAt, required this.coordinateSystem, required this.latitude, required this.longitude, required this.mocked, required this.sessionKey});
+
+  factory ApiDispatchPositionDTO.fromJson(Map<String, dynamic> json) => ApiDispatchPositionDTO(
+    accuracyMeters: ((json['accuracyMeters'] as num?)?.toDouble() ?? 0),
+    capturedAt: ((json['capturedAt'] as num?)?.toInt() ?? 0),
+    coordinateSystem: ((json['coordinateSystem'] as String?) ?? ""),
+    latitude: ((json['latitude'] as num?)?.toDouble() ?? 0),
+    longitude: ((json['longitude'] as num?)?.toDouble() ?? 0),
+    mocked: ((json['mocked'] as bool?) ?? false),
+    sessionKey: ((json['sessionKey'] as String?) ?? ""),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    json['accuracyMeters'] = accuracyMeters;
+    json['capturedAt'] = capturedAt;
+    json['coordinateSystem'] = coordinateSystem;
+    json['latitude'] = latitude;
+    json['longitude'] = longitude;
+    json['mocked'] = mocked;
+    json['sessionKey'] = sessionKey;
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchPositionVO
+class ApiDispatchPositionVO {
+  final double? accuracyMeters;
+  final String? coordinateSystem;
+  final int? expiresAt;
+  final int? receivedAt;
+
+  const ApiDispatchPositionVO({this.accuracyMeters, this.coordinateSystem, this.expiresAt, this.receivedAt});
+
+  factory ApiDispatchPositionVO.fromJson(Map<String, dynamic> json) => ApiDispatchPositionVO(
+    accuracyMeters: (json['accuracyMeters'] as num?)?.toDouble(),
+    coordinateSystem: json['coordinateSystem'] as String?,
+    expiresAt: (json['expiresAt'] as num?)?.toInt(),
+    receivedAt: (json['receivedAt'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (accuracyMeters != null) {
+      json['accuracyMeters'] = accuracyMeters;
+    }
+    if (coordinateSystem != null) {
+      json['coordinateSystem'] = coordinateSystem;
+    }
+    if (expiresAt != null) {
+      json['expiresAt'] = expiresAt;
+    }
+    if (receivedAt != null) {
+      json['receivedAt'] = receivedAt;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchQuoteVO
+class ApiDispatchQuoteVO {
+  final double? depositAmount;
+  final String? distanceBasis;
+  final double? distanceCharge;
+  final double? distanceMeters;
+  final double? pilotServiceFee;
+  final double? pricePerMeter;
+  final String? rule;
+  final double? totalAmount;
+
+  const ApiDispatchQuoteVO({this.depositAmount, this.distanceBasis, this.distanceCharge, this.distanceMeters, this.pilotServiceFee, this.pricePerMeter, this.rule, this.totalAmount});
+
+  factory ApiDispatchQuoteVO.fromJson(Map<String, dynamic> json) => ApiDispatchQuoteVO(
+    depositAmount: (json['depositAmount'] as num?)?.toDouble(),
+    distanceBasis: json['distanceBasis'] as String?,
+    distanceCharge: (json['distanceCharge'] as num?)?.toDouble(),
+    distanceMeters: (json['distanceMeters'] as num?)?.toDouble(),
+    pilotServiceFee: (json['pilotServiceFee'] as num?)?.toDouble(),
+    pricePerMeter: (json['pricePerMeter'] as num?)?.toDouble(),
+    rule: json['rule'] as String?,
+    totalAmount: (json['totalAmount'] as num?)?.toDouble(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (depositAmount != null) {
+      json['depositAmount'] = depositAmount;
+    }
+    if (distanceBasis != null) {
+      json['distanceBasis'] = distanceBasis;
+    }
+    if (distanceCharge != null) {
+      json['distanceCharge'] = distanceCharge;
+    }
+    if (distanceMeters != null) {
+      json['distanceMeters'] = distanceMeters;
+    }
+    if (pilotServiceFee != null) {
+      json['pilotServiceFee'] = pilotServiceFee;
+    }
+    if (pricePerMeter != null) {
+      json['pricePerMeter'] = pricePerMeter;
+    }
+    if (rule != null) {
+      json['rule'] = rule;
+    }
+    if (totalAmount != null) {
+      json['totalAmount'] = totalAmount;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchReadinessVO
+class ApiDispatchReadinessVO {
+  final List<String>? blockers;
+  final bool? orderingEnabled;
+  final String? paymentMode;
+
+  const ApiDispatchReadinessVO({this.blockers, this.orderingEnabled, this.paymentMode});
+
+  factory ApiDispatchReadinessVO.fromJson(Map<String, dynamic> json) => ApiDispatchReadinessVO(
+    blockers: (json['blockers'] as List<dynamic>?)?.map((dynamic e) => e as String).toList(),
+    orderingEnabled: json['orderingEnabled'] as bool?,
+    paymentMode: json['paymentMode'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (blockers != null) {
+      json['blockers'] = blockers;
+    }
+    if (orderingEnabled != null) {
+      json['orderingEnabled'] = orderingEnabled;
+    }
+    if (paymentMode != null) {
+      json['paymentMode'] = paymentMode;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchReceiptDTO
+class ApiDispatchReceiptDTO {
+  final List<String> materialIds;
+
+  const ApiDispatchReceiptDTO({required this.materialIds});
+
+  factory ApiDispatchReceiptDTO.fromJson(Map<String, dynamic> json) => ApiDispatchReceiptDTO(
+    materialIds: ((json['materialIds'] as List<dynamic>?)?.map((dynamic e) => e as String).toList() ?? <String>[]),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    json['materialIds'] = materialIds;
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchReviewDTO
+class ApiDispatchReviewDTO {
+  final String? comment;
+  final int score;
+
+  const ApiDispatchReviewDTO({this.comment, required this.score});
+
+  factory ApiDispatchReviewDTO.fromJson(Map<String, dynamic> json) => ApiDispatchReviewDTO(
+    comment: json['comment'] as String?,
+    score: ((json['score'] as num?)?.toInt() ?? 0),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (comment != null) {
+      json['comment'] = comment;
+    }
+    json['score'] = score;
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchUploadTicketVO
+class ApiDispatchUploadTicketVO {
+  final String? contentType;
+  final int? expireSeconds;
+  final String? materialId;
+  final String? method;
+  final int? sizeBytes;
+  final String? uploadUrl;
+
+  const ApiDispatchUploadTicketVO({this.contentType, this.expireSeconds, this.materialId, this.method, this.sizeBytes, this.uploadUrl});
+
+  factory ApiDispatchUploadTicketVO.fromJson(Map<String, dynamic> json) => ApiDispatchUploadTicketVO(
+    contentType: json['contentType'] as String?,
+    expireSeconds: (json['expireSeconds'] as num?)?.toInt(),
+    materialId: json['materialId'] as String?,
+    method: json['method'] as String?,
+    sizeBytes: (json['sizeBytes'] as num?)?.toInt(),
+    uploadUrl: json['uploadUrl'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (contentType != null) {
+      json['contentType'] = contentType;
+    }
+    if (expireSeconds != null) {
+      json['expireSeconds'] = expireSeconds;
+    }
+    if (materialId != null) {
+      json['materialId'] = materialId;
+    }
+    if (method != null) {
+      json['method'] = method;
+    }
+    if (sizeBytes != null) {
+      json['sizeBytes'] = sizeBytes;
+    }
+    if (uploadUrl != null) {
+      json['uploadUrl'] = uploadUrl;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DroneBorrowDTO
+class ApiDroneBorrowDTO {
+  final String droneId;
+  final String requestKey;
+
+  const ApiDroneBorrowDTO({required this.droneId, required this.requestKey});
+
+  factory ApiDroneBorrowDTO.fromJson(Map<String, dynamic> json) => ApiDroneBorrowDTO(
+    droneId: ((json['droneId'] as String?) ?? ""),
+    requestKey: ((json['requestKey'] as String?) ?? ""),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    json['droneId'] = droneId;
+    json['requestKey'] = requestKey;
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DroneBorrowPageVO
+class ApiDroneBorrowPageVO {
+  final bool? hasNext;
+  final List<ApiDroneBorrowVO>? items;
+  final int? page;
+
+  const ApiDroneBorrowPageVO({this.hasNext, this.items, this.page});
+
+  factory ApiDroneBorrowPageVO.fromJson(Map<String, dynamic> json) => ApiDroneBorrowPageVO(
+    hasNext: json['hasNext'] as bool?,
+    items: (json['items'] as List<dynamic>?)?.map((dynamic e) => ApiDroneBorrowVO.fromJson(e as Map<String, dynamic>)).toList(),
+    page: (json['page'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (hasNext != null) {
+      json['hasNext'] = hasNext;
+    }
+    if (items != null) {
+      json['items'] = items;
+    }
+    if (page != null) {
+      json['page'] = page;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DroneBorrowVO
+class ApiDroneBorrowVO {
+  final String? borrowId;
+  final String? borrowedAt;
+  final ApiProviderDroneVO? drone;
+  final int? pilotId;
+  final String? returnedAt;
+
+  const ApiDroneBorrowVO({this.borrowId, this.borrowedAt, this.drone, this.pilotId, this.returnedAt});
+
+  factory ApiDroneBorrowVO.fromJson(Map<String, dynamic> json) => ApiDroneBorrowVO(
+    borrowId: json['borrowId'] as String?,
+    borrowedAt: json['borrowedAt'] as String?,
+    drone: (json['drone'] == null ? null : ApiProviderDroneVO.fromJson(json['drone'] as Map<String, dynamic>)),
+    pilotId: (json['pilotId'] as num?)?.toInt(),
+    returnedAt: json['returnedAt'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (borrowId != null) {
+      json['borrowId'] = borrowId;
+    }
+    if (borrowedAt != null) {
+      json['borrowedAt'] = borrowedAt;
+    }
+    if (drone != null) {
+      json['drone'] = drone?.toJson();
+    }
+    if (pilotId != null) {
+      json['pilotId'] = pilotId;
+    }
+    if (returnedAt != null) {
+      json['returnedAt'] = returnedAt;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.FlightConnectionVO
+class ApiFlightConnectionVO {
+  final int? aircraftModelId;
+  final int? assignmentVersion;
+  final String? connectionId;
+  final String? endReason;
+  final String? endedAt;
+  final double? maxPayloadKg;
+  final String? modelCode;
+  final String? modelName;
+  final String? openedAt;
+  final String? orderId;
+  final bool? overweight;
+  final String? serialNumber;
+
+  const ApiFlightConnectionVO({this.aircraftModelId, this.assignmentVersion, this.connectionId, this.endReason, this.endedAt, this.maxPayloadKg, this.modelCode, this.modelName, this.openedAt, this.orderId, this.overweight, this.serialNumber});
+
+  factory ApiFlightConnectionVO.fromJson(Map<String, dynamic> json) => ApiFlightConnectionVO(
+    aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
+    assignmentVersion: (json['assignmentVersion'] as num?)?.toInt(),
+    connectionId: json['connectionId'] as String?,
+    endReason: json['endReason'] as String?,
+    endedAt: json['endedAt'] as String?,
+    maxPayloadKg: (json['maxPayloadKg'] as num?)?.toDouble(),
+    modelCode: json['modelCode'] as String?,
+    modelName: json['modelName'] as String?,
+    openedAt: json['openedAt'] as String?,
+    orderId: json['orderId'] as String?,
+    overweight: json['overweight'] as bool?,
+    serialNumber: json['serialNumber'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (aircraftModelId != null) {
+      json['aircraftModelId'] = aircraftModelId;
+    }
+    if (assignmentVersion != null) {
+      json['assignmentVersion'] = assignmentVersion;
+    }
+    if (connectionId != null) {
+      json['connectionId'] = connectionId;
+    }
+    if (endReason != null) {
+      json['endReason'] = endReason;
+    }
+    if (endedAt != null) {
+      json['endedAt'] = endedAt;
+    }
+    if (maxPayloadKg != null) {
+      json['maxPayloadKg'] = maxPayloadKg;
+    }
+    if (modelCode != null) {
+      json['modelCode'] = modelCode;
+    }
+    if (modelName != null) {
+      json['modelName'] = modelName;
+    }
+    if (openedAt != null) {
+      json['openedAt'] = openedAt;
+    }
+    if (orderId != null) {
+      json['orderId'] = orderId;
+    }
+    if (overweight != null) {
+      json['overweight'] = overweight;
+    }
+    if (serialNumber != null) {
+      json['serialNumber'] = serialNumber;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.FlightSampleVO
+class ApiFlightSampleVO {
+  final double? altitude;
+  final int? battery;
+  final int? capturedAt;
+  final String? connectionId;
+  final bool? flying;
+  final double? latitude;
+  final double? longitude;
+  final String? receivedAt;
+  final int? sampleId;
+  final int? sequence;
+  final double? speed;
+
+  const ApiFlightSampleVO({this.altitude, this.battery, this.capturedAt, this.connectionId, this.flying, this.latitude, this.longitude, this.receivedAt, this.sampleId, this.sequence, this.speed});
+
+  factory ApiFlightSampleVO.fromJson(Map<String, dynamic> json) => ApiFlightSampleVO(
+    altitude: (json['altitude'] as num?)?.toDouble(),
+    battery: (json['battery'] as num?)?.toInt(),
+    capturedAt: (json['capturedAt'] as num?)?.toInt(),
+    connectionId: json['connectionId'] as String?,
+    flying: json['flying'] as bool?,
+    latitude: (json['latitude'] as num?)?.toDouble(),
+    longitude: (json['longitude'] as num?)?.toDouble(),
+    receivedAt: json['receivedAt'] as String?,
+    sampleId: (json['sampleId'] as num?)?.toInt(),
+    sequence: (json['sequence'] as num?)?.toInt(),
+    speed: (json['speed'] as num?)?.toDouble(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (altitude != null) {
+      json['altitude'] = altitude;
+    }
+    if (battery != null) {
+      json['battery'] = battery;
+    }
+    if (capturedAt != null) {
+      json['capturedAt'] = capturedAt;
+    }
+    if (connectionId != null) {
+      json['connectionId'] = connectionId;
+    }
+    if (flying != null) {
+      json['flying'] = flying;
+    }
+    if (latitude != null) {
+      json['latitude'] = latitude;
+    }
+    if (longitude != null) {
+      json['longitude'] = longitude;
+    }
+    if (receivedAt != null) {
+      json['receivedAt'] = receivedAt;
+    }
+    if (sampleId != null) {
+      json['sampleId'] = sampleId;
+    }
+    if (sequence != null) {
+      json['sequence'] = sequence;
+    }
+    if (speed != null) {
+      json['speed'] = speed;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.FlightTrackVO
+class ApiFlightTrackVO {
+  final bool? hasNext;
+  final List<ApiFlightSampleVO>? items;
+  final int? nextAfter;
+
+  const ApiFlightTrackVO({this.hasNext, this.items, this.nextAfter});
+
+  factory ApiFlightTrackVO.fromJson(Map<String, dynamic> json) => ApiFlightTrackVO(
+    hasNext: json['hasNext'] as bool?,
+    items: (json['items'] as List<dynamic>?)?.map((dynamic e) => ApiFlightSampleVO.fromJson(e as Map<String, dynamic>)).toList(),
+    nextAfter: (json['nextAfter'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (hasNext != null) {
+      json['hasNext'] = hasNext;
+    }
+    if (items != null) {
+      json['items'] = items;
+    }
+    if (nextAfter != null) {
+      json['nextAfter'] = nextAfter;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.FlightViewVO
+class ApiFlightViewVO {
+  final ApiFlightConnectionVO? connection;
+  final List<ApiFlightConnectionVO>? connectionHistory;
+  final ApiFlightSampleVO? lastPosition;
+  final ApiFlightSampleVO? latest;
+  final bool? stale;
+
+  const ApiFlightViewVO({this.connection, this.connectionHistory, this.lastPosition, this.latest, this.stale});
+
+  factory ApiFlightViewVO.fromJson(Map<String, dynamic> json) => ApiFlightViewVO(
+    connection: (json['connection'] == null ? null : ApiFlightConnectionVO.fromJson(json['connection'] as Map<String, dynamic>)),
+    connectionHistory: (json['connectionHistory'] as List<dynamic>?)?.map((dynamic e) => ApiFlightConnectionVO.fromJson(e as Map<String, dynamic>)).toList(),
+    lastPosition: (json['lastPosition'] == null ? null : ApiFlightSampleVO.fromJson(json['lastPosition'] as Map<String, dynamic>)),
+    latest: (json['latest'] == null ? null : ApiFlightSampleVO.fromJson(json['latest'] as Map<String, dynamic>)),
+    stale: json['stale'] as bool?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (connection != null) {
+      json['connection'] = connection?.toJson();
+    }
+    if (connectionHistory != null) {
+      json['connectionHistory'] = connectionHistory;
+    }
+    if (lastPosition != null) {
+      json['lastPosition'] = lastPosition?.toJson();
+    }
+    if (latest != null) {
+      json['latest'] = latest?.toJson();
+    }
+    if (stale != null) {
+      json['stale'] = stale;
+    }
+    return json;
+  }
+}
+
 /// 契约 components.schemas.MessageDTO
 class ApiMessageDTO {
   final String content;
@@ -306,6 +1656,114 @@ class ApiPayResultVO {
     }
     if (prepayId != null) {
       json['prepayId'] = prepayId;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.ProviderDronePageVO
+class ApiProviderDronePageVO {
+  final bool? hasNext;
+  final List<ApiProviderDroneVO>? items;
+  final int? page;
+
+  const ApiProviderDronePageVO({this.hasNext, this.items, this.page});
+
+  factory ApiProviderDronePageVO.fromJson(Map<String, dynamic> json) => ApiProviderDronePageVO(
+    hasNext: json['hasNext'] as bool?,
+    items: (json['items'] as List<dynamic>?)?.map((dynamic e) => ApiProviderDroneVO.fromJson(e as Map<String, dynamic>)).toList(),
+    page: (json['page'] as num?)?.toInt(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (hasNext != null) {
+      json['hasNext'] = hasNext;
+    }
+    if (items != null) {
+      json['items'] = items;
+    }
+    if (page != null) {
+      json['page'] = page;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.ProviderDroneVO
+class ApiProviderDroneVO {
+  final int? aircraftModelId;
+  final String? airportName;
+  final bool? borrowed;
+  final bool? borrowedByMe;
+  final String? currentBorrowId;
+  final String? droneId;
+  final bool? enabled;
+  final double? latitude;
+  final double? longitude;
+  final String? modelName;
+  final int? providerId;
+  final String? providerName;
+  final String? serialNumber;
+
+  const ApiProviderDroneVO({this.aircraftModelId, this.airportName, this.borrowed, this.borrowedByMe, this.currentBorrowId, this.droneId, this.enabled, this.latitude, this.longitude, this.modelName, this.providerId, this.providerName, this.serialNumber});
+
+  factory ApiProviderDroneVO.fromJson(Map<String, dynamic> json) => ApiProviderDroneVO(
+    aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
+    airportName: json['airportName'] as String?,
+    borrowed: json['borrowed'] as bool?,
+    borrowedByMe: json['borrowedByMe'] as bool?,
+    currentBorrowId: json['currentBorrowId'] as String?,
+    droneId: json['droneId'] as String?,
+    enabled: json['enabled'] as bool?,
+    latitude: (json['latitude'] as num?)?.toDouble(),
+    longitude: (json['longitude'] as num?)?.toDouble(),
+    modelName: json['modelName'] as String?,
+    providerId: (json['providerId'] as num?)?.toInt(),
+    providerName: json['providerName'] as String?,
+    serialNumber: json['serialNumber'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (aircraftModelId != null) {
+      json['aircraftModelId'] = aircraftModelId;
+    }
+    if (airportName != null) {
+      json['airportName'] = airportName;
+    }
+    if (borrowed != null) {
+      json['borrowed'] = borrowed;
+    }
+    if (borrowedByMe != null) {
+      json['borrowedByMe'] = borrowedByMe;
+    }
+    if (currentBorrowId != null) {
+      json['currentBorrowId'] = currentBorrowId;
+    }
+    if (droneId != null) {
+      json['droneId'] = droneId;
+    }
+    if (enabled != null) {
+      json['enabled'] = enabled;
+    }
+    if (latitude != null) {
+      json['latitude'] = latitude;
+    }
+    if (longitude != null) {
+      json['longitude'] = longitude;
+    }
+    if (modelName != null) {
+      json['modelName'] = modelName;
+    }
+    if (providerId != null) {
+      json['providerId'] = providerId;
+    }
+    if (providerName != null) {
+      json['providerName'] = providerName;
+    }
+    if (serialNumber != null) {
+      json['serialNumber'] = serialNumber;
     }
     return json;
   }
@@ -1531,6 +2989,112 @@ class ApiUserRegisterDto {
     }
     if (userName != null) {
       json['userName'] = userName;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.WaybillAssessmentVO
+class ApiWaybillAssessmentVO {
+  final String? assessmentId;
+  final ApiDispatchEvaluationVO? evaluation;
+  final String? expiresAt;
+  final bool? orderAllowed;
+  final ApiDispatchQuoteVO? quote;
+
+  const ApiWaybillAssessmentVO({this.assessmentId, this.evaluation, this.expiresAt, this.orderAllowed, this.quote});
+
+  factory ApiWaybillAssessmentVO.fromJson(Map<String, dynamic> json) => ApiWaybillAssessmentVO(
+    assessmentId: json['assessmentId'] as String?,
+    evaluation: (json['evaluation'] == null ? null : ApiDispatchEvaluationVO.fromJson(json['evaluation'] as Map<String, dynamic>)),
+    expiresAt: json['expiresAt'] as String?,
+    orderAllowed: json['orderAllowed'] as bool?,
+    quote: (json['quote'] == null ? null : ApiDispatchQuoteVO.fromJson(json['quote'] as Map<String, dynamic>)),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (assessmentId != null) {
+      json['assessmentId'] = assessmentId;
+    }
+    if (evaluation != null) {
+      json['evaluation'] = evaluation?.toJson();
+    }
+    if (expiresAt != null) {
+      json['expiresAt'] = expiresAt;
+    }
+    if (orderAllowed != null) {
+      json['orderAllowed'] = orderAllowed;
+    }
+    if (quote != null) {
+      json['quote'] = quote?.toJson();
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.WaybillDraftDTO
+class ApiWaybillDraftDTO {
+  final int? expectedRevision;
+  final Map<String, dynamic> fields;
+  final int schemaVersion;
+  final int step;
+
+  const ApiWaybillDraftDTO({this.expectedRevision, required this.fields, required this.schemaVersion, required this.step});
+
+  factory ApiWaybillDraftDTO.fromJson(Map<String, dynamic> json) => ApiWaybillDraftDTO(
+    expectedRevision: (json['expectedRevision'] as num?)?.toInt(),
+    fields: json['fields'] as Map<String, dynamic>,
+    schemaVersion: ((json['schemaVersion'] as num?)?.toInt() ?? 0),
+    step: ((json['step'] as num?)?.toInt() ?? 0),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (expectedRevision != null) {
+      json['expectedRevision'] = expectedRevision;
+    }
+    json['fields'] = fields;
+    json['schemaVersion'] = schemaVersion;
+    json['step'] = step;
+    return json;
+  }
+}
+
+/// 契约 components.schemas.WaybillDraftVO
+class ApiWaybillDraftVO {
+  final Map<String, dynamic>? fields;
+  final int? revision;
+  final int? schemaVersion;
+  final int? step;
+  final String? updatedAt;
+
+  const ApiWaybillDraftVO({this.fields, this.revision, this.schemaVersion, this.step, this.updatedAt});
+
+  factory ApiWaybillDraftVO.fromJson(Map<String, dynamic> json) => ApiWaybillDraftVO(
+    fields: json['fields'] as Map<String, dynamic>?,
+    revision: (json['revision'] as num?)?.toInt(),
+    schemaVersion: (json['schemaVersion'] as num?)?.toInt(),
+    step: (json['step'] as num?)?.toInt(),
+    updatedAt: json['updatedAt'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (fields != null) {
+      json['fields'] = fields;
+    }
+    if (revision != null) {
+      json['revision'] = revision;
+    }
+    if (schemaVersion != null) {
+      json['schemaVersion'] = schemaVersion;
+    }
+    if (step != null) {
+      json['step'] = step;
+    }
+    if (updatedAt != null) {
+      json['updatedAt'] = updatedAt;
     }
     return json;
   }
