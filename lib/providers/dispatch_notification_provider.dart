@@ -11,7 +11,7 @@ final dispatchNotificationApiProvider = Provider(
 );
 final dispatchUnreadProvider = FutureProvider.autoDispose<int>((ref) async {
   final scope = ref.watch(waybillDraftScopeProvider);
-  if (scope == null || !ref.watch(dispatchWaybillEnabledProvider)) return 0;
+  if (scope == null) return 0;
   return dispatchSnapshot(
     ref,
     () => ref.watch(dispatchNotificationApiProvider).unread(),

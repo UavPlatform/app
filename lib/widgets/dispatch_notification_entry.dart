@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/dispatch_notification_provider.dart';
-import '../providers/waybill_draft_provider.dart';
 
 // REQ-ALL-XC-005: both entry points consume one recipient-scoped unread source.
 class DispatchNotificationEntry extends ConsumerWidget {
@@ -10,9 +9,6 @@ class DispatchNotificationEntry extends ConsumerWidget {
   final bool menu;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!ref.watch(dispatchWaybillEnabledProvider)) {
-      return const SizedBox.shrink();
-    }
     final unread = ref.watch(dispatchUnreadProvider);
     final count = unread.asData?.value;
     final icon = Badge(

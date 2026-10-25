@@ -2,8 +2,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uav_pilot_app/models/amap_config.dart';
 import 'package:uav_pilot_app/providers/map_provider.dart';
-import '../pages/docs_alignment_test.dart' show overrides;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uav_pilot_app/api/http_client.dart';
+import 'package:uav_pilot_app/providers/auth_provider.dart';
+import 'package:uav_pilot_app/services/token_storage.dart';
 import '../test_support.dart';
+
+Future<List<Override>> overrides(StubAdapter adapter) async {
+  SharedPreferences.setMockInitialValues({
+    'jwt_token': makeJwt(userId: 7),
+    'server_url': 'http://stub.local:8081',
+  });
+  final prefs = await SharedPreferences.getInstance();
+  return [
+    sharedPreferencesProvider.overrideWithValue(prefs),
+    httpClientProvider.overrideWithValue(
+      HttpClient(TokenStorage(prefs), adapter: adapter),
+    ),
+  ];
+}
 
 void main() {
   test('Map configuration comes from the backend task/init endpoint', () async {

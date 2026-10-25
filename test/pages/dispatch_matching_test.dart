@@ -79,7 +79,6 @@ Future<FakeMatchingApi> setupMatching(
       overrides: [
         dispatchOrderApiProvider.overrideWithValue(api),
         if (events != null) ...[
-          dispatchWaybillEnabledProvider.overrideWithValue(true),
           dispatchEventSourceProvider.overrideWithValue(_Events(events)),
         ],
         waybillDraftScopeProvider.overrideWithValue('matching-user'),

@@ -4,9 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
-import '../../providers/trade_provider.dart';
 import '../../theme/app_colors.dart';
-import 'trade_summary.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -21,12 +19,7 @@ class ProfilePage extends ConsumerWidget {
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(tradeStatsProvider);
-            try {
-              await ref.read(tradeStatsProvider.future);
-            } catch (_) {}
-          },
+          onRefresh: () async {},
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
@@ -156,7 +149,6 @@ class ProfilePage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const TradeSummary(),
               const DispatchNotificationEntry(menu: true),
               const SizedBox(height: 24),
               Padding(

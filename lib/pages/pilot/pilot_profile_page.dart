@@ -1,11 +1,9 @@
-import '../../providers/waybill_draft_provider.dart';
 import '../../widgets/dispatch_notification_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/rider_provider.dart';
 
 class PilotProfilePage extends ConsumerWidget {
   const PilotProfilePage({super.key});
@@ -14,8 +12,6 @@ class PilotProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
     final name = user?.userName ?? '飞手';
-    final statsState = ref.watch(riderStatsProvider);
-    final stats = statsState.stats;
 
     return Scaffold(
       body: ListView(
@@ -52,18 +48,6 @@ class PilotProfilePage extends ConsumerWidget {
                   ),
                   child: const Text('飞手', style: TextStyle(fontSize: 12, color: Colors.white)),
                 ),
-                const SizedBox(height: 20),
-                // 数据统计
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildStat('今日接单', '${stats?.todayOrders ?? 0}'),
-                    _buildStatDivider(),
-                    _buildStat('总收益', '¥${(stats?.totalEarnings ?? 0).toStringAsFixed(2)}'),
-                    _buildStatDivider(),
-                    _buildStat('完成', '${stats?.totalCompleted ?? 0}'),
-                  ],
-                ),
               ],
             ),
           ),
@@ -91,10 +75,9 @@ class PilotProfilePage extends ConsumerWidget {
           const SizedBox(height: 8),
           _buildMenuItem(context, icon: Icons.badge_outlined, title: '飞手资料与驾驶资质',
               onTap: () => context.push('/pilot/info')),
-          if (ref.watch(dispatchWaybillEnabledProvider))
-            _buildMenuItem(context, icon: Icons.flight_takeoff, title: '设备借用与归还',
+          _buildMenuItem(context, icon: Icons.flight_takeoff, title: '设备借用与归还',
                 onTap: () => context.push('/pilot/equipment')),
-          _buildMenuItem(context, icon: Icons.flight, title: ref.watch(dispatchWaybillEnabledProvider) ? '旧版绑定设备' : '我的无人机',
+          _buildMenuItem(context, icon: Icons.flight, title: '旧版绑定设备',
               onTap: () => context.push('/pilot/drones')),
           _buildMenuItem(context, icon: Icons.info_outline, title: '关于飞翼通',
               onTap: () => showAboutDialog(
@@ -134,23 +117,7 @@ class PilotProfilePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildStat(String label, String value) {
-    return Column(
-      children: [
-        Text(value,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-      ],
-    );
-  }
 
-  Widget _buildStatDivider() {
-    return Container(
-      width: 1, height: 36,
-      color: Colors.white24,
-    );
-  }
 
   Widget _buildQuickGrid(BuildContext context) {
     // 演示版只保留有真实页面的入口；钱包/服务类型/数据中心暂无后端支撑，先不展示空按钮。

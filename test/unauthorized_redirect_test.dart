@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uav_pilot_app/api/http_client.dart';
 import 'package:uav_pilot_app/main.dart';
-import 'package:uav_pilot_app/pages/home/home_page.dart';
+import 'package:uav_pilot_app/pages/waybill/dispatch_order_pages.dart';
 import 'package:uav_pilot_app/providers/auth_provider.dart';
 import 'package:uav_pilot_app/providers/chat_provider.dart';
 import 'package:uav_pilot_app/services/chat_websocket_service.dart';
@@ -54,7 +54,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 已登录 → 首页；WS 已按登录身份建立
-    expect(find.byType(HomePage), findsOneWidget, reason: '已登录应落在首页');
+    expect(find.byType(DispatchOrderListPage), findsOneWidget, reason: '已登录应落在首页');
     expect(factory.calls, hasLength(1));
     expect(factory.calls.single.uri.path, '/ws/7');
 
@@ -104,7 +104,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byType(HomePage), findsOneWidget, reason: '已登录应落在首页');
+    expect(find.byType(DispatchOrderListPage), findsOneWidget, reason: '已登录应落在首页');
     expect(chatService.isConnected, true);
 
     // 服务端以 4001 顶掉旧连接（新登录顶号语义）
@@ -119,6 +119,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(factory.calls, hasLength(1), reason: '4001 后不自动重连（Q12=A）');
     // 用户仍保持登录态（仅聊天连接被顶）
-    expect(find.byType(HomePage), findsOneWidget, reason: '已登录应落在首页');
+    expect(find.byType(DispatchOrderListPage), findsOneWidget, reason: '已登录应落在首页');
   });
 }

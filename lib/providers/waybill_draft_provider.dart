@@ -8,11 +8,6 @@ import '../config/api_config.dart';
 import '../services/waybill_photo_store.dart';
 import 'auth_provider.dart';
 
-// Disabled until assessment, pricing and deposit contracts are connected.
-final dispatchWaybillEnabledProvider = Provider<bool>(
-  (ref) => const bool.fromEnvironment('DISPATCH_WAYBILL_ENABLED'),
-);
-
 final waybillPhotoStoreProvider = Provider((ref) => WaybillPhotoStore());
 
 final waybillDraftScopeProvider = Provider<String?>((ref) {

@@ -309,23 +309,6 @@ class DispatchOrderListPage extends ConsumerWidget {
       actions: [
         if (tabRoot) const DispatchNotificationEntry(),
         if (tabRoot)
-          TextButton(
-            style: TextButton.styleFrom(
-              backgroundColor: const Color(0xFFEFECE6),
-              foregroundColor: const Color(0xFF444444),
-              minimumSize: const Size(0, 30),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              textStyle: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            onPressed: () => context.push('/orders/legacy'),
-            child: const Text('旧版订单'),
-          ),
         IconButton(
           tooltip: '刷新运单',
           onPressed: () => ref.invalidate(dispatchOrdersProvider),

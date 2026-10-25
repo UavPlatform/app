@@ -5,10 +5,8 @@ import '../dispatch_order_test_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uav_pilot_app/api/http_client.dart';
-import 'package:uav_pilot_app/pages/home/home_page.dart';
 import 'package:uav_pilot_app/pages/waybill/waybill_page.dart';
 import 'package:uav_pilot_app/pages/waybill/dispatch_order_pages.dart';
-import 'package:uav_pilot_app/pages/orders/order_list_page.dart';
 import 'package:uav_pilot_app/pages/pilot/equipment_borrow_page.dart';
 import 'package:uav_pilot_app/routes/app_router.dart';
 
@@ -20,31 +18,11 @@ void main() {
     HttpClient.onDroneRequired = null;
   });
 
-  testWidgets('draft preview is disabled by default and retains legacy home', (
-    tester,
-  ) async {
-    final container = await pumpLoggedInApp(tester);
-    container.read(goRouterProvider).go('/waybill/new');
-    await tester.pumpAndSettle();
-    expect(find.byType(HomePage), findsOneWidget);
-    expect(find.byType(WaybillPage), findsNothing);
-    container.read(goRouterProvider).go('/dispatch/orders');
-    await tester.pumpAndSettle();
-    expect(
-      container.read(goRouterProvider).routeInformationProvider.value.uri.path,
-      '/home',
-    );
-    container.read(goRouterProvider).go('/pilot/equipment');
-    await tester.pumpAndSettle();
-    expect(find.byType(EquipmentBorrowPage), findsNothing);
-  });
-
   testWidgets(
     'order home keeps navigation and empty state creates an isolated form',
     (tester) async {
       final container = await pumpLoggedInApp(
         tester,
-        enableDispatch: true,
         handler: (options) async => jsonResponse(200, {
           'success': true,
           'data': options.uri.path == '/dispatch/orders' ? [] : 0,
@@ -106,9 +84,9 @@ void main() {
   );
 
   testWidgets(
-    'old order list links return to canonical home; legacy orders stay accessible',
+    'old order list links return to canonical home',
     (tester) async {
-      final container = await pumpLoggedInApp(tester, enableDispatch: true);
+      final container = await pumpLoggedInApp(tester);
       expect(find.text('创建第一单'), findsNothing);
       for (final path in ['/orders', '/dispatch/orders']) {
         container.read(goRouterProvider).go(path);
@@ -124,15 +102,7 @@ void main() {
         );
         expect(find.byType(BottomNavigationBar), findsOneWidget);
       }
-      await tester.tap(find.text('旧版订单'));
-      await tester.pumpAndSettle();
-      expect(find.byType(OrderListPage), findsOneWidget);
-      expect(
-        tester
-            .widget<BottomNavigationBar>(find.byType(BottomNavigationBar))
-            .currentIndex,
-        0,
-      );
+      expect(find.text('旧版订单'), findsNothing);
     },
   );
 
@@ -140,7 +110,6 @@ void main() {
     final data = orderJson(stage: 'WAITING_ACCEPTANCE', funds: 'PAID');
     await pumpLoggedInApp(
       tester,
-      enableDispatch: true,
       handler: (options) async {
         if (options.uri.path == '/dispatch/orders') {
           return jsonResponse(200, {
@@ -177,7 +146,6 @@ void main() {
   ) async {
     final container = await pumpLoggedInApp(
       tester,
-      enableDispatch: true,
       role: 1,
     );
     container.read(goRouterProvider).go('/waybill/new');
@@ -217,7 +185,6 @@ void main() {
         };
       await pumpLoggedInApp(
         tester,
-        enableDispatch: true,
         handler: (options) async => jsonResponse(200, {
           'success': true,
           'data': options.uri.path == '/dispatch/orders' ? [data] : 0,
