@@ -30,8 +30,8 @@ class _EquipmentBorrowActionState extends ConsumerState<EquipmentBorrowAction> {
         title: Text(returning ? '登记归还' : '登记借用'),
         content: Text(
           returning
-              ? '请确认已将这架无人机交还服务商，再提交归还登记。'
-              : '请与服务商现场核对机身号并确认交接，再登记借用。本次不收费、不收押金、不关联订单。',
+              ? '请确认已将这架无人机交还机场，再提交归还登记。'
+              : '请与机场现场核对机身号并确认交接，再登记借用。本次不收费、不收押金、不关联订单。',
         ),
         actions: [
           TextButton(

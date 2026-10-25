@@ -10,7 +10,6 @@ class EquipmentApi {
   void _drone(ApiProviderDroneVO d) {
     if ((d.droneId ?? '').isEmpty ||
         (d.serialNumber ?? '').isEmpty ||
-        d.providerId == null ||
         d.enabled == null ||
         d.borrowed == null ||
         d.borrowedByMe == null ||
