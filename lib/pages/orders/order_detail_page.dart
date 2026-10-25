@@ -774,7 +774,7 @@ class _WatchLiveEntry extends StatelessWidget {
 }
 
 /// 飞手端撮合区（TASK-APP-005 / ADR-0003）：
-///   招募中 → 选机型应征（绑定设备映射机型优先；未绑机/未映射 → 引导去绑机页）；
+///   招募中 → 选机型应征（绑定设备映射机型优先；未绑机/未映射 → 仅说明，不再引导绑机，ADR-0007）；
 ///   应征成功 → 只读展示系统报价 quotedAmount（客户端不传金额，无议价入口）；
 ///   待我确认 → 确认约定作业时间（回显 scheduledTime）后调用 confirm-order；
 ///   已确认 → 执飞引导（djifly，无系统深链时展示任务号 + 说明文案）；
@@ -975,30 +975,15 @@ class _PilotMatchSectionState extends ConsumerState<_PilotMatchSection> {
       ];
     }
 
-    // 未绑机 / 绑定设备未映射机型 → 引导去绑机页（服务端 AIRCRAFT_MODEL_REQUIRED 门禁）。
+    // 未绑机 / 绑定设备未映射机型：旧撮合应征仍受服务端 AIRCRAFT_MODEL_REQUIRED 门禁；
+    // ADR-0007 起 app 不再手动绑机（djifly 连机自动记录），所以只说明，不再引导去绑机页。
     if (_boundModelId == null) {
-      return [
+      return const [
         Text(
-          '尚未绑定已映射机型的无人机，无法应征吊运任务。',
-          style: const TextStyle(
+          '无人机由 djifly 连机时自动记录，无需在 app 绑定；此旧版吊运任务暂不支持应征。',
+          style: TextStyle(
             fontSize: 14,
             color: AppColors.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: () => context.push('/pilot/drones'),
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('去绑定设备', style: TextStyle(fontSize: 16)),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
           ),
         ),
       ];
