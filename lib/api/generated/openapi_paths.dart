@@ -1,14 +1,14 @@
 // GENERATED — DO NOT EDIT.
 // 契约路径表：调用点只允许通过本表拼 URL。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: c953c4d5b6b6adc327436a587f5cf2ba12d255ee7ca99a9c1ee40bfcb5f27a24)
+// 事实源：openapi/drone-backend.openapi.json (sha256: 5a4433d935536b0ab9687a41b9344a1ca9abd5a08781b04a096cdaee1140237e)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端端点路径与查询参数的契约映射：路径写错、必填查询参数漏传都会在编译期暴露。
 class ApiPaths {
   ApiPaths._();
 
-  static const String generatedFromSha256 = 'c953c4d5b6b6adc327436a587f5cf2ba12d255ee7ca99a9c1ee40bfcb5f27a24';
+  static const String generatedFromSha256 = '5a4433d935536b0ab9687a41b9344a1ca9abd5a08781b04a096cdaee1140237e';
 
   /// GET /dispatch/events
   static const String dispatchEvents = '/dispatch/events';
