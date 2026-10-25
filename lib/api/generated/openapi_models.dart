@@ -1,7 +1,7 @@
 // GENERATED — DO NOT EDIT.
 // 契约模型：后端 components.schemas 的 Dart 映射。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: 033d9e34048bc544e268f9a206e40831f9b71c55dc760fcfafa22ebc5fe5130c)
+// 事实源：openapi/drone-backend.openapi.json (sha256: c953c4d5b6b6adc327436a587f5cf2ba12d255ee7ca99a9c1ee40bfcb5f27a24)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端统一返回体 Result<T> 的契约映射。
@@ -310,6 +310,40 @@ class ApiDispatchEvaluationVO {
     }
     if (warnings != null) {
       json['warnings'] = warnings;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.DispatchExecutedDroneVO
+class ApiDispatchExecutedDroneVO {
+  final int? aircraftModelId;
+  final String? modelCode;
+  final String? modelName;
+  final String? serialNumber;
+
+  const ApiDispatchExecutedDroneVO({this.aircraftModelId, this.modelCode, this.modelName, this.serialNumber});
+
+  factory ApiDispatchExecutedDroneVO.fromJson(Map<String, dynamic> json) => ApiDispatchExecutedDroneVO(
+    aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
+    modelCode: json['modelCode'] as String?,
+    modelName: json['modelName'] as String?,
+    serialNumber: json['serialNumber'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (aircraftModelId != null) {
+      json['aircraftModelId'] = aircraftModelId;
+    }
+    if (modelCode != null) {
+      json['modelCode'] = modelCode;
+    }
+    if (modelName != null) {
+      json['modelName'] = modelName;
+    }
+    if (serialNumber != null) {
+      json['serialNumber'] = serialNumber;
     }
     return json;
   }
@@ -821,6 +855,7 @@ class ApiDispatchOrderVO {
   final String? currency;
   final String? deliveredAt;
   final double? depositAmount;
+  final ApiDispatchExecutedDroneVO? executedDrone;
   final Map<String, dynamic>? fields;
   final String? fundsStatus;
   final String? orderId;
@@ -833,7 +868,7 @@ class ApiDispatchOrderVO {
   final String? startedAt;
   final String? updatedAt;
 
-  const ApiDispatchOrderVO({this.assignedPilotId, this.assignmentVersion, this.bill, this.createdAt, this.currency, this.deliveredAt, this.depositAmount, this.fields, this.fundsStatus, this.orderId, this.paymentMode, this.paymentReference, this.pilotServiceFee, this.receiptAt, this.refundReference, this.stage, this.startedAt, this.updatedAt});
+  const ApiDispatchOrderVO({this.assignedPilotId, this.assignmentVersion, this.bill, this.createdAt, this.currency, this.deliveredAt, this.depositAmount, this.executedDrone, this.fields, this.fundsStatus, this.orderId, this.paymentMode, this.paymentReference, this.pilotServiceFee, this.receiptAt, this.refundReference, this.stage, this.startedAt, this.updatedAt});
 
   factory ApiDispatchOrderVO.fromJson(Map<String, dynamic> json) => ApiDispatchOrderVO(
     assignedPilotId: (json['assignedPilotId'] as num?)?.toInt(),
@@ -843,6 +878,7 @@ class ApiDispatchOrderVO {
     currency: json['currency'] as String?,
     deliveredAt: json['deliveredAt'] as String?,
     depositAmount: (json['depositAmount'] as num?)?.toDouble(),
+    executedDrone: (json['executedDrone'] == null ? null : ApiDispatchExecutedDroneVO.fromJson(json['executedDrone'] as Map<String, dynamic>)),
     fields: json['fields'] as Map<String, dynamic>?,
     fundsStatus: json['fundsStatus'] as String?,
     orderId: json['orderId'] as String?,
@@ -878,6 +914,9 @@ class ApiDispatchOrderVO {
     }
     if (depositAmount != null) {
       json['depositAmount'] = depositAmount;
+    }
+    if (executedDrone != null) {
+      json['executedDrone'] = executedDrone?.toJson();
     }
     if (fields != null) {
       json['fields'] = fields;
@@ -1322,12 +1361,13 @@ class ApiFlightSampleVO {
   final bool? flying;
   final double? latitude;
   final double? longitude;
+  final double? payloadKg;
   final String? receivedAt;
   final int? sampleId;
   final int? sequence;
   final double? speed;
 
-  const ApiFlightSampleVO({this.altitude, this.battery, this.capturedAt, this.connectionId, this.flying, this.latitude, this.longitude, this.receivedAt, this.sampleId, this.sequence, this.speed});
+  const ApiFlightSampleVO({this.altitude, this.battery, this.capturedAt, this.connectionId, this.flying, this.latitude, this.longitude, this.payloadKg, this.receivedAt, this.sampleId, this.sequence, this.speed});
 
   factory ApiFlightSampleVO.fromJson(Map<String, dynamic> json) => ApiFlightSampleVO(
     altitude: (json['altitude'] as num?)?.toDouble(),
@@ -1337,6 +1377,7 @@ class ApiFlightSampleVO {
     flying: json['flying'] as bool?,
     latitude: (json['latitude'] as num?)?.toDouble(),
     longitude: (json['longitude'] as num?)?.toDouble(),
+    payloadKg: (json['payloadKg'] as num?)?.toDouble(),
     receivedAt: json['receivedAt'] as String?,
     sampleId: (json['sampleId'] as num?)?.toInt(),
     sequence: (json['sequence'] as num?)?.toInt(),
@@ -1365,6 +1406,9 @@ class ApiFlightSampleVO {
     }
     if (longitude != null) {
       json['longitude'] = longitude;
+    }
+    if (payloadKg != null) {
+      json['payloadKg'] = payloadKg;
     }
     if (receivedAt != null) {
       json['receivedAt'] = receivedAt;
