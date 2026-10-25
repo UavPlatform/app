@@ -114,7 +114,6 @@ void main() {
       final account = StateProvider((ref) => 'a');
       final container = ProviderContainer(
         overrides: [
-          dispatchWaybillEnabledProvider.overrideWithValue(true),
           waybillDraftScopeProvider.overrideWith((ref) => ref.watch(account)),
           dispatchEventSourceProvider.overrideWithValue(source),
         ],
@@ -171,7 +170,6 @@ void main() {
       final source = _Source();
       final container = ProviderContainer(
         overrides: [
-          dispatchWaybillEnabledProvider.overrideWithValue(true),
           waybillDraftScopeProvider.overrideWithValue('a'),
           dispatchEventSourceProvider.overrideWithValue(source),
           dispatchOrderApiProvider.overrideWithValue(api),

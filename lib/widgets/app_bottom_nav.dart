@@ -1,26 +1,23 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/waybill_draft_provider.dart';
 import 'hud_surface.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-class AppBottomNav extends ConsumerWidget {
+class AppBottomNav extends StatelessWidget {
   final Widget child;
 
   const AppBottomNav({super.key, required this.child});
 
-  int _currentIndex(BuildContext context, bool dispatch) {
+  int _currentIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
     if (location.startsWith('/home')) return 0;
-    if (location.startsWith('/orders')) return dispatch ? 0 : 1;
+    if (location.startsWith('/orders')) return 0;
     if (location.startsWith('/profile')) return 2;
     return 0;
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dispatch = ref.watch(dispatchWaybillEnabledProvider);
-    final idx = _currentIndex(context, dispatch);
+  Widget build(BuildContext context) {
+    final idx = _currentIndex(context);
 
     return Scaffold(
       body: child,
@@ -31,24 +28,17 @@ class AppBottomNav extends ConsumerWidget {
             case 0:
               context.go('/home');
             case 1:
-              if (dispatch) {
-                context.push('/waybill/new');
-              } else {
-                context.go('/orders');
-              }
+              context.push('/waybill/new');
             case 2:
               context.go('/profile');
           }
         },
         type: BottomNavigationBarType.fixed,
-        backgroundColor:
-            dispatch && Theme.of(context).brightness == Brightness.light
+        backgroundColor: Theme.of(context).brightness == Brightness.light
             ? hudSand
             : Theme.of(context).bottomNavigationBarTheme.backgroundColor,
         unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-        selectedItemColor: dispatch
-            ? hudTeal
-            : Theme.of(context).colorScheme.primary,
+        selectedItemColor: hudTeal,
         selectedFontSize: 12,
         iconSize: 24,
         elevation: 0,
@@ -60,13 +50,9 @@ class AppBottomNav extends ConsumerWidget {
             label: '首页',
           ),
           BottomNavigationBarItem(
-            icon: dispatch
-                ? _createOrderIcon()
-                : const Icon(Icons.receipt_long_outlined),
-            activeIcon: dispatch
-                ? _createOrderIcon()
-                : _activeIcon(Icons.receipt_long),
-            label: dispatch ? '创建订单' : '订单',
+            icon: _createOrderIcon(),
+            activeIcon: _createOrderIcon(),
+            label: '创建订单',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

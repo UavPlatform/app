@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import '../services/attachment_file_source.dart';
-import 'attachment_api.dart' show AttachmentUploadRules;
+import '../services/attachment_upload_rules.dart';
 import 'dispatch_api.dart';
 import 'dispatch_requests.dart';
 import 'generated/openapi_models.dart';

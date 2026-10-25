@@ -114,7 +114,6 @@ void main() {
         ProviderScope(
           overrides: [
             waybillDraftScopeProvider.overrideWithValue('user1'),
-            dispatchWaybillEnabledProvider.overrideWithValue(true),
             dispatchNotificationApiProvider.overrideWithValue(api),
           ],
           child: MaterialApp.router(routerConfig: router),

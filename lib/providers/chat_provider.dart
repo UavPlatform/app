@@ -9,7 +9,6 @@ import '../models/message_vo.dart';
 import '../models/task_chat_session_vo.dart';
 import '../services/chat_websocket_service.dart';
 import 'auth_provider.dart';
-import 'task_provider.dart';
 import 'waybill_draft_provider.dart';
 
 final chatApiProvider = Provider<ChatApi>(
@@ -495,30 +494,3 @@ final messageListProvider = StateNotifierProvider.autoDispose
 final chatResyncProvider = StreamProvider<void>(
   (ref) => ref.watch(chatWebSocketServiceProvider).resync,
 );
-
-/// 按订单聚合的未读（订单列表「按单红点」，替换 APP-001 的首项全局占位）：
-/// 会话 `taskNum` → 任务 `orderNum`，同一订单下多会话未读求和；
-/// 未绑定任务的会话不计入任何订单。
-final orderUnreadProvider = Provider<Map<String, int>>((ref) {
-  final sessions = ref.watch(sessionListProvider).sessions;
-  final tasks = ref.watch(taskListProvider).tasks;
-
-  final unreadByTask = <String, int>{};
-  for (final session in sessions) {
-    final taskNum = session.taskNum;
-    if (taskNum == null || taskNum.isEmpty || session.unreadCount <= 0) {
-      continue;
-    }
-    unreadByTask[taskNum] = (unreadByTask[taskNum] ?? 0) + session.unreadCount;
-  }
-  if (unreadByTask.isEmpty) return const <String, int>{};
-
-  final unreadByOrder = <String, int>{};
-  for (final task in tasks) {
-    final orderNum = task.orderNum;
-    final unread = unreadByTask[task.taskNum];
-    if (orderNum == null || orderNum.isEmpty || unread == null) continue;
-    unreadByOrder[orderNum] = (unreadByOrder[orderNum] ?? 0) + unread;
-  }
-  return unreadByOrder;
-});

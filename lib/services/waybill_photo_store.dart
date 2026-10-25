@@ -4,7 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
-import '../api/attachment_api.dart';
+import 'attachment_upload_rules.dart';
 import 'attachment_file_source.dart';
 
 // These are local draft photos, never verified delivery/receipt attachments.

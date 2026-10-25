@@ -53,18 +53,6 @@ void main() {
         ),
       );
       expect(nav.backgroundColor, isNot(Colors.white));
-      container.read(goRouterProvider).go('/home');
-      await tester.pumpAndSettle();
-      final footer = find.byKey(const ValueKey('home-publish-footer'));
-      final button = find.widgetWithText(ElevatedButton, '发布吊运需求');
-      final viewportWidth =
-          tester.view.physicalSize.width / tester.view.devicePixelRatio;
-      expect(tester.getSize(footer).width, viewportWidth);
-      expect(tester.getSize(button).width, viewportWidth - 32);
-      expect(tester.getTopLeft(footer).dx, 0);
-      final footerDecoration =
-          tester.widget<Container>(footer).decoration as BoxDecoration;
-      expect(footerDecoration.color, nav.backgroundColor);
       container.read(goRouterProvider).go('/profile');
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('切换白天模式'));

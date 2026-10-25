@@ -6,13 +6,8 @@ import '../pages/splash/splash_page.dart';
 import '../pages/splash/onboarding_page.dart';
 import '../pages/auth/login_page.dart';
 import '../pages/auth/register_page.dart';
-import '../pages/home/home_page.dart';
 import '../pages/waybill/waybill_page.dart';
 import '../pages/waybill/dispatch_order_pages.dart';
-import '../providers/waybill_draft_provider.dart';
-import '../pages/orders/order_list_page.dart';
-import '../pages/orders/trade_list_page.dart';
-import '../pages/orders/order_detail_page.dart';
 import '../pages/messages/message_list_page.dart';
 import '../pages/messages/dispatch_notification_page.dart';
 import '../pages/profile/my_reviews_page.dart';
@@ -20,8 +15,6 @@ import '../pages/profile/profile_page.dart';
 import '../pages/profile/address_list_page.dart';
 import '../pages/profile/address_edit_page.dart';
 import '../pages/home/map_picker_page.dart';
-import '../pages/pilot/task_hall_page.dart';
-import '../pages/pilot/my_jobs_page.dart';
 import '../pages/pilot/dispatch_pilot_pages.dart';
 import '../pages/pilot/pilot_profile_page.dart';
 import '../pages/pilot/drone_manage_page.dart';
@@ -53,18 +46,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authProvider);
       final isLoggedIn = authState.status == AuthStatus.authenticated;
       final location = state.matchedLocation;
-      if ((location.startsWith('/pilot/dispatch/') ||
-              location == '/pilot/equipment') &&
-          !ref.read(dispatchWaybillEnabledProvider)) {
-        return authState.user?.isPilot == true ? '/pilot/tasks' : '/home';
-      }
       if (location == '/waybill/new' || location.startsWith('/dispatch/')) {
         if (authState.user?.isPilot == true) return '/pilot/tasks';
-        if (!ref.read(dispatchWaybillEnabledProvider)) return '/home';
-      }
-      if (location == '/notifications' &&
-          !ref.read(dispatchWaybillEnabledProvider)) {
-        return authState.user?.isPilot == true ? '/pilot/tasks' : '/home';
       }
       final isAuthPage =
           location == '/login' ||
@@ -99,8 +82,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         }
       }
       // New dispatch has one canonical order home; retain old incoming links.
-      if (ref.read(dispatchWaybillEnabledProvider) &&
-          (location == '/orders' || location == '/dispatch/orders')) {
+      if (location == '/orders' || location == '/dispatch/orders') {
         return '/home';
       }
 
@@ -174,22 +156,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: '/order/:taskNum',
-        builder: (context, state) =>
-            OrderDetailPage(taskNum: state.pathParameters['taskNum']!),
-      ),
-      GoRoute(
         path: '/reviews',
         builder: (context, state) => const MyReviewsPage(),
       ),
       GoRoute(
         path: '/addresses',
         builder: (context, state) => const AddressListPage(),
-      ),
-      GoRoute(
-        path: '/trade/:kind',
-        builder: (context, state) =>
-            TradeListPage(kind: state.pathParameters['kind']!),
       ),
       GoRoute(
         path: '/pilot/info',
@@ -216,30 +188,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/', redirect: (_, __) => '/home'),
           GoRoute(
             path: '/home',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: Consumer(
-                builder: (_, ref, _) =>
-                    ref.watch(dispatchWaybillEnabledProvider)
-                    ? const DispatchOrderListPage(tabRoot: true)
-                    : const HomePage(),
-              ),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DispatchOrderListPage(tabRoot: true),
             ),
           ),
           GoRoute(
             path: '/orders',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: Consumer(
-                builder: (_, ref, _) =>
-                    ref.watch(dispatchWaybillEnabledProvider)
-                    ? const DispatchOrderListPage(tabRoot: true)
-                    : const OrderListPage(),
-              ),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DispatchOrderListPage(tabRoot: true),
             ),
-          ),
-          GoRoute(
-            path: '/orders/legacy',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: OrderListPage()),
           ),
           GoRoute(
             path: '/profile',
@@ -257,12 +214,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/pilot/tasks',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: TaskHallPage()),
+                const NoTransitionPage(child: DispatchPilotHallPage()),
           ),
           GoRoute(
             path: '/pilot/jobs',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: MyJobsPage()),
+                const NoTransitionPage(child: DispatchPilotJobsPage()),
           ),
           GoRoute(
             path: '/pilot/messages',

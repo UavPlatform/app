@@ -22,47 +22,11 @@ void main() {
       tester,
       handler: (options) async => jsonResponse(200, {
         'success': true,
-        'data': options.uri.path == '/order/list'
-            ? {
-                'orders': [
-                  {
-                    'orderNum': 'ORD-1',
-                    'taskName': '设备吊运',
-                    'totalAmount': 128.5,
-                    'orderStatus': 0,
-                  },
-                ],
-                'currentPage': 0,
-                'totalPages': 1,
-                'totalElements': 1,
-              }
-            : options.uri.path == '/task/list'
-            ? {
-                'tasks': [
-                  {
-                    'id': 1,
-                    'userId': 7,
-                    'taskNum': 'TASK-1',
-                    'taskName': '设备吊运',
-                    'taskType': 'TRANSPORT',
-                    'taskStatus': 'IDLE',
-                    'orderNum': 'ORD-1',
-                    'scheduledTime': '2026-10-03 16:30:00',
-                    'cargoCategory': 'EQUIPMENT',
-                    'cargoWeightKg': 120.0,
-                    'riderName': '张师傅',
-                    'actionHint': '请确认订单后支付',
-                  },
-                ],
-                'currentPage': 0,
-                'totalPages': 1,
-                'totalElements': 1,
-              }
-            : null,
+        'data': options.uri.path == '/dispatch/orders' ? [] : null,
       }),
     );
     expect(tester.takeException(), isNull);
-    for (final label in ['订单', '我的']) {
+    for (final label in ['我的', '首页']) {
       await tester.tap(
         find.descendant(
           of: find.byType(AppBottomNav),
@@ -73,12 +37,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      if (label == '订单') {
-        expect(find.text('2026-10-03 16:30:00'), findsOneWidget);
-        expect(find.text('设备 · 120.0 kg'), findsOneWidget);
-        expect(find.text('张师傅'), findsOneWidget);
-        expect(find.text('请确认订单后支付'), findsOneWidget);
-      }
       expect(
         tester.takeException(),
         isNull,

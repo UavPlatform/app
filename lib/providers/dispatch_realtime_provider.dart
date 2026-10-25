@@ -14,8 +14,7 @@ final dispatchEventSourceProvider = Provider<DispatchEventSource>(
 /// One connection shared by all active order providers in this account/server.
 final dispatchRealtimeProvider =
     StateNotifierProvider.autoDispose<DispatchRealtimeNotifier, int>((ref) {
-      final enabled = ref.watch(dispatchWaybillEnabledProvider);
-      final scope = enabled ? ref.watch(waybillDraftScopeProvider) : null;
+      final scope = ref.watch(waybillDraftScopeProvider);
       return DispatchRealtimeNotifier(
         scope == null ? null : ref.watch(dispatchEventSourceProvider),
       );
