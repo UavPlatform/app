@@ -76,30 +76,6 @@ class ApiAircraftModelVO {
   }
 }
 
-/// 契约 components.schemas.AmapConfigVO
-class ApiAmapConfigVO {
-  final String? key;
-  final String? securityKey;
-
-  const ApiAmapConfigVO({this.key, this.securityKey});
-
-  factory ApiAmapConfigVO.fromJson(Map<String, dynamic> json) => ApiAmapConfigVO(
-    key: json['key'] as String?,
-    securityKey: json['securityKey'] as String?,
-  );
-
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> json = <String, dynamic>{};
-    if (key != null) {
-      json['key'] = key;
-    }
-    if (securityKey != null) {
-      json['securityKey'] = securityKey;
-    }
-    return json;
-  }
-}
-
 /// 契约 components.schemas.DispatchAssignmentDTO
 class ApiDispatchAssignmentDTO {
   final int assignmentVersion;
@@ -1489,6 +1465,28 @@ class ApiFlightViewVO {
     }
     if (stale != null) {
       json['stale'] = stale;
+    }
+    return json;
+  }
+}
+
+/// 契约 components.schemas.MapConfigVO
+class ApiMapConfigVO {
+  final String key;
+  final dynamic serviceHost;
+
+  const ApiMapConfigVO({required this.key, this.serviceHost});
+
+  factory ApiMapConfigVO.fromJson(Map<String, dynamic> json) => ApiMapConfigVO(
+    key: ((json['key'] as String?) ?? ""),
+    serviceHost: json['serviceHost'],
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    json['key'] = key;
+    if (serviceHost != null) {
+      json['serviceHost'] = serviceHost;
     }
     return json;
   }

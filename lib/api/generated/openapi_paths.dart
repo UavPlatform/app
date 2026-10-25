@@ -173,8 +173,8 @@ class ApiPaths {
   static const String dispatchOrdersMaterialsConfirm = '/dispatch/orders/{orderId}/materials/{materialId}/confirm';
   static String dispatchOrdersMaterialsConfirmPath(String materialId, String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/materials/' + Uri.encodeComponent(materialId) + '/confirm';
 
-  /// GET /task/init
-  static const String taskInit = '/task/init';
+  /// GET /config/map
+  static const String configMap = '/config/map';
 
   /// POST /task/create
   static const String taskCreate = '/task/create';
