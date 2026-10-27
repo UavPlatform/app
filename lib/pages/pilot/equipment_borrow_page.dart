@@ -50,7 +50,6 @@ class _EquipmentListState extends ConsumerState<_EquipmentList> {
         style: Theme.of(context).textTheme.titleMedium,
       ),
       Text('机场：${drone.airportName ?? '未知'}'),
-      Text('机场坐标：${drone.latitude}, ${drone.longitude}'),
     ],
   );
   Widget _card(ApiProviderDroneVO drone, {ApiDroneBorrowVO? loan}) => Card(
