@@ -1,7 +1,7 @@
 // GENERATED — DO NOT EDIT.
 // 契约模型：后端 components.schemas 的 Dart 映射。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: fefef9267c01b64dcfc041bc556a3b4c4ce269de597cb561ef257cc3a892afa9)
+// 事实源：openapi/drone-backend.openapi.json (sha256: 48d3fd4aed7b0f22380d0134b8c2b6e290f33fa258881ec15d3a58634b3e51ec)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端统一返回体 Result<T> 的契约映射。
@@ -1735,29 +1735,27 @@ class ApiProviderDronePageVO {
 /// 契约 components.schemas.ProviderDroneVO
 class ApiProviderDroneVO {
   final int? aircraftModelId;
+  final int? airportId;
   final String? airportName;
   final bool? borrowed;
   final bool? borrowedByMe;
   final String? currentBorrowId;
   final String? droneId;
   final bool? enabled;
-  final double? latitude;
-  final double? longitude;
   final String? modelName;
   final String? serialNumber;
 
-  const ApiProviderDroneVO({this.aircraftModelId, this.airportName, this.borrowed, this.borrowedByMe, this.currentBorrowId, this.droneId, this.enabled, this.latitude, this.longitude, this.modelName, this.serialNumber});
+  const ApiProviderDroneVO({this.aircraftModelId, this.airportId, this.airportName, this.borrowed, this.borrowedByMe, this.currentBorrowId, this.droneId, this.enabled, this.modelName, this.serialNumber});
 
   factory ApiProviderDroneVO.fromJson(Map<String, dynamic> json) => ApiProviderDroneVO(
     aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
+    airportId: (json['airportId'] as num?)?.toInt(),
     airportName: json['airportName'] as String?,
     borrowed: json['borrowed'] as bool?,
     borrowedByMe: json['borrowedByMe'] as bool?,
     currentBorrowId: json['currentBorrowId'] as String?,
     droneId: json['droneId'] as String?,
     enabled: json['enabled'] as bool?,
-    latitude: (json['latitude'] as num?)?.toDouble(),
-    longitude: (json['longitude'] as num?)?.toDouble(),
     modelName: json['modelName'] as String?,
     serialNumber: json['serialNumber'] as String?,
   );
@@ -1766,6 +1764,9 @@ class ApiProviderDroneVO {
     final Map<String, dynamic> json = <String, dynamic>{};
     if (aircraftModelId != null) {
       json['aircraftModelId'] = aircraftModelId;
+    }
+    if (airportId != null) {
+      json['airportId'] = airportId;
     }
     if (airportName != null) {
       json['airportName'] = airportName;
@@ -1784,12 +1785,6 @@ class ApiProviderDroneVO {
     }
     if (enabled != null) {
       json['enabled'] = enabled;
-    }
-    if (latitude != null) {
-      json['latitude'] = latitude;
-    }
-    if (longitude != null) {
-      json['longitude'] = longitude;
     }
     if (modelName != null) {
       json['modelName'] = modelName;
