@@ -118,7 +118,7 @@ void main() {
       await tap(tester, '模拟支付定金');
       await tap(tester, '确认');
       expect(find.byType(DispatchWaitingPage), findsOneWidget);
-      expect(find.textContaining('订单已进入派单大厅'), findsOneWidget);
+      expect(find.text('正在为你寻找飞手'), findsOneWidget);
       await tap(tester, '取消运单');
       await tap(tester, '确认');
       expect(find.byType(DispatchCancelledPage), findsOneWidget);

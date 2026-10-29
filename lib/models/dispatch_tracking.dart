@@ -74,10 +74,12 @@ List<DispatchTrackingStep> dispatchTrackingSteps(DispatchOrder order) {
     DispatchTrackingStep('订单提交成功', time: data.createdAt),
   ];
   if (current == 0) {
-    result.add(const DispatchTrackingStep('待付定金', current: true));
+    result.add(
+      DispatchTrackingStep('待付定金', time: data.createdAt, current: true),
+    );
     return result;
   }
-  result.add(const DispatchTrackingStep('定金已模拟支付'));
+  result.add(DispatchTrackingStep('定金已模拟支付', time: data.depositPaidAt));
   const labels = [
     '等待飞手接单',
     '飞手已接单，准备中',
@@ -87,9 +89,9 @@ List<DispatchTrackingStep> dispatchTrackingSteps(DispatchOrder order) {
     '已确认收货，运单结单',
   ];
   final times = <String?>[
-    null,
-    null,
-    null,
+    data.waitingSince,
+    data.acceptedAt,
+    data.arrivedAt,
     data.startedAt,
     data.deliveredAt,
     data.receiptAt,

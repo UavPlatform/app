@@ -1,7 +1,7 @@
 // GENERATED — DO NOT EDIT.
 // 契约模型：后端 components.schemas 的 Dart 映射。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: 48d3fd4aed7b0f22380d0134b8c2b6e290f33fa258881ec15d3a58634b3e51ec)
+// 事实源：openapi/drone-backend.openapi.json (sha256: f8b3bf06c83b4d3a4a0cc8f4baf1639ced50463c1fcc0d2bb4a39c52d4bdf282)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端统一返回体 Result<T> 的契约映射。
@@ -824,6 +824,8 @@ class ApiDispatchOrderDTO {
 
 /// 契约 components.schemas.DispatchOrderVO
 class ApiDispatchOrderVO {
+  final String? acceptedAt;
+  final String? arrivedAt;
   final int? assignedPilotId;
   final int? assignmentVersion;
   final ApiDispatchBillVO? bill;
@@ -831,6 +833,7 @@ class ApiDispatchOrderVO {
   final String? currency;
   final String? deliveredAt;
   final double? depositAmount;
+  final String? depositPaidAt;
   final ApiDispatchExecutedDroneVO? executedDrone;
   final Map<String, dynamic>? fields;
   final String? fundsStatus;
@@ -843,10 +846,13 @@ class ApiDispatchOrderVO {
   final String? stage;
   final String? startedAt;
   final String? updatedAt;
+  final String? waitingSince;
 
-  const ApiDispatchOrderVO({this.assignedPilotId, this.assignmentVersion, this.bill, this.createdAt, this.currency, this.deliveredAt, this.depositAmount, this.executedDrone, this.fields, this.fundsStatus, this.orderId, this.paymentMode, this.paymentReference, this.pilotServiceFee, this.receiptAt, this.refundReference, this.stage, this.startedAt, this.updatedAt});
+  const ApiDispatchOrderVO({this.acceptedAt, this.arrivedAt, this.assignedPilotId, this.assignmentVersion, this.bill, this.createdAt, this.currency, this.deliveredAt, this.depositAmount, this.depositPaidAt, this.executedDrone, this.fields, this.fundsStatus, this.orderId, this.paymentMode, this.paymentReference, this.pilotServiceFee, this.receiptAt, this.refundReference, this.stage, this.startedAt, this.updatedAt, this.waitingSince});
 
   factory ApiDispatchOrderVO.fromJson(Map<String, dynamic> json) => ApiDispatchOrderVO(
+    acceptedAt: json['acceptedAt'] as String?,
+    arrivedAt: json['arrivedAt'] as String?,
     assignedPilotId: (json['assignedPilotId'] as num?)?.toInt(),
     assignmentVersion: (json['assignmentVersion'] as num?)?.toInt(),
     bill: (json['bill'] == null ? null : ApiDispatchBillVO.fromJson(json['bill'] as Map<String, dynamic>)),
@@ -854,6 +860,7 @@ class ApiDispatchOrderVO {
     currency: json['currency'] as String?,
     deliveredAt: json['deliveredAt'] as String?,
     depositAmount: (json['depositAmount'] as num?)?.toDouble(),
+    depositPaidAt: json['depositPaidAt'] as String?,
     executedDrone: (json['executedDrone'] == null ? null : ApiDispatchExecutedDroneVO.fromJson(json['executedDrone'] as Map<String, dynamic>)),
     fields: json['fields'] as Map<String, dynamic>?,
     fundsStatus: json['fundsStatus'] as String?,
@@ -866,10 +873,17 @@ class ApiDispatchOrderVO {
     stage: json['stage'] as String?,
     startedAt: json['startedAt'] as String?,
     updatedAt: json['updatedAt'] as String?,
+    waitingSince: json['waitingSince'] as String?,
   );
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> json = <String, dynamic>{};
+    if (acceptedAt != null) {
+      json['acceptedAt'] = acceptedAt;
+    }
+    if (arrivedAt != null) {
+      json['arrivedAt'] = arrivedAt;
+    }
     if (assignedPilotId != null) {
       json['assignedPilotId'] = assignedPilotId;
     }
@@ -890,6 +904,9 @@ class ApiDispatchOrderVO {
     }
     if (depositAmount != null) {
       json['depositAmount'] = depositAmount;
+    }
+    if (depositPaidAt != null) {
+      json['depositPaidAt'] = depositPaidAt;
     }
     if (executedDrone != null) {
       json['executedDrone'] = executedDrone?.toJson();
@@ -926,6 +943,9 @@ class ApiDispatchOrderVO {
     }
     if (updatedAt != null) {
       json['updatedAt'] = updatedAt;
+    }
+    if (waitingSince != null) {
+      json['waitingSince'] = waitingSince;
     }
     return json;
   }

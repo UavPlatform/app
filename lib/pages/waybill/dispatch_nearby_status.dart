@@ -22,14 +22,13 @@ class DispatchNearbyStatus extends ConsumerWidget {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('附近范围：起点周边 ${value.radiusKm} 公里'),
-                    Text('本轮已向 ${value.notifiedPilotCount} 位飞手生成站内派单通知'),
-                    const Text('站内通知不代表已读或手机系统推送。全部订单大厅仍可接单。'),
+                    Text('匹配范围 · 起点 ${value.radiusKm} 公里内'),
+                    Text('已通知 ${value.notifiedPilotCount} 位附近飞手（站内）'),
                     if (value.reminderSent == true)
-                      const Text('已提醒：暂未接单，范围保持不变。你可以继续等待或取消运单。')
+                      const Text('暂未接单，可继续等待或取消订单。')
                     else if (value.reminderAt != null)
                       Text(
-                        '仍无人接单时，将于 ${value.reminderAt!.replaceFirst('T', ' ')} 提醒；不自动扩大范围或取消。',
+                        '${value.reminderAt!.replaceFirst('T', ' ')} 提醒你查看进度，不自动取消或扩大范围。',
                       ),
                   ],
                 ),

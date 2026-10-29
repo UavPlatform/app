@@ -16,7 +16,7 @@ class AppTheme {
     );
     final border = dark ? const Color(0xFF35465B) : const Color(0xFFE5E1D9);
     final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(28),
     );
     return ThemeData(
       useMaterial3: true,
@@ -39,13 +39,13 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        elevation: 1,
+        elevation: 0,
         shadowColor: dark ? Colors.transparent : const Color(0x122E3F35),
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         color: dark ? const Color(0xFF1B2C40) : const Color(0xFFFFFEFB),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           side: BorderSide(color: border),
         ),
       ),

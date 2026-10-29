@@ -182,7 +182,9 @@ class _DispatchCheckoutCardState extends ConsumerState<DispatchCheckoutCard> {
               child: const Text('确认运单，前往模拟支付'),
             ),
             TextButton(
-              onPressed: _busy ? null : () => context.push('/dispatch/orders'),
+              // REQ-ALL-XC-004: this alias redirects to the existing home shell.
+              // Pushing it duplicates that shell above the checkout route.
+              onPressed: _busy ? null : () => context.go('/dispatch/orders'),
               child: const Text('查看我的派单运单'),
             ),
             if (previousOrder.isNotEmpty) ...[

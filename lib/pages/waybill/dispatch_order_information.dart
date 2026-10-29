@@ -18,7 +18,7 @@ class DispatchOrderInformationLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) => FlowDetailsLink(
     title: '运单资料与账单',
-    summary: '${shortReference(order.id)} · 联系人、场地、完整编号与支付记录',
+    summary: '联系人 · 场地 · 支付记录',
     builder: (_) =>
         DispatchOrderInformationPage(orderId: order.id, pilot: pilot),
   );

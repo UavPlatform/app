@@ -94,7 +94,7 @@ class _DispatchFulfillmentShellState
               ? '定金将全额模拟退回。取消业务订单不会自动停止实际飞行，请与飞手联系处置。'
               : action == '提交评价'
               ? '评价提交后不能修改。确认提交？'
-              : '请确认现场情况与所选凭证真实。提交后以服务端处理结果为准。',
+              : '请确认现场情况与所选凭证真实。',
         ),
         actions: [
           TextButton(
@@ -167,7 +167,7 @@ class _DispatchFulfillmentShellState
         : null;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.phase),
+        title: const Text('订单详情'),
         actions: [
           IconButton(
             tooltip: '刷新订单',
@@ -182,6 +182,10 @@ class _DispatchFulfillmentShellState
       body: FlowList(
         padding: const EdgeInsets.all(16),
         children: [
+          FlowHeader(
+            title: order.stageLabel,
+            subtitle: '运单 ${shortReference(order.id)}',
+          ),
           DispatchStageProgress(
             current: order.transporting
                 ? 4
@@ -189,26 +193,17 @@ class _DispatchFulfillmentShellState
                 ? 5
                 : 6,
           ),
-          FlowHeader(
-            title: order.stageLabel,
-            subtitle: order.transporting
-                ? '跟踪飞行进度，随时联系本单飞手。'
-                : order.confirming
-                ? '核对双方交付材料，确认本次收货。'
-                : '查看结算结果，记录本次服务体验。',
-          ),
           DispatchOrderInformationLink(order: order, pilot: widget.pilot),
-          const FlowNotice('支付与退款为模拟通道，无真实资金变动。', warning: true),
           DispatchPriceCard(quote: bill?.quote, bill: bill),
           DispatchContactActions(order: order, pilot: widget.pilot),
           if (order.transporting) ...[
-            const Text('运输状态由飞手现场确认。实际连机与飞行继续在 djifly 操作。'),
+            if (widget.pilot) const Text('请在飞行端完成连机与飞行操作。'),
             DispatchFlightPanel(
               key: ValueKey(order.id),
               orderId: order.id,
               destination: destination,
             ),
-            if (!widget.pilot) const Text('等待飞手上传送达凭证并确认送达。'),
+            if (!widget.pilot) const Text('送达后将通知你确认收货。'),
           ],
           if (order.confirming)
             Text(

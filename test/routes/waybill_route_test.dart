@@ -9,6 +9,8 @@ import 'package:uav_pilot_app/pages/waybill/waybill_page.dart';
 import 'package:uav_pilot_app/pages/waybill/dispatch_order_pages.dart';
 import 'package:uav_pilot_app/pages/pilot/equipment_borrow_page.dart';
 import 'package:uav_pilot_app/routes/app_router.dart';
+import 'package:uav_pilot_app/models/waybill_draft.dart';
+import '../models/waybill_draft_test.dart' show validCargo, validSite;
 
 import 'user_shell_route_test.dart' show pumpLoggedInApp;
 
@@ -17,6 +19,83 @@ void main() {
     HttpClient.onUnauthorized = null;
     HttpClient.onDroneRequired = null;
   });
+
+  testWidgets(
+    'blocked checkout returns to order home without stacking its shell',
+    (tester) async {
+      const blocker = '真实空域服务尚未接入，且模拟评估未启用；暂不能下单';
+      tester.view.physicalSize = const Size(412, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final container = await pumpLoggedInApp(
+        tester,
+        handler: (options) async => jsonResponse(200, {
+          'success': true,
+          'data': switch (options.uri.path) {
+            '/dispatch/orders' => [],
+            '/dispatch/config' => {
+              'currency': 'CNY',
+              'depositAmount': 100,
+              'pilotServiceFee': 100,
+              'orderingEnabled': false,
+            },
+            '/dispatch/readiness' => {
+              'orderingEnabled': false,
+              'paymentMode': 'SIMULATED',
+              'blockers': [blocker],
+            },
+            _ => 0,
+          },
+        }),
+      );
+      final router = container.read(goRouterProvider);
+      container
+          .read(waybillDraftProvider.notifier)
+          .restore(
+            WaybillDraft(
+              step: 4,
+              fields: {
+                ...validCargo(),
+                ...validSite('start'),
+                ...validSite('end'),
+                'timeMode': 'now',
+              },
+            ),
+          );
+      router.push('/waybill/new');
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('检查并评估运单'),
+        160,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('检查并评估运单'));
+      await tester.pumpAndSettle();
+      expect(find.text(blocker), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('查看我的派单运单'),
+        160,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('查看我的派单运单'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(router.routeInformationProvider.value.uri.path, '/home');
+      expect(find.byType(DispatchOrderListPage), findsOneWidget);
+      expect(router.canPop(), isFalse);
+
+      // Returning to the form and using system back must still work.
+      router.push('/waybill/new');
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(router.routeInformationProvider.value.uri.path, '/home');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'order home keeps navigation and empty state creates an isolated form',
@@ -83,28 +162,25 @@ void main() {
     },
   );
 
-  testWidgets(
-    'old order list links return to canonical home',
-    (tester) async {
-      final container = await pumpLoggedInApp(tester);
-      expect(find.text('创建第一单'), findsNothing);
-      for (final path in ['/orders', '/dispatch/orders']) {
-        container.read(goRouterProvider).go(path);
-        await tester.pumpAndSettle();
-        expect(
-          container
-              .read(goRouterProvider)
-              .routeInformationProvider
-              .value
-              .uri
-              .path,
-          '/home',
-        );
-        expect(find.byType(BottomNavigationBar), findsOneWidget);
-      }
-      expect(find.text('旧版订单'), findsNothing);
-    },
-  );
+  testWidgets('old order list links return to canonical home', (tester) async {
+    final container = await pumpLoggedInApp(tester);
+    expect(find.text('创建第一单'), findsNothing);
+    for (final path in ['/orders', '/dispatch/orders']) {
+      container.read(goRouterProvider).go(path);
+      await tester.pumpAndSettle();
+      expect(
+        container
+            .read(goRouterProvider)
+            .routeInformationProvider
+            .value
+            .uri
+            .path,
+        '/home',
+      );
+      expect(find.byType(BottomNavigationBar), findsOneWidget);
+    }
+    expect(find.text('旧版订单'), findsNothing);
+  });
 
   testWidgets('populated home opens the current order stage', (tester) async {
     final data = orderJson(stage: 'WAITING_ACCEPTANCE', funds: 'PAID');
@@ -144,10 +220,7 @@ void main() {
   testWidgets('pilot account cannot enter shipper waybill route', (
     tester,
   ) async {
-    final container = await pumpLoggedInApp(
-      tester,
-      role: 1,
-    );
+    final container = await pumpLoggedInApp(tester, role: 1);
     container.read(goRouterProvider).go('/waybill/new');
     await tester.pumpAndSettle();
     expect(

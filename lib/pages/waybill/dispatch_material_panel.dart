@@ -82,7 +82,7 @@ class _DispatchMaterialPanelState extends ConsumerState<DispatchMaterialPanel> {
         spacing: 12,
         children: [
           const Text('现场材料与交付凭证'),
-          const Text('仅显示服务端已核验的文件。请选择本次确认使用的凭证。'),
+          if (widget.onSelected != null) const Text('选择本次使用的凭证'),
           ref
               .watch(dispatchMaterialsProvider(widget.orderId))
               .when(

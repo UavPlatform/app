@@ -7,17 +7,16 @@ class DispatchStageProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Card(
+    return Semantics(
+      label: '订单进度，第 ${current + 1} 步，共 ${labels.length} 步，${labels[current]}',
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: 12,
           children: [
             Row(
               children: [
-                Icon(Icons.route_rounded, color: scheme.secondary),
-                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '订单进度',
@@ -30,49 +29,32 @@ class DispatchStageProgress extends StatelessWidget {
                 ),
               ],
             ),
-            LinearProgressIndicator(
-              value: (current + 1) / labels.length,
-              color: scheme.secondary,
-              backgroundColor: scheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(8),
-              minHeight: 6,
-            ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (var i = 0; i < labels.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12),
+            Row(
+              spacing: 5,
+              children: [
+                for (var i = 0; i < labels.length; i++)
+                  Expanded(
+                    child: Tooltip(
+                      message: '${i + 1} ${labels[i]}',
                       child: Semantics(
+                        label: labels[i],
                         selected: i == current,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
+                        child: AnimatedContainer(
+                          duration: MediaQuery.disableAnimationsOf(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 220),
+                          height: i == current ? 10 : 6,
                           decoration: BoxDecoration(
-                            color: i == current
-                                ? scheme.primaryContainer
-                                : null,
+                            color: i <= current
+                                ? scheme.primary
+                                : scheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${i + 1} ${labels[i]}',
-                            style: TextStyle(
-                              color: i <= current
-                                  ? scheme.primary
-                                  : scheme.onSurfaceVariant,
-                              fontWeight: i == current
-                                  ? FontWeight.w700
-                                  : FontWeight.normal,
-                            ),
                           ),
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ],
         ),
