@@ -1,18 +1,18 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tencent_rtc_sdk/trtc_cloud_video_view.dart';
+import '../../services/trtc_video_view.dart';
 import '../../api/dispatch_live_api.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/waybill_draft_provider.dart';
 import '../../services/live_player.dart';
+import '../../services/trtc_engine_factory.dart';
 
 final dispatchLiveApiProvider = Provider(
   (ref) => DispatchLiveApi(ref.watch(httpClientProvider)),
 );
 final dispatchLiveEngineFactoryProvider = Provider<TrtcEngine Function()>(
-  (ref) =>
-      () => TrtcEngineImpl(),
+  (ref) => createTrtcEngine,
 );
 
 class DispatchLivePanel extends ConsumerWidget {
@@ -193,7 +193,7 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
   }
 
   Widget _video(LivePlayerController player, {bool preview = false}) {
-    if (!widget.useRealVideoView) {
+    if (!widget.useRealVideoView || !useRealTrtcVideoView) {
       return const ColoredBox(
         color: Colors.black,
         child: Center(
@@ -201,7 +201,7 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
         ),
       );
     }
-    return TRTCCloudVideoView(
+    return TrtcRemoteVideoView(
       onViewCreated: (id) {
         if (preview) _previewId = id;
         if (_player == player) unawaited(player.attachView(id));
