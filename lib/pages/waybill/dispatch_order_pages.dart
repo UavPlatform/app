@@ -68,7 +68,7 @@ class DispatchDepositPage extends StatelessWidget {
     title: '待付定金',
     step: 0,
     content: [
-      const Text('订单已创建，尚未付款。模拟支付成功后才进入等待接单。'),
+      const Text('支付定金后，开始为你匹配飞手。'),
       DispatchOrderActions(order: order),
     ],
   );
@@ -83,8 +83,7 @@ class DispatchWaitingPage extends StatelessWidget {
     title: '等待接单',
     step: 1,
     content: [
-      const Icon(Icons.radar, size: 72),
-      const Text('订单已进入派单大厅，等待飞手接单。'),
+      const Text('正在为你寻找飞手'),
       DispatchNearbyStatus(order: order),
       DispatchOrderActions(order: order),
     ],
@@ -101,7 +100,7 @@ class DispatchPreparingPage extends StatelessWidget {
     step: 2,
     content: [
       Text('接单飞手账号：${order.data.assignedPilotId}'),
-      const Text('飞手已接单，正在准备前往起点。请保持现场联系人电话畅通。页面会自动查询最新进度。'),
+      const Text('飞手正在前往起点，请保持电话畅通。'),
       DispatchOrderActions(order: order),
     ],
   );
@@ -117,14 +116,14 @@ class DispatchArrivedPage extends StatelessWidget {
     step: 3,
     content: [
       Text('接单飞手账号：${order.data.assignedPilotId}'),
-      const Text('飞手已提交到场状态，请现场核对货物、包装、吊点和场地。到场状态为飞手本人确认。'),
+      const Text('飞手已确认到场，请核对货物、包装、吊点和场地。'),
       Text(
         '货物：${order.data.fields?['category']} · ${order.data.fields?['count']} 件',
       ),
       Text(
         '包装：${order.data.fields?['packaging']}\n吊点：${order.data.fields?['lifting']}',
       ),
-      const Text('现场核对后，由飞手确认开始运输；实际飞行操作在 djifly 完成。'),
+      const Text('核对完成后，由飞手开始运输。'),
       DispatchOrderActions(order: order),
     ],
   );
@@ -161,7 +160,7 @@ class _OrderScaffold extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
     appBar: AppBar(
-      title: Text(title),
+      title: const Text('订单详情'),
       actions: [
         IconButton(
           tooltip: '刷新订单',
@@ -173,25 +172,24 @@ class _OrderScaffold extends ConsumerWidget {
     body: FlowList(
       padding: const EdgeInsets.all(20),
       children: [
-        if (step != null) DispatchStageProgress(current: step!),
         FlowHeader(
           title: title,
-          subtitle: '运单 ${shortReference(order.id)} · 请按当前阶段继续操作',
+          subtitle: '运单 ${shortReference(order.id)}',
           icon: order.waiting
               ? Icons.radar_rounded
               : Icons.local_shipping_outlined,
         ),
+        if (step != null) DispatchStageProgress(current: step!),
         ...content,
         DispatchContactActions(order: order),
         DispatchOrderInformationLink(order: order),
         DispatchPriceCard(quote: order.data.bill?.quote, bill: order.data.bill),
-        const FlowNotice('定金使用模拟支付 · 不涉及真实收款', warning: true),
         if (!order.cancelled)
           DispatchMaterialPanel(orderId: order.id, purpose: 'CARGO'),
         const SizedBox(height: 20),
         OutlinedButton(
           onPressed: () => context.go('/dispatch/orders'),
-          child: const Text('返回派单运单列表'),
+          child: const Text('全部订单'),
         ),
       ],
     ),
@@ -276,9 +274,12 @@ class _DispatchOrderActionsState extends ConsumerState<DispatchOrderActions> {
           onPressed: _busy ? null : () => _act(true),
           child: const Text('模拟支付定金'),
         ),
-      OutlinedButton(
-        onPressed: _busy ? null : () => _act(false),
-        child: Text(_busy ? '处理中…' : '取消运单'),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(
+          onPressed: _busy ? null : () => _act(false),
+          child: Text(_busy ? '处理中…' : '取消运单'),
+        ),
       ),
     ],
   );
@@ -309,11 +310,11 @@ class DispatchOrderListPage extends ConsumerWidget {
       actions: [
         if (tabRoot) const DispatchNotificationEntry(),
         if (tabRoot)
-        IconButton(
-          tooltip: '刷新运单',
-          onPressed: () => ref.invalidate(dispatchOrdersProvider),
-          icon: const Icon(Icons.refresh),
-        ),
+          IconButton(
+            tooltip: '刷新运单',
+            onPressed: () => ref.invalidate(dispatchOrdersProvider),
+            icon: const Icon(Icons.refresh),
+          ),
       ],
     ),
     body: ref
@@ -341,7 +342,7 @@ class DispatchOrderListPage extends ConsumerWidget {
                     ),
                     const FlowHeader(
                       title: '我的吊运',
-                      subtitle: '订单进度、支付与交付，都在这里。创建新单请点击底部入口。',
+                      subtitle: '最近订单',
                       icon: Icons.inventory_2_outlined,
                     ),
                     for (final order in orders)
@@ -382,7 +383,7 @@ class _DispatchOrdersEmpty extends StatelessWidget {
           Text('暂无派单运单', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 10),
           Text(
-            '创建第一张吊运订单，\n之后可以在首页查看进度、联系飞手和确认收货。',
+            '发起吊运，进度随时可查',
             textAlign: TextAlign.center,
             style: TextStyle(
               height: 1.6,

@@ -112,7 +112,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('地图服务暂不可用'), findsOneWidget);
-      expect(find.text('1 单缺少有效起点坐标，仍可在下方查看'), findsOneWidget);
+      expect(find.text('1 单暂无地图位置'), findsOneWidget);
       expect(
         tester.widget<MissionMap>(find.byType(MissionMap)).orderMarkers,
         isEmpty,

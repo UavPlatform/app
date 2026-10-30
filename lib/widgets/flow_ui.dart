@@ -40,63 +40,61 @@ class FlowHeader extends StatelessWidget {
   final IconData icon;
   final Widget? trailing;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF244A45), Color(0xFF168778)],
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(28),
       ),
-      borderRadius: BorderRadius.circular(24),
-      boxShadow: [
-        BoxShadow(
-          color: const Color(0xFF168778).withValues(alpha: .14),
-          blurRadius: 18,
-          offset: const Offset(0, 6),
-        ),
-      ],
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .16),
-            borderRadius: BorderRadius.circular(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: scheme.primary,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(icon, color: scheme.onPrimary, size: 28),
           ),
-          child: Icon(icon, color: Colors.white, size: 26),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 23,
-                  fontWeight: FontWeight.w700,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: scheme.onPrimaryContainer,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: Color(0xFFF1EEDB),
-                  fontSize: 13,
-                  height: 1.5,
-                ),
-              ),
-              if (trailing != null) ...[const SizedBox(height: 12), trailing!],
-            ],
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: scheme.onPrimaryContainer,
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+                if (trailing != null) ...[
+                  const SizedBox(height: 12),
+                  trailing!,
+                ],
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class FlowNotice extends StatelessWidget {

@@ -26,33 +26,25 @@ class DispatchBoardingCard extends StatelessWidget {
         fields[key]?.toString().trim().isNotEmpty == true
         ? fields[key].toString()
         : fallback;
-    return Container(
+    return AnimatedContainer(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
-        color: dark ? const Color(0xFF23312F) : Colors.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: dark ? scheme.outlineVariant : hudBorder),
-        boxShadow: [
-          BoxShadow(
-            color: hudInk.withValues(alpha: selected ? .07 : .025),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: selected ? scheme.secondaryContainer : scheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: selected ? scheme.secondary : scheme.outlineVariant,
+          width: selected ? 1.5 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            height: 3,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [hudTeal, hudAmber]),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(4)),
-            ),
-          ),
           InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(17),
+            borderRadius: BorderRadius.circular(24),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
               child: Column(

@@ -218,11 +218,11 @@ class _DispatchMapHomeState extends State<DispatchMapHome> {
               builder: (context, controller) {
                 _scroll = controller;
                 return Material(
-                  color: dark ? const Color(0xFF192B2A) : hudSand,
-                  elevation: 10,
+                  color: scheme.surfaceContainerLow,
+                  elevation: 3,
                   shadowColor: scheme.secondary.withValues(alpha: .16),
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
+                    top: Radius.circular(32),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: ListView(
@@ -300,7 +300,7 @@ class _DispatchMapHomeState extends State<DispatchMapHome> {
                         const SizedBox(height: 8),
                         const Center(
                           child: Text(
-                            '创建第一单后，在地图上查看起点和进度。',
+                            '发起吊运，进度随时可查',
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -320,7 +320,7 @@ class _DispatchMapHomeState extends State<DispatchMapHome> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: Text(
-                            '$missing 单缺少有效起点坐标，仍可在下方查看',
+                            '$missing 单暂无地图位置',
                             style: TextStyle(
                               fontSize: 12,
                               color: scheme.onSurfaceVariant,
@@ -331,15 +331,6 @@ class _DispatchMapHomeState extends State<DispatchMapHome> {
                         _card(context, order),
                         const SizedBox(height: 12),
                       ],
-                      if (orders.isNotEmpty)
-                        Text(
-                          '最近50笔 · 模拟支付，无真实资金变动',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
                     ],
                   ),
                 );

@@ -20,6 +20,57 @@ DispatchOrder trackingOrder(
 );
 
 void main() {
+  test('timeline uses each server event time rather than the last update', () {
+    final data = trackingOrder('timed', stage: 'IN_TRANSIT').data.toJson()
+      ..['depositPaidAt'] = '2026-10-24T14:00:00'
+      ..['waitingSince'] = '2026-10-24T14:00:00'
+      ..['acceptedAt'] = '2026-10-24T14:05:00'
+      ..['arrivedAt'] = '2026-10-24T14:10:00'
+      ..['startedAt'] = '2026-10-24T14:15:00'
+      ..['updatedAt'] = '2026-10-24T19:55:00';
+    final steps = dispatchTrackingSteps(
+      DispatchOrder(ApiDispatchOrderVO.fromJson(data)),
+    );
+    expect(steps.skip(1).map((step) => dispatchTrackingTime(step.time)), [
+      '10-24 14:00',
+      '10-24 14:00',
+      '10-24 14:05',
+      '10-24 14:10',
+      '10-24 14:15',
+    ]);
+  });
+  test(
+    'redispatch keeps original payment and shows only the new waiting round',
+    () {
+      final data = trackingOrder('redispatched').data.toJson()
+        ..['depositPaidAt'] = '2026-10-24T14:00:00'
+        ..['waitingSince'] = '2026-10-24T15:00:00'
+        ..['acceptedAt'] = null
+        ..['arrivedAt'] = null;
+      final steps = dispatchTrackingSteps(
+        DispatchOrder(ApiDispatchOrderVO.fromJson(data)),
+      );
+      expect(steps, hasLength(3));
+      expect(dispatchTrackingTime(steps[1].time), '10-24 14:00');
+      expect(dispatchTrackingTime(steps.last.time), '10-24 15:00');
+      expect(steps.last.current, isTrue);
+    },
+  );
+  test(
+    'unpaid stage begins at creation and unknown history never uses updatedAt',
+    () {
+      final unpaid = dispatchTrackingSteps(
+        trackingOrder('unpaid', stage: 'AWAITING_DEPOSIT'),
+      );
+      expect(unpaid.last.time, unpaid.first.time);
+      final data = trackingOrder('legacy', stage: 'PILOT_ARRIVED').data.toJson()
+        ..['updatedAt'] = '2026-10-29T13:00:00';
+      final steps = dispatchTrackingSteps(
+        DispatchOrder(ApiDispatchOrderVO.fromJson(data)),
+      );
+      expect(steps.skip(1).every((step) => step.time == null), isTrue);
+    },
+  );
   test(
     'coincident starts group all orders; invalid coordinates never become fabricated pins',
     () {
