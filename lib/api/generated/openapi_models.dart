@@ -1,7 +1,7 @@
 // GENERATED — DO NOT EDIT.
 // 契约模型：后端 components.schemas 的 Dart 映射。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: f8b3bf06c83b4d3a4a0cc8f4baf1639ced50463c1fcc0d2bb4a39c52d4bdf282)
+// 事实源：openapi/drone-backend.openapi.json (sha256: cbc74454037169ac9cb026ed32b18807e0d107cfb3f1946401b3de62780aa112)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端统一返回体 Result<T> 的契约映射。
@@ -1188,19 +1188,24 @@ class ApiDispatchUploadTicketVO {
 
 /// 契约 components.schemas.DroneBorrowDTO
 class ApiDroneBorrowDTO {
-  final String droneId;
+  final int aircraftModelId;
+  final String? orderId;
   final String requestKey;
 
-  const ApiDroneBorrowDTO({required this.droneId, required this.requestKey});
+  const ApiDroneBorrowDTO({required this.aircraftModelId, this.orderId, required this.requestKey});
 
   factory ApiDroneBorrowDTO.fromJson(Map<String, dynamic> json) => ApiDroneBorrowDTO(
-    droneId: ((json['droneId'] as String?) ?? ""),
+    aircraftModelId: ((json['aircraftModelId'] as num?)?.toInt() ?? 0),
+    orderId: json['orderId'] as String?,
     requestKey: ((json['requestKey'] as String?) ?? ""),
   );
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> json = <String, dynamic>{};
-    json['droneId'] = droneId;
+    json['aircraftModelId'] = aircraftModelId;
+    if (orderId != null) {
+      json['orderId'] = orderId;
+    }
     json['requestKey'] = requestKey;
     return json;
   }
@@ -1237,24 +1242,47 @@ class ApiDroneBorrowPageVO {
 
 /// 契约 components.schemas.DroneBorrowVO
 class ApiDroneBorrowVO {
+  final int? aircraftModelId;
+  final bool? alreadyHasActiveLoan;
+  final String? appliedAt;
   final String? borrowId;
   final String? borrowedAt;
   final ApiProviderDroneVO? drone;
+  final String? modelName;
+  final String? orderId;
   final int? pilotId;
+  final String? rejectReason;
   final String? returnedAt;
+  final String? status;
 
-  const ApiDroneBorrowVO({this.borrowId, this.borrowedAt, this.drone, this.pilotId, this.returnedAt});
+  const ApiDroneBorrowVO({this.aircraftModelId, this.alreadyHasActiveLoan, this.appliedAt, this.borrowId, this.borrowedAt, this.drone, this.modelName, this.orderId, this.pilotId, this.rejectReason, this.returnedAt, this.status});
 
   factory ApiDroneBorrowVO.fromJson(Map<String, dynamic> json) => ApiDroneBorrowVO(
+    aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
+    alreadyHasActiveLoan: json['alreadyHasActiveLoan'] as bool?,
+    appliedAt: json['appliedAt'] as String?,
     borrowId: json['borrowId'] as String?,
     borrowedAt: json['borrowedAt'] as String?,
     drone: (json['drone'] == null ? null : ApiProviderDroneVO.fromJson(json['drone'] as Map<String, dynamic>)),
+    modelName: json['modelName'] as String?,
+    orderId: json['orderId'] as String?,
     pilotId: (json['pilotId'] as num?)?.toInt(),
+    rejectReason: json['rejectReason'] as String?,
     returnedAt: json['returnedAt'] as String?,
+    status: json['status'] as String?,
   );
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> json = <String, dynamic>{};
+    if (aircraftModelId != null) {
+      json['aircraftModelId'] = aircraftModelId;
+    }
+    if (alreadyHasActiveLoan != null) {
+      json['alreadyHasActiveLoan'] = alreadyHasActiveLoan;
+    }
+    if (appliedAt != null) {
+      json['appliedAt'] = appliedAt;
+    }
     if (borrowId != null) {
       json['borrowId'] = borrowId;
     }
@@ -1264,11 +1292,23 @@ class ApiDroneBorrowVO {
     if (drone != null) {
       json['drone'] = drone?.toJson();
     }
+    if (modelName != null) {
+      json['modelName'] = modelName;
+    }
+    if (orderId != null) {
+      json['orderId'] = orderId;
+    }
     if (pilotId != null) {
       json['pilotId'] = pilotId;
     }
+    if (rejectReason != null) {
+      json['rejectReason'] = rejectReason;
+    }
     if (returnedAt != null) {
       json['returnedAt'] = returnedAt;
+    }
+    if (status != null) {
+      json['status'] = status;
     }
     return json;
   }
