@@ -63,6 +63,15 @@ void main() {
       );
       expect(client.dio.options.baseUrl, 'http://192.168.1.5:8081/');
     });
+
+    test('直连 Spring :8082（IT）时不加 /api 前缀', () async {
+      final client = await clientWith(
+        const {'server_url': 'http://127.0.0.1:8082'},
+        StubAdapter((_) async => jsonResponse(200, {'success': false})),
+      );
+      expect(client.dio.options.baseUrl, 'http://127.0.0.1:8082/');
+    });
+
   });
 
   group('401 刷新失败登出（P1-4）', () {

@@ -25,8 +25,9 @@ class ApiConfig {
     if (path == '/api' || path.endsWith('/api')) {
       return _ensureTrailingSlash(origin);
     }
+    // 直连 Spring Boot：常见本地/IT 端口（含 tools/it 默认 8082）不加 /api 前缀。
     if ((path.isEmpty || path == '/') &&
-        (uri.port == 8081 || uri.port == 8080)) {
+        (uri.port == 8081 || uri.port == 8080 || uri.port == 8082)) {
       return _ensureTrailingSlash(origin);
     }
     if (path.isEmpty || path == '/') {
