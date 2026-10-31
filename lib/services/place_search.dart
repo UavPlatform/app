@@ -48,6 +48,7 @@ class PlaceSearch {
   static const channel = MethodChannel('com.fuwaki.app/place_search');
 
   /// [key] 与地图/定位共用 `GET /config/map` 下发的 Android SDK key。
+  /// [center] 为排序原点（当前传定位坐标，非相机中心）。
   Future<List<PlaceSearchResult>> search({
     required String key,
     required String keyword,

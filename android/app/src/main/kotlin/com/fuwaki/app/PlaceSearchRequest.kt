@@ -40,7 +40,9 @@ class PlaceSearchRequest(private val activity: Activity) {
             result.error("SEARCH_KEYWORD_EMPTY", "请输入搜索关键词", null)
             return
         }
-        // 新关键词优先：旧请求以取消结束，Dart 侧也按序号丢弃过期结果。
+        // 取消 = 作废旧代次：递增 generation 使在途 SDK 回调在 finish 中丢弃；
+        // 同时对旧 Result 回 SEARCH_CANCELLED（MethodChannel 要求每个 Result 恰好回复一次）。
+        // Dart 侧另有 _searchSeq，两边都按代次丢弃过期结果。
         pending?.let { previous ->
             pending = null
             previous.error("SEARCH_CANCELLED", "搜索已取消", null)
@@ -74,7 +76,8 @@ class PlaceSearchRequest(private val activity: Activity) {
             if (latitude != null && longitude != null && latitude.isFinite() && longitude.isFinite() &&
                 latitude in -90.0..90.0 && longitude in -180.0..180.0
             ) {
-                // 以地图中心距离排序，附近地点优先；不加检索半径，避免跨城搜索无结果。
+                // 按定位坐标距离排序（非相机中心；以后可改为读相机），附近地点优先；
+                // 不加检索半径，避免跨城搜索无结果。
                 setLocation(LatLonPoint(latitude, longitude))
                 setDistanceSort(true)
             }
@@ -108,6 +111,10 @@ class PlaceSearchRequest(private val activity: Activity) {
         )
     }
 
+    /**
+     * 高德回调可能在子线程：generation 检查与领取 pending 必须整段在主线程串行，
+     * 避免 TOCTOU / MethodChannel double-reply（两个回调都通过检查后再各自 reply）。
+     */
     private fun finish(
         current: Int,
         payload: Any?,
@@ -115,11 +122,11 @@ class PlaceSearchRequest(private val activity: Activity) {
         errorMessage: String?,
         amapCode: Int?,
     ) {
-        if (current != pendingGeneration) return
-        val target = pending ?: return
-        pending = null
-        handler.removeCallbacks(timeout)
         handler.post {
+            if (current != pendingGeneration) return@post
+            val target = pending ?: return@post
+            pending = null
+            handler.removeCallbacks(timeout)
             if (errorCode == null) target.success(payload)
             else target.error(errorCode, errorMessage, amapCode)
         }
@@ -136,6 +143,7 @@ class PlaceSearchRequest(private val activity: Activity) {
     }
 
     fun dispose() {
+        // 作废当前代次，旧回调即使已入队也会在 finish 中丢弃。
         val target = pending ?: return
         pending = null
         generation++

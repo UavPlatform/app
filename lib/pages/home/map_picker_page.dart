@@ -106,7 +106,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
     _debounce?.cancel();
     final keyword = value.trim();
     if (keyword.isEmpty) {
-      // 清空输入后，仍在等待配置/在途的检索结果必须作废。
+      // 取消 = 作废代次：递增 _searchSeq，在途回调即使返回也丢弃。
       _searchSeq++;
       setState(() {
         _results = const [];
@@ -140,6 +140,8 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
       _searching = true;
       _showResults = true;
       _searchError = null;
+      // 开搜即清旧列表，避免上一关键词结果在加载态残留。
+      _results = const [];
     });
     try {
       final results = await ref
@@ -148,7 +150,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
             key: config.key,
             keyword: keyword,
             city: _city(),
-            center: _mapCenter(),
+            center: _sortOrigin(),
           );
       if (!mounted || seq != _searchSeq) return;
       setState(() {
@@ -182,7 +184,8 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
     return city;
   }
 
-  LatLng _mapCenter() {
+  /// 排序原点：当前用定位坐标（非相机中心；以后可改为读相机）。
+  LatLng _sortOrigin() {
     final loc = ref.read(locationProvider);
     return LatLng(loc.latitude ?? 27.8981, loc.longitude ?? 112.9193);
   }

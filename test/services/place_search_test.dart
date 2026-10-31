@@ -47,7 +47,7 @@ void main() {
     expect(args.containsKey('center'), isFalse);
   });
 
-  test('search passes map center for bounded lookup', () async {
+  test('search passes location center for distance sort', () async {
     Map<dynamic, dynamic>? payload;
     messenger.setMockMethodCallHandler(PlaceSearch.channel, (call) async {
       payload = call.arguments as Map;
