@@ -18,19 +18,50 @@ Map<String, dynamic> equipmentDrone({
   'currentBorrowId': mine ? 'loan1' : null,
 };
 
+Map<String, dynamic> equipmentLoan({
+  String status = 'PENDING',
+  bool withDrone = false,
+  bool returned = false,
+  bool alreadyHas = false,
+}) => {
+  'borrowId': 'loan1',
+  'status': status,
+  'aircraftModelId': 1,
+  'modelName': 'FC30',
+  'pilotId': 7,
+  'appliedAt': '2026-10-23T09:00:00',
+  'borrowedAt': status == 'APPROVED' || status == 'RETURNED'
+      ? '2026-10-23T10:00:00'
+      : null,
+  'returnedAt': returned || status == 'RETURNED' ? '2026-10-23T11:00:00' : null,
+  'rejectReason': status == 'REJECTED' ? '库存不足' : null,
+  'alreadyHasActiveLoan': alreadyHas,
+  'drone': withDrone || status == 'APPROVED' || status == 'RETURNED'
+      ? equipmentDrone(mine: status == 'APPROVED')
+      : null,
+};
+
 class FakeEquipmentApi extends EquipmentApi {
   FakeEquipmentApi(super.client);
   bool active = false;
   bool returned = false;
   bool loseResponse = true;
   final keys = <String>[];
-  ApiDroneBorrowVO get loan => ApiDroneBorrowVO(
-    borrowId: 'loan1',
-    pilotId: 7,
-    borrowedAt: '2026-10-23T10:00:00',
-    returnedAt: returned ? '2026-10-23T11:00:00' : null,
-    drone: ApiProviderDroneVO.fromJson(equipmentDrone(mine: active)),
+  int? lastModelId;
+
+  ApiDroneBorrowVO get pending =>
+      ApiDroneBorrowVO.fromJson(equipmentLoan(status: 'PENDING'));
+  ApiDroneBorrowVO get approved => ApiDroneBorrowVO.fromJson(
+    equipmentLoan(status: 'APPROVED', withDrone: true),
   );
+  ApiDroneBorrowVO get loan => ApiDroneBorrowVO.fromJson(
+    equipmentLoan(
+      status: returned ? 'RETURNED' : (active ? 'APPROVED' : 'PENDING'),
+      withDrone: active || returned,
+      returned: returned,
+    ),
+  );
+
   @override
   Future<ApiProviderDronePageVO> catalog(int page) async =>
       ApiProviderDronePageVO(
@@ -38,27 +69,60 @@ class FakeEquipmentApi extends EquipmentApi {
         page: page,
         hasNext: false,
       );
+
+  @override
+  Future<ApiModelStockVO> modelStock() async => ApiModelStockVO(
+    items: [
+      ApiItem(
+        aircraftModelId: 1,
+        modelName: 'FC30',
+        modelCode: 'FC30',
+        inStockCount: active ? 0 : 2,
+      ),
+      const ApiItem(
+        aircraftModelId: 2,
+        modelName: '空库机型',
+        modelCode: 'EMPTY',
+        inStockCount: 0,
+      ),
+    ],
+  );
+
   @override
   Future<ApiDroneBorrowPageVO> mine(int page) async => ApiDroneBorrowPageVO(
     items: active || returned ? [loan] : [],
     page: page,
     hasNext: false,
   );
+
   @override
-  Future<ApiDroneBorrowVO> borrow(String droneId, String key) async {
-    keys.add(key);
-    active = true;
+  Future<ApiDroneBorrowPageVO> current() async => ApiDroneBorrowPageVO(
+    items: active ? [approved] : [],
+    page: 0,
+    hasNext: false,
+  );
+
+  @override
+  Future<ApiDroneBorrowVO> apply({
+    required int aircraftModelId,
+    required String requestKey,
+    String? orderId,
+  }) async {
+    keys.add(requestKey);
+    lastModelId = aircraftModelId;
     if (loseResponse) {
       loseResponse = false;
-      throw const DispatchApiException('登记响应丢失');
+      throw const DispatchApiException('申请响应丢失');
     }
-    return loan;
+    return pending;
   }
 
   @override
   Future<ApiDroneBorrowVO> giveBack(String id) async {
     active = false;
     returned = true;
-    return loan;
+    return ApiDroneBorrowVO.fromJson(
+      equipmentLoan(status: 'RETURNED', withDrone: true, returned: true),
+    );
   }
 }

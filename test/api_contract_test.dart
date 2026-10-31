@@ -36,7 +36,9 @@ const List<List<String>> calledEndpoints = <List<String>>[
   <String>['get', '/dispatch/orders/{orderId}/flight'],
   <String>['get', '/dispatch/orders/{orderId}/flight/track'],
   <String>['get', '/equipment/pilot/drones'],
+  <String>['get', '/equipment/pilot/model-stock'],
   <String>['get', '/equipment/pilot/borrows'],
+  <String>['get', '/equipment/pilot/borrows/current'],
   <String>['post', '/equipment/pilot/borrows'],
   <String>['post', '/equipment/pilot/borrows/{borrowId}/return'],
   <String>['get', '/dispatch/notifications'],
@@ -220,7 +222,7 @@ void main() {
 
   group('调用端点登记表', () {
     test('每条登记端点都存在于 vendored 规格（method + path）', () {
-      expect(calledEndpoints, hasLength(91));
+      expect(calledEndpoints, hasLength(93));
       for (final List<String> endpoint in calledEndpoints) {
         final String method = endpoint[0].toLowerCase();
         final String path = endpoint[1];
@@ -245,10 +247,10 @@ void main() {
       expect(calledEndpoints.map(key).toSet(), endpoints.map(key).toSet());
     });
 
-    test('登记表无重复（含附近派单共 91 条）', () {
+    test('登记表无重复（含附近派单共 93 条）', () {
       String key(List<String> endpoint) =>
           '${endpoint[0].toLowerCase()} ${endpoint[1]}';
-      expect(calledEndpoints.map(key).toSet(), hasLength(91));
+      expect(calledEndpoints.map(key).toSet(), hasLength(93));
     });
   });
 

@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/dispatch_order.dart';
 import '../../providers/dispatch_order_provider.dart';
 import '../../providers/waybill_draft_provider.dart';
+import '../../providers/equipment_provider.dart';
 import 'dispatch_material_panel.dart';
 import 'dispatch_flight_panel.dart';
 import 'package:latlong2/latlong.dart';
@@ -141,12 +142,68 @@ class _DispatchFulfillmentShellState
       ref.invalidate(dispatchPilotOrderProvider(order.id));
       ref.invalidate(dispatchOrdersProvider);
       ref.invalidate(dispatchPilotOrdersProvider);
+      // REQ-PILOT-EXEC-005：飞手确认送达（结单链路）后，若手里有已借出飞机则询问是否继续用。
+      if (widget.pilot && action == '确认送达') {
+        await _askKeepBorrowedDrone(scope);
+      }
     } catch (error) {
       if (mounted && scope == ref.read(waybillDraftScopeProvider)) {
         setState(() => _error = error.toString());
       }
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+
+  Future<void> _askKeepBorrowedDrone(String? scope) async {
+    try {
+      final current = await ref.read(equipmentApiProvider).current();
+      final loans = current.items ?? const [];
+      if (!mounted || scope != ref.read(waybillDraftScopeProvider) || loans.isEmpty) {
+        return;
+      }
+      for (final loan in loans) {
+        if (!mounted || scope != ref.read(waybillDraftScopeProvider)) return;
+        final drone = loan.drone;
+        final label = [
+          loan.modelName ?? '飞机',
+          if (drone?.serialNumber != null) drone!.serialNumber!,
+        ].join(' · ');
+        final keep = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('这架飞机还要继续用吗？'),
+            content: Text(
+              '订单已确认送达。当前借着：$label。\n继续则保留借用；不需要则立即归还（无需审批）。换机请先还再借。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('不需要，归还'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('继续用'),
+              ),
+            ],
+          ),
+        );
+        if (keep == true || !mounted || scope != ref.read(waybillDraftScopeProvider)) {
+          continue;
+        }
+        if (keep == false && loan.borrowId != null) {
+          await ref.read(equipmentApiProvider).giveBack(loan.borrowId!);
+          if (!mounted || scope != ref.read(waybillDraftScopeProvider)) return;
+          ref.invalidate(equipmentCurrentProvider);
+          ref.invalidate(equipmentBorrowsProvider);
+          ref.invalidate(equipmentModelStockProvider);
+        }
+      }
+    } catch (error) {
+      if (mounted && scope == ref.read(waybillDraftScopeProvider)) {
+        setState(() => _error = '送达已确认，但查询/归还飞机失败：$error');
+      }
     }
   }
 
