@@ -75,10 +75,7 @@ class PilotProfilePage extends ConsumerWidget {
           const SizedBox(height: 8),
           _buildMenuItem(context, icon: Icons.badge_outlined, title: '飞手资料与驾驶资质',
               onTap: () => context.push('/pilot/info')),
-          _buildMenuItem(context, icon: Icons.flight_takeoff, title: '设备借用与归还',
-                onTap: () => context.push('/pilot/equipment')),
-          _buildMenuItem(context, icon: Icons.flight, title: '旧版绑定设备',
-              onTap: () => context.push('/pilot/drones')),
+          // DS-APP-003 / REQ-PILOT-EXEC-005：租借收敛到底部「无人机」；不再放绑定设备主入口。
           _buildMenuItem(context, icon: Icons.info_outline, title: '关于飞翼通',
               onTap: () => showAboutDialog(
                     context: context,
@@ -123,8 +120,8 @@ class PilotProfilePage extends ConsumerWidget {
     // 演示版只保留有真实页面的入口；钱包/服务类型/数据中心暂无后端支撑，先不展示空按钮。
     final items = [
       (_Icons.shield, '飞手资料', () => context.push('/pilot/info')),
-      (_Icons.drone, '我的无人机', () => context.push('/pilot/drones')),
-      (_Icons.jobs, '我的接单', () => context.go('/pilot/jobs')),
+      (_Icons.drone, '无人机租借', () => context.go('/pilot/equipment')),
+      (_Icons.jobs, '我的订单', () => context.go('/pilot/jobs')),
     ];
 
     return Padding(

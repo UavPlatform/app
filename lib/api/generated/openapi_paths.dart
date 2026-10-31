@@ -60,10 +60,16 @@ class ApiPaths {
   static Map<String, dynamic> equipmentPilotDronesQuery({String? page}) =>
       <String, dynamic>{'page': page};
 
+  /// GET /equipment/pilot/model-stock
+  static const String equipmentPilotModelStock = '/equipment/pilot/model-stock';
+
   /// GET /equipment/pilot/borrows
   static const String equipmentPilotBorrows = '/equipment/pilot/borrows';
   static Map<String, dynamic> equipmentPilotBorrowsQuery({String? page}) =>
       <String, dynamic>{'page': page};
+
+  /// GET /equipment/pilot/borrows/current
+  static const String equipmentPilotBorrowsCurrent = '/equipment/pilot/borrows/current';
 
   /// POST /equipment/pilot/borrows
   static const String postEquipmentPilotBorrows = '/equipment/pilot/borrows';

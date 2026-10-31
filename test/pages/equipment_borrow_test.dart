@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uav_pilot_app/api/http_client.dart';
 import 'package:uav_pilot_app/pages/pilot/equipment_borrow_page.dart';
 import 'package:uav_pilot_app/providers/auth_provider.dart';
+import 'package:uav_pilot_app/providers/dispatch_order_provider.dart';
 import 'package:uav_pilot_app/providers/equipment_provider.dart';
 import 'package:uav_pilot_app/providers/waybill_draft_provider.dart';
 import 'package:uav_pilot_app/services/token_storage.dart';
@@ -12,7 +13,7 @@ import '../equipment_test_support.dart';
 
 void main() {
   testWidgets(
-    'lost response reuses attempt; only server confirms borrowing and returning',
+    'apply by model reuses attempt; return works on approved loan',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
@@ -25,31 +26,40 @@ void main() {
             equipmentApiProvider.overrideWithValue(api),
             sharedPreferencesProvider.overrideWithValue(prefs),
             waybillDraftScopeProvider.overrideWithValue('equipment-test-scope'),
+            dispatchPilotOrdersProvider.overrideWith((ref) async => []),
           ],
           child: const MaterialApp(home: EquipmentBorrowPage()),
         ),
       );
       await tester.pumpAndSettle();
-      Future<void> tap(String label) async {
-        final target = find.text(label).last;
-        await tester.ensureVisible(target);
-        await tester.tap(target);
-        await tester.pumpAndSettle();
-      }
+      expect(find.textContaining('当前没有已借出的飞机'), findsOneWidget);
 
-      await tap('登记借用');
-      await tap('确认登记');
-      expect(find.textContaining('登记响应丢失'), findsOneWidget);
-      expect(find.text('状态：本人借用中'), findsNothing);
-      await tap('登记借用');
-      await tap('确认登记');
+      await tester.tap(find.text('发起申请'));
+      await tester.pumpAndSettle();
+      expect(find.text('发起借机申请'), findsOneWidget);
+
+      await tester.tap(find.textContaining('FC30（在库'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('提交申请'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('申请响应丢失'), findsOneWidget);
+
+      await tester.tap(find.text('提交申请'));
+      await tester.pumpAndSettle();
       expect(api.keys, hasLength(2));
       expect(api.keys[0], api.keys[1]);
-      expect(find.text('状态：本人借用中'), findsOneWidget);
-      await tap('登记归还');
-      await tap('确认登记');
-      expect(find.text('状态：可借用'), findsOneWidget);
-      await tap('我的借还');
+      expect(api.lastModelId, 1);
+
+      api.active = true;
+      await tester.tap(find.byTooltip('刷新'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('TEST-SERIAL'), findsWidgets);
+
+      await tester.tap(find.text('归还').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '确认归还'));
+      await tester.pumpAndSettle();
       expect(find.textContaining('归还时间：2026-10-23'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

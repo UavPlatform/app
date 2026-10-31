@@ -3,29 +3,82 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/generated/openapi_models.dart';
 import '../../providers/equipment_provider.dart';
 import '../../providers/waybill_draft_provider.dart';
+import '../../theme/app_colors.dart';
+import 'equipment_apply_sheet.dart';
 import 'equipment_borrow_action.dart';
 
+String equipmentStatusLabel(String? status) {
+  switch (status) {
+    case 'PENDING':
+      return '待审批';
+    case 'APPROVED':
+      return '已借出';
+    case 'REJECTED':
+      return '已驳回';
+    case 'RETURNED':
+      return '已归还';
+    default:
+      return status ?? '未知';
+  }
+}
+
+/// REQ-PILOT-EXEC-005 / DS-APP-003：「无人机」一级页。
 class EquipmentBorrowPage extends ConsumerWidget {
   const EquipmentBorrowPage({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(waybillDraftScopeProvider);
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('设备借用与归还'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: '设备目录'),
-              Tab(text: '我的借还'),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('无人机'),
+        actions: [
+          IconButton(
+            tooltip: '刷新',
+            onPressed: () {
+              ref.invalidate(equipmentCurrentProvider);
+              ref.invalidate(equipmentBorrowsProvider);
+              ref.invalidate(equipmentModelStockProvider);
+            },
+            icon: const Icon(Icons.refresh),
           ),
-        ),
-        body: TabBarView(
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showEquipmentApplySheet(context, ref),
+        icon: const Icon(Icons.add),
+        label: const Text('发起申请'),
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(equipmentCurrentProvider);
+          ref.invalidate(equipmentBorrowsProvider);
+          try {
+            await Future.wait([
+              ref.read(equipmentCurrentProvider.future),
+              ref.read(equipmentBorrowsProvider(0).future),
+            ]);
+          } catch (_) {
+            /* providers render errors */
+          }
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
           children: [
-            _EquipmentList(key: ValueKey('catalog:$scope'), history: false),
-            _EquipmentList(key: ValueKey('history:$scope'), history: true),
+            Text(
+              '当前借着的飞机',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            _CurrentSection(key: ValueKey('current:$scope')),
+            const SizedBox(height: 24),
+            Text(
+              '我的申请',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            _ApplicationsSection(key: ValueKey('apps:$scope')),
           ],
         ),
       ),
@@ -33,139 +86,160 @@ class EquipmentBorrowPage extends ConsumerWidget {
   }
 }
 
-class _EquipmentList extends ConsumerStatefulWidget {
-  const _EquipmentList({super.key, required this.history});
-  final bool history;
+class _CurrentSection extends ConsumerWidget {
+  const _CurrentSection({super.key});
+
   @override
-  ConsumerState<_EquipmentList> createState() => _EquipmentListState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(equipmentCurrentProvider).when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => TextButton(
+        onPressed: () => ref.invalidate(equipmentCurrentProvider),
+        child: Text('$e\n重新查询'),
+      ),
+      data: (page) {
+        final items = page.items ?? const <ApiDroneBorrowVO>[];
+        if (items.isEmpty) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('当前没有已借出的飞机。需要时点右下角发起申请。'),
+            ),
+          );
+        }
+        return Column(
+          children: [
+            for (final loan in items) _LoanCard(loan: loan, current: true),
+          ],
+        );
+      },
+    );
+  }
 }
 
-class _EquipmentListState extends ConsumerState<_EquipmentList> {
+class _ApplicationsSection extends ConsumerStatefulWidget {
+  const _ApplicationsSection({super.key});
+  @override
+  ConsumerState<_ApplicationsSection> createState() =>
+      _ApplicationsSectionState();
+}
+
+class _ApplicationsSectionState extends ConsumerState<_ApplicationsSection> {
   int _page = 0;
-  Widget _drone(ApiProviderDroneVO drone) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(
-        '${drone.modelName ?? ''} · ${drone.serialNumber}',
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-      Text('机场：${drone.airportName ?? '未知'}'),
-    ],
-  );
-  Widget _card(ApiProviderDroneVO drone, {ApiDroneBorrowVO? loan}) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _drone(drone),
-          if (loan != null) ...[
-            Text('借用时间：${loan.borrowedAt}'),
-            Text(
-              loan.returnedAt == null ? '状态：借用中' : '归还时间：${loan.returnedAt}',
-            ),
-            if (loan.returnedAt == null)
-              EquipmentBorrowAction(
-                key: ValueKey(loan.borrowId),
-                droneId: drone.droneId!,
-                borrowId: loan.borrowId,
-              ),
-          ] else ...[
-            Text(
-              !drone.enabled!
-                  ? '状态：已停用'
-                  : drone.borrowedByMe!
-                  ? '状态：本人借用中'
-                  : drone.borrowed!
-                  ? '状态：已借出，不可借'
-                  : '状态：可借用',
-            ),
-            if (drone.borrowedByMe!)
-              EquipmentBorrowAction(
-                key: ValueKey(drone.currentBorrowId),
-                droneId: drone.droneId!,
-                borrowId: drone.currentBorrowId,
-              )
-            else if (drone.enabled! && !drone.borrowed!)
-              EquipmentBorrowAction(
-                key: ValueKey(drone.droneId),
-                droneId: drone.droneId!,
-              ),
-          ],
-        ],
-      ),
-    ),
-  );
-  Widget _body(List<Widget> children, bool next) => ListView(
-    physics: const AlwaysScrollableScrollPhysics(),
-    padding: const EdgeInsets.all(16),
-    children: [
-      const Text('借还登记不收费、不收押金、不关联订单。请先在现场完成设备交接；实际连机与飞行在 djifly 操作。'),
-      if (children.isEmpty)
-        Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(widget.history ? '暂无本人借还记录' : '暂无可展示设备，请联系机场管理员完成登记'),
-        ),
-      ...children,
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          TextButton(
-            onPressed: _page == 0 ? null : () => setState(() => _page--),
-            child: const Text('上一页'),
-          ),
-          Text('第 ${_page + 1} 页'),
-          TextButton(
-            onPressed: next ? () => setState(() => _page++) : null,
-            child: const Text('下一页'),
-          ),
-        ],
-      ),
-    ],
-  );
+
   @override
   Widget build(BuildContext context) {
-    Future<void> refresh() async {
-      ref.invalidate(equipmentCatalogProvider);
-      ref.invalidate(equipmentBorrowsProvider);
-      try {
-        if (widget.history) {
-          await ref.read(equipmentBorrowsProvider(_page).future);
-        } else {
-          await ref.read(equipmentCatalogProvider(_page).future);
-        }
-      } catch (_) {
-        /* The provider renders the error and retry action. */
-      }
-    }
-
-    Widget error(Object e) => ListView(
-      children: [TextButton(onPressed: refresh, child: Text('$e\n重新查询'))],
-    );
-    return RefreshIndicator(
-      onRefresh: refresh,
-      child: widget.history
-          ? ref
-                .watch(equipmentBorrowsProvider(_page))
-                .when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => error(e),
-                  data: (page) => _body([
-                    for (final loan in page.items!)
-                      _card(loan.drone!, loan: loan),
-                  ], page.hasNext!),
-                )
-          : ref
-                .watch(equipmentCatalogProvider(_page))
-                .when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => error(e),
-                  data: (page) => _body([
-                    for (final drone in page.items!) _card(drone),
-                  ], page.hasNext!),
+    return ref.watch(equipmentBorrowsProvider(_page)).when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => TextButton(
+        onPressed: () => ref.invalidate(equipmentBorrowsProvider(_page)),
+        child: Text('$e\n重新查询'),
+      ),
+      data: (page) {
+        final items = page.items ?? const <ApiDroneBorrowVO>[];
+        return Column(
+          children: [
+            if (items.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('暂无申请记录'),
                 ),
+              ),
+            for (final loan in items) _LoanCard(loan: loan),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton(
+                  onPressed: _page == 0
+                      ? null
+                      : () => setState(() => _page--),
+                  child: const Text('上一页'),
+                ),
+                Text('第 ${_page + 1} 页'),
+                TextButton(
+                  onPressed: page.hasNext == true
+                      ? () => setState(() => _page++)
+                      : null,
+                  child: const Text('下一页'),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LoanCard extends StatelessWidget {
+  const _LoanCard({required this.loan, this.current = false});
+  final ApiDroneBorrowVO loan;
+  final bool current;
+
+  @override
+  Widget build(BuildContext context) {
+    final drone = loan.drone;
+    final status = loan.status;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    loan.modelName ?? '未知机型',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    equipmentStatusLabel(status),
+                    style: const TextStyle(fontSize: 12, color: AppColors.primary),
+                  ),
+                ),
+              ],
+            ),
+            if (drone != null) ...[
+              const SizedBox(height: 4),
+              Text('机身号：${drone.serialNumber}'),
+              Text('机场：${drone.airportName ?? '未知'}'),
+            ],
+            if (loan.orderId != null && loan.orderId!.isNotEmpty)
+              Text('关联订单：${loan.orderId}'),
+            if (loan.appliedAt != null) Text('申请时间：${loan.appliedAt}'),
+            if (loan.borrowedAt != null) Text('借出时间：${loan.borrowedAt}'),
+            if (loan.returnedAt != null) Text('归还时间：${loan.returnedAt}'),
+            if (status == 'REJECTED') ...[
+              const SizedBox(height: 8),
+              Text(
+                '驳回原因：${(loan.rejectReason ?? '').isEmpty ? '未填写' : loan.rejectReason}',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            if (current || status == 'APPROVED') ...[
+              const SizedBox(height: 8),
+              EquipmentReturnAction(borrowId: loan.borrowId!),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

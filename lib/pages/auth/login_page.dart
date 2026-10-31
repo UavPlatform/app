@@ -66,7 +66,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final authState = ref.read(authProvider);
     if (authState.status == AuthStatus.authenticated) {
       final isPilot = authState.user?.isPilot ?? false;
-      context.go(isPilot ? '/pilot/tasks' : '/home');
+      context.go(isPilot ? '/pilot/home' : '/home');
     } else if (authState.error != null) {
       ScaffoldMessenger.of(
         context,

@@ -16,8 +16,18 @@ final equipmentCatalogProvider = FutureProvider.autoDispose
       ref.watch(waybillDraftScopeProvider);
       return ref.watch(equipmentApiProvider).catalog(page);
     });
+final equipmentModelStockProvider =
+    FutureProvider.autoDispose<ApiModelStockVO>((ref) {
+      ref.watch(waybillDraftScopeProvider);
+      return ref.watch(equipmentApiProvider).modelStock();
+    });
 final equipmentBorrowsProvider = FutureProvider.autoDispose
     .family<ApiDroneBorrowPageVO, int>((ref, page) {
       ref.watch(waybillDraftScopeProvider);
       return ref.watch(equipmentApiProvider).mine(page);
+    });
+final equipmentCurrentProvider =
+    FutureProvider.autoDispose<ApiDroneBorrowPageVO>((ref) {
+      ref.watch(waybillDraftScopeProvider);
+      return ref.watch(equipmentApiProvider).current();
     });

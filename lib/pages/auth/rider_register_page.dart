@@ -62,7 +62,7 @@ class _RiderRegisterPageState extends ConsumerState<RiderRegisterPage> {
         _passwordController.text,
       );
       if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/pilot/tasks'));
+        WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/pilot/home'));
       }
     } else {
       setState(() => _loading = false);

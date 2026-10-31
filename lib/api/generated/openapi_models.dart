@@ -1530,6 +1530,40 @@ class ApiFlightViewVO {
   }
 }
 
+/// 契约 components.schemas.Item
+class ApiItem {
+  final int? aircraftModelId;
+  final int? inStockCount;
+  final String? modelCode;
+  final String? modelName;
+
+  const ApiItem({this.aircraftModelId, this.inStockCount, this.modelCode, this.modelName});
+
+  factory ApiItem.fromJson(Map<String, dynamic> json) => ApiItem(
+    aircraftModelId: (json['aircraftModelId'] as num?)?.toInt(),
+    inStockCount: (json['inStockCount'] as num?)?.toInt(),
+    modelCode: json['modelCode'] as String?,
+    modelName: json['modelName'] as String?,
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (aircraftModelId != null) {
+      json['aircraftModelId'] = aircraftModelId;
+    }
+    if (inStockCount != null) {
+      json['inStockCount'] = inStockCount;
+    }
+    if (modelCode != null) {
+      json['modelCode'] = modelCode;
+    }
+    if (modelName != null) {
+      json['modelName'] = modelName;
+    }
+    return json;
+  }
+}
+
 /// 契约 components.schemas.MapConfigVO
 class ApiMapConfigVO {
   final String key;
@@ -1583,6 +1617,25 @@ class ApiMessageDTO {
       json['msgId'] = msgId;
     }
     json['sessionId'] = sessionId;
+    return json;
+  }
+}
+
+/// 契约 components.schemas.ModelStockVO
+class ApiModelStockVO {
+  final List<ApiItem>? items;
+
+  const ApiModelStockVO({this.items});
+
+  factory ApiModelStockVO.fromJson(Map<String, dynamic> json) => ApiModelStockVO(
+    items: (json['items'] as List<dynamic>?)?.map((dynamic e) => ApiItem.fromJson(e as Map<String, dynamic>)).toList(),
+  );
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> json = <String, dynamic>{};
+    if (items != null) {
+      json['items'] = items;
+    }
     return json;
   }
 }
