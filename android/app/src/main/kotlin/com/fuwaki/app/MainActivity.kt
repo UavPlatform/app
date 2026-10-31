@@ -14,12 +14,19 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.fuwaki.app/location"
     private var sdkReady = false
     private val dispatchLocation by lazy { DispatchLocationRequest(this) }
+    private val placeSearch by lazy { PlaceSearchRequest(this) }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine.platformViewsController.registry.registerViewFactory(
             "com.fuwaki.app/amap", NativeAmapFactory(this, flutterEngine.dartExecutor.binaryMessenger)
         )
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PlaceSearchRequest.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "search") placeSearch.search(call, result)
+                else result.notImplemented()
+            }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
@@ -98,6 +105,7 @@ class MainActivity : FlutterActivity() {
     }
     override fun onDestroy() {
         dispatchLocation.dispose()
+        placeSearch.dispose()
         super.onDestroy()
     }
 }

@@ -40,4 +40,8 @@
 
 ## 原生地图迁移（用户追加授权）
 
-Android 首页与选点页通过 `MissionMap` 接入高德原生矢量地图，保持现有坐标回填与任务请求契约。后端未修改，沿用 `/task/init` 的 Key。SDK 合包版本、原生模块职责和配置方式见 `NATIVE_MAP_MIGRATION.md`。
+Android 首页与选点页通过 `MissionMap` 接入高德原生矢量地图，保持现有坐标回填与任务请求契约。后端未修改，沿用 `GET /config/map` 下发的 Key。SDK 合包版本、原生模块职责和配置方式见 `NATIVE_MAP_MIGRATION.md`。
+
+## 选点页地点搜索（用户追加授权）
+
+选点页顶部搜索框由占位提示改为真实 POI 检索：Android 高德 SDK `PoiSearch`（`PlaceSearchRequest` + `lib/services/place_search.dart`），不新增后端接口、不改 OpenAPI 契约。选中结果回填坐标并在地图上定位，确认时回传 `lat,lng;名称;地址`；名称与地址只存本机草稿（`start.place`/`end.place` 等，不在云端字段集），发单提交内容不变。实现与限制见 `NATIVE_MAP_MIGRATION.md`「地点搜索」。

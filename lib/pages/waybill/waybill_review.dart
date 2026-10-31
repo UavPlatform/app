@@ -40,6 +40,7 @@ class WaybillReview extends ConsumerWidget {
       ),
     );
     Widget site(String prefix, String title) => card(title, [
+      if (draft.value('$prefix.place').isNotEmpty) draft.value('$prefix.place'),
       draft.value('$prefix.site'),
       '${draft.value('$prefix.contact')} · ${draft.value('$prefix.phone')}',
       '${draft.value('$prefix.lat')}, ${draft.value('$prefix.lng')}',

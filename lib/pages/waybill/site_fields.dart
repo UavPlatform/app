@@ -21,10 +21,15 @@ class SiteFields extends StatelessWidget {
     final route = prefix == 'start' ? '/map/pick?point=start' : '/map/pick';
     final result = await context.push<String>(route);
     if (!context.mounted || result == null) return;
-    final coordinates = result.split(';').first.split(',');
+    final parts = result.split(';');
+    final coordinates = parts.first.split(',');
     if (coordinates.length != 2) return;
     onChanged('$prefix.lat', coordinates[0]);
     onChanged('$prefix.lng', coordinates[1]);
+    // 地点名称/地址只作本地展示（不在 cloudFieldNames 内，不会提交给后端）。
+    final name = parts.length > 1 ? parts[1].trim() : '';
+    onChanged('$prefix.place', name);
+    onChanged('$prefix.placeAddress', parts.length > 2 ? parts[2].trim() : '');
   }
 
   @override
@@ -49,7 +54,11 @@ class SiteFields extends StatelessWidget {
           label: Text(
             draft.value('$prefix.lat').isEmpty
                 ? '在地图上选择${prefix == 'start' ? '起点' : '终点'}'
-                : '${draft.value('$prefix.lat')}, ${draft.value('$prefix.lng')}',
+                : draft.value('$prefix.place').isEmpty
+                ? '${draft.value('$prefix.lat')}, ${draft.value('$prefix.lng')}'
+                : '${draft.value('$prefix.place')} · ${draft.value('$prefix.lat')}, ${draft.value('$prefix.lng')}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         if (errors['$prefix.point'] != null)
