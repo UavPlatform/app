@@ -16,6 +16,7 @@ import '../pages/profile/address_list_page.dart';
 import '../pages/profile/address_edit_page.dart';
 import '../pages/home/map_picker_page.dart';
 import '../pages/pilot/dispatch_pilot_pages.dart';
+import '../pages/pilot/pilot_home_page.dart';
 import '../pages/pilot/pilot_profile_page.dart';
 import '../pages/pilot/drone_manage_page.dart';
 import '../pages/pilot/equipment_borrow_page.dart';
@@ -47,7 +48,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = authState.status == AuthStatus.authenticated;
       final location = state.matchedLocation;
       if (location == '/waybill/new' || location.startsWith('/dispatch/')) {
-        if (authState.user?.isPilot == true) return '/pilot/tasks';
+        if (authState.user?.isPilot == true) return '/pilot/home';
       }
       final isAuthPage =
           location == '/login' ||
@@ -68,7 +69,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       }
       if (isLoggedIn && isAuthPage) {
         final isPilot = authState.user?.isPilot ?? false;
-        return isPilot ? '/pilot/tasks' : '/home';
+        return isPilot ? '/pilot/home' : '/home';
       }
       // REQ-APP-001: keep ordinary users out of the pilot business shell,
       // and keep pilot accounts out of the user publishing shell.
@@ -78,7 +79,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         if (isPilot &&
             (const ['/home', '/profile'].contains(location) ||
                 location.startsWith('/orders'))) {
-          return '/pilot/tasks';
+          return '/pilot/home';
         }
       }
       // New dispatch has one canonical order home; retain old incoming links.
@@ -106,10 +107,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             pilot: pilot,
           ),
         ),
-      GoRoute(
-        path: '/pilot/equipment',
-        builder: (_, _) => const EquipmentBorrowPage(),
-      ),
       GoRoute(
         path: '/notifications',
         builder: (_, _) => const DispatchNotificationPage(),
@@ -212,6 +209,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => PilotBottomNav(child: child),
         routes: [
           GoRoute(
+            path: '/pilot/home',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: PilotHomePage()),
+          ),
+          GoRoute(
             path: '/pilot/tasks',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: DispatchPilotHallPage()),
@@ -220,6 +222,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: '/pilot/jobs',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: DispatchPilotJobsPage()),
+          ),
+          GoRoute(
+            path: '/pilot/equipment',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: EquipmentBorrowPage()),
           ),
           GoRoute(
             path: '/pilot/messages',

@@ -225,14 +225,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       container.read(goRouterProvider).routeInformationProvider.value.uri.path,
-      '/pilot/tasks',
+      '/pilot/home',
     );
     expect(find.byType(WaybillPage), findsNothing);
     container.read(goRouterProvider).go('/dispatch/orders/example');
     await tester.pumpAndSettle();
     expect(
       container.read(goRouterProvider).routeInformationProvider.value.uri.path,
-      '/pilot/tasks',
+      '/pilot/home',
     );
     container.read(goRouterProvider).go('/pilot/equipment');
     await tester.pumpAndSettle();

@@ -4,9 +4,11 @@ import 'generated/openapi_models.dart';
 import 'generated/openapi_paths.dart';
 import 'http_client.dart';
 
+/// REQ-PILOT-EXEC-005：飞手按机型申请、查看申请/借出、主动归还。
 class EquipmentApi {
   EquipmentApi(this.client);
   final HttpClient client;
+
   void _drone(ApiProviderDroneVO d) {
     if ((d.droneId ?? '').isEmpty ||
         (d.serialNumber ?? '').isEmpty ||
@@ -19,14 +21,41 @@ class EquipmentApi {
     }
   }
 
-  ApiDroneBorrowVO _borrow(dynamic raw) {
+  ApiDroneBorrowVO _loan(dynamic raw, {bool requireReturned = false}) {
     final result = ApiDroneBorrowVO.fromJson(raw as Map<String, dynamic>);
-    if ((result.borrowId ?? '').isEmpty ||
-        result.drone == null ||
-        result.borrowedAt == null) {
+    final status = result.status ?? '';
+    if ((result.borrowId ?? '').isEmpty || status.isEmpty) {
       throw const DispatchApiException('借还结果未确认，请刷新本人记录');
     }
-    _drone(result.drone!);
+    if (requireReturned) {
+      if (status != 'RETURNED' || result.returnedAt == null) {
+        throw const DispatchApiException('归还尚未确认，请刷新本人记录');
+      }
+      return result;
+    }
+    switch (status) {
+      case 'PENDING':
+        if (result.aircraftModelId == null ||
+            (result.modelName ?? '').isEmpty ||
+            result.appliedAt == null) {
+          throw const DispatchApiException('申请结果未确认，请刷新本人记录');
+        }
+      case 'APPROVED':
+        if (result.drone == null || result.borrowedAt == null) {
+          throw const DispatchApiException('借出结果未确认，请刷新本人记录');
+        }
+        _drone(result.drone!);
+      case 'REJECTED':
+        if (result.appliedAt == null) {
+          throw const DispatchApiException('驳回结果未确认，请刷新本人记录');
+        }
+      case 'RETURNED':
+        if (result.returnedAt == null) {
+          throw const DispatchApiException('归还结果未确认，请刷新本人记录');
+        }
+      default:
+        throw DispatchApiException('未知申请状态：$status');
+    }
     return result;
   }
 
@@ -49,6 +78,24 @@ class EquipmentApi {
     return result;
   }
 
+  Future<ApiModelStockVO> modelStock() async {
+    final raw = await dispatchRequest(
+      () => client.dio.get(ApiPaths.equipmentPilotModelStock),
+    );
+    final result = ApiModelStockVO.fromJson(raw as Map<String, dynamic>);
+    if (result.items == null) {
+      throw const DispatchApiException('机型在库概况未确认，请重试');
+    }
+    for (final item in result.items!) {
+      if (item.aircraftModelId == null ||
+          (item.modelName ?? '').isEmpty ||
+          item.inStockCount == null) {
+        throw const DispatchApiException('机型在库概况不完整，请刷新');
+      }
+    }
+    return result;
+  }
+
   Future<ApiDroneBorrowPageVO> mine(int page) async {
     final raw = await dispatchRequest(
       () => client.dio.get(
@@ -60,40 +107,64 @@ class EquipmentApi {
     );
     final result = ApiDroneBorrowPageVO.fromJson(raw as Map<String, dynamic>);
     if (result.page != page || result.items == null || result.hasNext == null) {
-      throw const DispatchApiException('借还记录未确认，请重试');
+      throw const DispatchApiException('申请记录未确认，请重试');
     }
     for (final item in result.items!) {
-      _borrow(item.toJson());
+      _loan(item.toJson());
     }
     return result;
   }
 
-  Future<ApiDroneBorrowVO> borrow(String droneId, String key) async {
-    final result = _borrow(
+  Future<ApiDroneBorrowPageVO> current() async {
+    final raw = await dispatchRequest(
+      () => client.dio.get(ApiPaths.equipmentPilotBorrowsCurrent),
+    );
+    final result = ApiDroneBorrowPageVO.fromJson(raw as Map<String, dynamic>);
+    if (result.items == null || result.hasNext == null) {
+      throw const DispatchApiException('当前借出未确认，请重试');
+    }
+    for (final item in result.items!) {
+      final loan = _loan(item.toJson());
+      if (loan.status != 'APPROVED') {
+        throw const DispatchApiException('当前借出列表含非已借出记录，请刷新');
+      }
+    }
+    return result;
+  }
+
+  Future<ApiDroneBorrowVO> apply({
+    required int aircraftModelId,
+    required String requestKey,
+    String? orderId,
+  }) async {
+    final result = _loan(
       await dispatchRequest(
         () => client.dio.post(
           ApiPaths.postEquipmentPilotBorrows,
-          data: ApiDroneBorrowDTO(droneId: droneId, requestKey: key).toJson(),
+          data: ApiDroneBorrowDTO(
+            aircraftModelId: aircraftModelId,
+            orderId: orderId,
+            requestKey: requestKey,
+          ).toJson(),
         ),
       ),
     );
-    if (result.drone!.droneId != droneId ||
-        (result.returnedAt == null &&
-            result.drone!.currentBorrowId != result.borrowId)) {
-      throw const DispatchApiException('借用结果与本次登记不符，请查询本人记录');
+    if (result.aircraftModelId != aircraftModelId) {
+      throw const DispatchApiException('申请结果与所选机型不符，请查询本人记录');
     }
     return result;
   }
 
   Future<ApiDroneBorrowVO> giveBack(String borrowId) async {
-    final result = _borrow(
+    final result = _loan(
       await dispatchRequest(
         () =>
             client.dio.post(ApiPaths.equipmentPilotBorrowsReturnPath(borrowId)),
       ),
+      requireReturned: true,
     );
-    if (result.borrowId != borrowId || result.returnedAt == null) {
-      throw const DispatchApiException('归还尚未确认，请刷新本人记录');
+    if (result.borrowId != borrowId) {
+      throw const DispatchApiException('归还结果与本次登记不符，请刷新本人记录');
     }
     return result;
   }

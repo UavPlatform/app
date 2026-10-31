@@ -15,11 +15,7 @@ void main() {
       adapter: StubAdapter(
         (_) async => jsonResponse(200, {
           'success': true,
-          'data': {
-            'borrowId': 'loan1',
-            'borrowedAt': '2026-10-23T10:00:00',
-            'drone': equipmentDrone(mine: true),
-          },
+          'data': equipmentLoan(status: 'APPROVED', withDrone: true),
         }),
       ),
     );
@@ -29,8 +25,9 @@ void main() {
       throwsA(isA<DispatchApiException>()),
     );
   });
+
   test(
-    'borrow sends drone and stable attempt only; no money order or identity fields',
+    'apply sends model and stable attempt only; order optional',
     () async {
       SharedPreferences.setMockInitialValues({});
       final client = HttpClient(
@@ -38,27 +35,26 @@ void main() {
         adapter: StubAdapter((options) async {
           expect(options.path, '/equipment/pilot/borrows');
           expect(options.data, {
-            'droneId': 'drone1',
+            'aircraftModelId': 1,
             'requestKey': 'stable-key',
           });
           return jsonResponse(200, {
             'success': true,
-            'data': {
-              'borrowId': 'loan1',
-              'borrowedAt': '2026-10-23T10:00:00',
-              'pilotId': 7,
-              'drone': equipmentDrone(mine: true),
-            },
+            'data': equipmentLoan(status: 'PENDING'),
           });
         }),
       );
       addTearDown(() => client.dio.close());
       expect(
-        (await EquipmentApi(client).borrow('drone1', 'stable-key')).borrowId,
+        (await EquipmentApi(client).apply(
+          aircraftModelId: 1,
+          requestKey: 'stable-key',
+        )).borrowId,
         'loan1',
       );
     },
   );
+
   test('missing return result cannot be shown as returned', () async {
     SharedPreferences.setMockInitialValues({});
     final client = HttpClient(
