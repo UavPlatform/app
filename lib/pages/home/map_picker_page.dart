@@ -1,7 +1,9 @@
-// 地图选点页（单点模式）：全屏地图精挑一个坐标点，pop 返回 "lat,lng"。
-// 由首页「卸货点」入口调起；使用共享高德原生地图选点能力（REQ-APP-002）。
-// UI 重构：地图沉浸式铺满、顶部搜索框（POI 搜索待后端接口）、底部面板承载
-// 引导态/已选态与确认 CTA，消除原「大面积无意义留白」。
+// 地图选点页（单点模式）：全屏地图精挑一个坐标点，pop 返回 "lat,lng[;名称;地址]"。
+// 由发单表单的起吊点/卸货点入口调起；使用共享高德原生地图选点能力（REQ-SHIP-PUB-002）。
+// 顶部搜索框走 Android 高德 SDK POI 检索（`PlaceSearch`），选中结果后回填坐标并移动地图；
+// 底部面板承载引导态/已选态与确认 CTA。
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../widgets/mission_map.dart';
@@ -10,6 +12,9 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../providers/location_provider.dart';
+import '../../models/amap_config.dart';
+import '../../providers/map_provider.dart';
+import '../../services/place_search.dart';
 import '../../theme/app_colors.dart';
 
 class MapPickerPage extends ConsumerStatefulWidget {
@@ -31,8 +36,20 @@ class MapPickerPage extends ConsumerStatefulWidget {
 }
 
 class _MapPickerPageState extends ConsumerState<MapPickerPage> {
+  static const _searchDebounce = Duration(milliseconds: 350);
+
   late MissionMapController _mapController;
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
+  Timer? _debounce;
+  int _searchSeq = 0;
+
   LatLng? _point;
+  PlaceSearchResult? _place;
+  List<PlaceSearchResult> _results = const [];
+  bool _searching = false;
+  bool _showResults = false;
+  String? _searchError;
 
   @override
   void initState() {
@@ -42,12 +59,23 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    _searchFocus.dispose();
     _mapController.dispose();
     super.dispose();
   }
 
   void _setPoint(LatLng point) {
-    setState(() => _point = point);
+    _searchFocus.unfocus();
+    _searchController.clear();
+    setState(() {
+      _point = point;
+      _place = null;
+      _results = const [];
+      _searchError = null;
+      _showResults = false;
+    });
   }
 
   void _confirm() {
@@ -58,16 +86,133 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
       ).showSnackBar(SnackBar(content: Text('请先在地图上选择${widget.pointLabel}')));
       return;
     }
+    final coordinates =
+        '${point.latitude.toStringAsFixed(6)},'
+        '${point.longitude.toStringAsFixed(6)}';
+    final place = _place;
+    // 名称/地址是可选的附加段；消费方只读第一段坐标（site_fields.dart）。
+    final name = _segment(place?.name);
+    final address = _segment(place?.description);
     context.pop(
-      '${point.latitude.toStringAsFixed(6)},'
-      '${point.longitude.toStringAsFixed(6)}',
+      [coordinates, if (name.isNotEmpty) name, if (address.isNotEmpty) address]
+          .join(';'),
     );
   }
 
-  void _showSearchHint() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('POI 搜索需后端提供搜索接口，即将上线')));
+  static String _segment(String? value) =>
+      (value ?? '').replaceAll(';', '，').trim();
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    final keyword = value.trim();
+    if (keyword.isEmpty) {
+      // 清空输入后，仍在等待配置/在途的检索结果必须作废。
+      _searchSeq++;
+      setState(() {
+        _results = const [];
+        _searching = false;
+        _searchError = null;
+        _showResults = false;
+      });
+      return;
+    }
+    _debounce = Timer(_searchDebounce, () => _runSearch(keyword));
+    setState(() {});
+  }
+
+  Future<void> _runSearch(String keyword) async {
+    final AmapConfig config;
+    try {
+      config = await ref.read(amapMapConfigProvider.future);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _searching = false;
+        _showResults = true;
+        _searchError = '地图服务暂不可用，无法搜索';
+      });
+      return;
+    }
+    // 等待配置期间关键词可能已改/已清空：只对当前输入发起检索。
+    if (!mounted || _searchController.text.trim() != keyword) return;
+    final seq = ++_searchSeq;
+    setState(() {
+      _searching = true;
+      _showResults = true;
+      _searchError = null;
+    });
+    try {
+      final results = await ref
+          .read(placeSearchProvider)
+          .search(
+            key: config.key,
+            keyword: keyword,
+            city: _city(),
+            center: _mapCenter(),
+          );
+      if (!mounted || seq != _searchSeq) return;
+      setState(() {
+        _results = results;
+        _searching = false;
+        _searchError = results.isEmpty ? '没有找到相关地点，换个关键词试试' : null;
+      });
+    } on PlaceSearchException catch (error) {
+      if (!mounted || seq != _searchSeq) return;
+      setState(() {
+        _results = const [];
+        _searching = false;
+        _searchError = error.message;
+      });
+    } on Exception {
+      // 兜底：任何未归一的通道异常都不能留下转圈状态。
+      if (!mounted || seq != _searchSeq) return;
+      setState(() {
+        _results = const [];
+        _searching = false;
+        _searchError = '搜索失败，请稍后重试';
+      });
+    }
+  }
+
+  String? _city() {
+    final city = ref.read(locationProvider).city;
+    if (city.isEmpty || city == '定位中...' || city.startsWith('定位不可用')) {
+      return null;
+    }
+    return city;
+  }
+
+  LatLng _mapCenter() {
+    final loc = ref.read(locationProvider);
+    return LatLng(loc.latitude ?? 27.8981, loc.longitude ?? 112.9193);
+  }
+
+  void _selectResult(PlaceSearchResult result) {
+    _debounce?.cancel();
+    _searchSeq++;
+    _searchFocus.unfocus();
+    _searchController.text = result.name;
+    setState(() {
+      _point = result.point;
+      _place = result;
+      _results = const [];
+      _searching = false;
+      _showResults = false;
+      _searchError = null;
+    });
+    unawaited(_mapController.move(result.point, 17));
+  }
+
+  void _clearSearch() {
+    _debounce?.cancel();
+    _searchSeq++;
+    _searchController.clear();
+    setState(() {
+      _results = const [];
+      _searching = false;
+      _showResults = false;
+      _searchError = null;
+    });
   }
 
   @override
@@ -100,6 +245,13 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
               onTap: _setPoint,
             ),
           ),
+          if (_showResults && (_results.isNotEmpty || _searchError != null))
+            Positioned(
+              left: 12,
+              right: 12,
+              top: 8,
+              child: _buildResultPanel(),
+            ),
           // 底部面板：引导态 / 已选态
           Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomPanel()),
         ],
@@ -107,33 +259,124 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
     );
   }
 
-  /// 顶部搜索框（视觉骨架：真实 POI 搜索待后端接口）。
+  /// 顶部搜索框：输入即检索高德 POI（350ms 防抖），结果浮层覆盖地图。
   Widget _buildSearchBar() {
-    return GestureDetector(
-      onTap: _showSearchHint,
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: AppColors.bgWhite,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.search, color: AppColors.onSurfaceVariant, size: 20),
-            SizedBox(width: 8),
-            Text(
-              '搜索${widget.pointLabel}或附近建筑',
-              style: TextStyle(color: AppColors.textHint, fontSize: 14),
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: AppColors.bgWhite,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.search, color: AppColors.onSurfaceVariant, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              key: const ValueKey('place-search-field'),
+              controller: _searchController,
+              focusNode: _searchFocus,
+              textInputAction: TextInputAction.search,
+              onChanged: _onSearchChanged,
+              onTap: () {
+                if (!_showResults &&
+                    (_results.isNotEmpty || _searchError != null)) {
+                  setState(() => _showResults = true);
+                }
+              },
+              onSubmitted: (value) {
+                _debounce?.cancel();
+                final keyword = value.trim();
+                if (keyword.isNotEmpty) unawaited(_runSearch(keyword));
+              },
+              style: const TextStyle(fontSize: 14),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText: '搜索${widget.pointLabel}或附近建筑',
+                hintStyle: TextStyle(color: AppColors.textHint, fontSize: 14),
+              ),
             ),
-          ],
-        ),
+          ),
+          if (_searching)
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else if (_searchController.text.isNotEmpty)
+            GestureDetector(
+              key: const ValueKey('place-search-clear'),
+              onTap: _clearSearch,
+              child: Icon(
+                Icons.close,
+                color: AppColors.onSurfaceVariant,
+                size: 18,
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  /// 底部面板：未选显示引导，已选显示坐标 + 确认 CTA。
+  Widget _buildResultPanel() {
+    final children = <Widget>[
+      if (_searchError != null)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Text(
+            _searchError!,
+            key: const ValueKey('place-search-message'),
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ),
+      for (final result in _results)
+        ListTile(
+          key: ValueKey('place-${result.id.isEmpty ? result.name : result.id}'),
+          dense: true,
+          leading: Icon(Icons.place_outlined, color: AppColors.primary),
+          title: Text(
+            result.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          subtitle: result.description.isEmpty
+              ? null
+              : Text(
+                  result.description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12),
+                ),
+          onTap: () => _selectResult(result),
+        ),
+    ];
+    return Material(
+      key: const ValueKey('place-search-results'),
+      color: AppColors.bgWhite,
+      elevation: 4,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 320),
+        child: children.isEmpty
+            ? const SizedBox.shrink()
+            : ListView(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                children: children,
+              ),
+      ),
+    );
+  }
+
+  /// 底部面板：未选显示引导，已选显示地点/坐标 + 确认 CTA。
   Widget _buildBottomPanel() {
     return Container(
       decoration: const BoxDecoration(
@@ -164,7 +407,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
         SizedBox(width: 10),
         Expanded(
           child: Text(
-            '拖动地图，点击任意位置选择${widget.pointLabel}',
+            '拖动地图，点击任意位置选择${widget.pointLabel}，或搜索地点',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.onSurfaceVariant,
@@ -178,6 +421,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
 
   Widget _buildSelected() {
     final point = _point!;
+    final place = _place;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -186,19 +430,59 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
             const Icon(Icons.location_on, color: Colors.red, size: 22),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                '${point.latitude.toStringAsFixed(6)}, '
-                '${point.longitude.toStringAsFixed(6)}',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (place != null && place.name.isNotEmpty)
+                    Text(
+                      place.name,
+                      key: const ValueKey('place-selected-name'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  Text(
+                    '${point.latitude.toStringAsFixed(6)}, '
+                    '${point.longitude.toStringAsFixed(6)}',
+                    style: TextStyle(
+                      fontSize: place == null ? 15 : 12,
+                      fontWeight: place == null
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: place == null
+                          ? null
+                          : AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                  if (place != null && place.description.isNotEmpty)
+                    Text(
+                      place.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textHint,
+                      ),
+                    ),
+                ],
               ),
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: '清除',
-              onPressed: () => setState(() => _point = null),
+              onPressed: () {
+                _searchController.clear();
+                setState(() {
+                  _point = null;
+                  _place = null;
+                  _results = const [];
+                  _searchError = null;
+                  _showResults = false;
+                });
+              },
             ),
           ],
         ),
