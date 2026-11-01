@@ -99,8 +99,14 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('电量：0 %'), findsOneWidget);
-    expect(find.text('相对起飞点高度：未知'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('flight-battery'))).data,
+      '0',
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('flight-altitude'))).data,
+      '未知',
+    );
     expect(find.text('飞行状态：未知'), findsOneWidget);
     expect(find.text('尚无本单实际位置，不绘制轨迹'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());

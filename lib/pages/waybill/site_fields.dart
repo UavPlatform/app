@@ -11,11 +11,13 @@ class SiteFields extends StatelessWidget {
     required this.prefix,
     required this.onChanged,
     required this.errors,
+    this.section,
   });
   final WaybillDraft draft;
   final String prefix;
   final DraftChanged onChanged;
   final Map<String, String> errors;
+  final int? section;
 
   Future<void> _pick(BuildContext context) async {
     final route = prefix == 'start' ? '/map/pick?point=start' : '/map/pick';
@@ -47,57 +49,63 @@ class SiteFields extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        OutlinedButton.icon(
-          key: ValueKey('$prefix.pick'),
-          onPressed: () => _pick(context),
-          icon: const Icon(Icons.place_outlined),
-          label: Text(
-            draft.value('$prefix.lat').isEmpty
-                ? '在地图上选择${prefix == 'start' ? '起点' : '终点'}'
-                : draft.value('$prefix.place').isEmpty
-                ? '${draft.value('$prefix.lat')}, ${draft.value('$prefix.lng')}'
-                : '${draft.value('$prefix.place')} · ${draft.value('$prefix.lat')}, ${draft.value('$prefix.lng')}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        if (errors['$prefix.point'] != null)
-          Text(
-            errors['$prefix.point']!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        const SizedBox(height: 16),
-        field('site', '场地类型', numeric: false),
-        Text('场地能否降落？', style: Theme.of(context).textTheme.titleMedium),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            ChoiceChip(
-              label: const Text('能 · 落地放货'),
-              selected: landing == 'yes',
-              onSelected: (_) => onChanged('$prefix.landing', 'yes'),
+        if (section == null || section == 0) ...[
+          OutlinedButton.icon(
+            key: ValueKey('$prefix.pick'),
+            onPressed: () => _pick(context),
+            icon: const Icon(Icons.place_outlined),
+            label: Text(
+              draft.value('$prefix.lat').isEmpty
+                  ? '在地图上选择${prefix == 'start' ? '起点' : '终点'}'
+                  : draft.value('$prefix.place').isEmpty
+                  ? '${draft.value('$prefix.lat')}, ${draft.value('$prefix.lng')}'
+                  : '${draft.value('$prefix.place')} · ${draft.value('$prefix.lat')}, ${draft.value('$prefix.lng')}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            ChoiceChip(
-              label: const Text('不能 · 绞盘吊放'),
-              selected: landing == 'no',
-              onSelected: (_) => onChanged('$prefix.landing', 'no'),
-            ),
-          ],
-        ),
-        if (errors['$prefix.landing'] != null)
-          Text(
-            errors['$prefix.landing']!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
-        const SizedBox(height: 16),
-        if (landing == 'no') ...[
-          field('winchMin', '绞盘高度下限（m）', numeric: true),
-          field('winchMax', '绞盘高度上限（m）', numeric: true),
+          if (errors['$prefix.point'] != null)
+            Text(
+              errors['$prefix.point']!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          const SizedBox(height: 16),
         ],
-        field('contact', '现场联系人姓名'),
-        field('phone', '现场联系人电话'),
-        field('notes', '现场备注（选填）'),
+        if (section == null || section == 1) ...[
+          field('site', '场地类型', numeric: false),
+          Text('场地能否降落？', style: Theme.of(context).textTheme.titleMedium),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              ChoiceChip(
+                label: const Text('能 · 落地放货'),
+                selected: landing == 'yes',
+                onSelected: (_) => onChanged('$prefix.landing', 'yes'),
+              ),
+              ChoiceChip(
+                label: const Text('不能 · 绞盘吊放'),
+                selected: landing == 'no',
+                onSelected: (_) => onChanged('$prefix.landing', 'no'),
+              ),
+            ],
+          ),
+          if (errors['$prefix.landing'] != null)
+            Text(
+              errors['$prefix.landing']!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          const SizedBox(height: 16),
+          if (landing == 'no') ...[
+            field('winchMin', '绞盘高度下限（m）', numeric: true),
+            field('winchMax', '绞盘高度上限（m）', numeric: true),
+          ],
+          field('notes', '现场备注（选填）'),
+        ],
+        if (section == null || section == 2) ...[
+          field('contact', '现场联系人姓名'),
+          field('phone', '现场联系人电话'),
+        ],
       ],
     );
   }

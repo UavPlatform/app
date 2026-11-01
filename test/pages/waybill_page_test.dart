@@ -10,9 +10,6 @@ import 'package:uav_pilot_app/providers/auth_provider.dart';
 import 'package:uav_pilot_app/providers/waybill_draft_provider.dart';
 import 'package:uav_pilot_app/providers/dispatch_provider.dart';
 import 'package:uav_pilot_app/api/dispatch_api.dart';
-import 'package:uav_pilot_app/api/http_client.dart';
-import 'package:uav_pilot_app/services/token_storage.dart';
-import '../dispatch_test_support.dart';
 import 'package:uav_pilot_app/theme/app_theme.dart';
 
 import '../models/waybill_draft_test.dart' show validCargo, validSite;
@@ -45,7 +42,7 @@ Future<ProviderContainer> showDraft(
         path: '/map/pick',
         builder: (context, state) => Scaffold(
           body: TextButton(
-            onPressed: () => context.pop('28.123456,113.654321'),
+            onPressed: () => context.pop('28.123456,113.654321;地图测试点;测试路88号'),
             child: Text(
               '选定${state.uri.queryParameters['point'] == 'start' ? '起点' : '终点'}',
             ),
@@ -86,289 +83,341 @@ Future<void> next(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> edit(WidgetTester tester, String id) async {
+  final row = find.byKey(ValueKey('edit-$id'));
+  await tester.ensureVisible(row);
+  await tester.tap(row);
+  await tester.pumpAndSettle();
+}
+
+Future<void> saveEditor(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('waybill-editor-save')));
+  await tester.pumpAndSettle();
+}
+
+WaybillDraft completeDraft() => WaybillDraft(
+  fields: {
+    ...validCargo(),
+    ...validSite('start'),
+    ...validSite('end'),
+    'timeMode': 'now',
+  },
+);
+
 void main() {
   testWidgets(
-    'compact cargo keeps packaging above the fixed footer at phone size',
+    'review fits normal phone height and opens structured bottom-sheet details',
     (tester) async {
-      tester.view.physicalSize = const Size(400, 890);
+      tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       await showDraft(
         tester,
-        WaybillDraft(fields: validCargo()),
-        theme: AppTheme.lightTheme,
-      );
-      final packaging = find.byKey(const ValueKey('packaging'));
-      final nextButton = find.byKey(const ValueKey('waybill-next'));
-      expect(
-        tester.getBottomLeft(packaging).dy,
-        lessThan(tester.getTopLeft(nextButton).dy),
-      );
-      expect(
-        find.descendant(
-          of: find.byType(AppBar),
-          matching: find.byType(IconButton),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('保存草稿'), findsOneWidget);
-      expect(find.byTooltip('我的派单运单'), findsNothing);
-      expect(find.byTooltip('账号草稿'), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'quantity stepper and typing share the original count binding and validation',
-    (tester) async {
-      final container = await showDraft(
-        tester,
-        WaybillDraft(fields: validCargo()),
-        theme: AppTheme.lightTheme,
-      );
-      await tester.ensureVisible(find.byTooltip('增加件数'));
-      await tester.tap(find.byTooltip('增加件数'));
-      await tester.pumpAndSettle();
-      expect(container.read(waybillDraftProvider).draft.value('count'), '3');
-      expect(
-        tester
-            .widget<TextFormField>(find.byKey(const ValueKey('count')))
-            .controller!
-            .text,
-        '3',
-      );
-      await tester.enterText(find.byKey(const ValueKey('count')), '7');
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('减少件数'));
-      await tester.pumpAndSettle();
-      expect(container.read(waybillDraftProvider).draft.value('count'), '6');
-      await tester.enterText(find.byKey(const ValueKey('count')), '1.5');
-      await tester.pumpAndSettle();
-      expect(
-        container.read(waybillDraftProvider).draft.errorsFor(0),
-        contains('count'),
-      );
-      container
-          .read(waybillDraftProvider.notifier)
-          .restore(WaybillDraft(fields: {...validCargo(), 'count': '9'}));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<TextFormField>(find.byKey(const ValueKey('count')))
-            .controller!
-            .text,
-        '9',
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  // REQ-SHIP-PUB-002: use the production button themes, including full-width
-  // outlined buttons, so horizontal footer layout failures cannot be hidden.
-  for (final dark in [false, true]) {
-    for (var step = 0; step < WaybillDraft.steps.length; step++) {
-      testWidgets('real theme dark=$dark lays out draft step $step', (
-        tester,
-      ) async {
-        await showDraft(
-          tester,
-          WaybillDraft(step: step),
-          theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
-        );
-        expect(tester.takeException(), isNull);
-        final next = find.byKey(const ValueKey('waybill-next'));
-        expect(tester.getSize(next).width, greaterThan(0));
-        if (step > 0) {
-          expect(tester.getSize(find.byTooltip('上一步')).width, greaterThan(0));
-          await tester.tap(find.byTooltip('上一步'));
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
-        }
-      });
-    }
-  }
-
-  testWidgets('review separates authoritative amounts without adding a total', (
-    tester,
-  ) async {
-    await showDraft(tester, WaybillDraft(step: 4));
-    expect(find.text('下单定金：¥125.50（结算时抵扣）'), findsOneWidget);
-    expect(find.text('飞手服务费：¥180.50/单'), findsOneWidget);
-    expect(find.textContaining('¥306.00'), findsNothing);
-  });
-
-  testWidgets('settings failure offers retry and no hardcoded amount', (
-    tester,
-  ) async {
-    await showDraft(tester, WaybillDraft(step: 4), failSettings: true);
-    expect(find.text('平台金额暂时无法获取'), findsOneWidget);
-    expect(find.text('重新获取金额'), findsOneWidget);
-    expect(find.textContaining('¥100'), findsNothing);
-  });
-
-  testWidgets(
-    'account restore confirms replacement and refreshes same-step fields',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final client = HttpClient(
-        TokenStorage(await SharedPreferences.getInstance()),
-      );
-      addTearDown(() => client.dio.close());
-      final api = FakeDispatchApi(client)
-        ..remote = AccountWaybillDraft(
-          draft: WaybillDraft(
-            fields: {...validCargo(), 'weightMin': '77'},
-            step: 0,
-          ),
-          revision: 1,
-        );
-      final container = await showDraft(
-        tester,
-        WaybillDraft(fields: {...validCargo(), 'weightMin': 'bad'}),
-        dispatchApi: api,
-        accountActions: true,
-      );
-      await next(tester);
-      expect(find.text('重量下限须为大于 0 的数字'), findsOneWidget);
-      await tester.tap(find.byTooltip('账号草稿'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('恢复账号草稿'));
-      await tester.pumpAndSettle();
-      expect(
-        container.read(waybillDraftProvider).draft.value('weightMin'),
-        'bad',
-      );
-      await tester.tap(find.text('恢复草稿'));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<TextFormField>(find.byKey(const ValueKey('weightMin')))
-            .initialValue,
-        '77',
-      );
-      expect(
-        container.read(waybillDraftProvider).draft.value('weightMin'),
-        '77',
-      );
-      expect(api.saveCalls, 0);
-      expect(find.text('重量下限须为大于 0 的数字'), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'invalid restored appointment displays an editable picker without crashing',
-    (tester) async {
-      await showDraft(
-        tester,
-        WaybillDraft(
-          fields: {'timeMode': 'scheduled', 'scheduledAt': 'bad'},
-          step: 3,
-        ),
-      );
-      expect(find.text('选择预约日期与时间'), findsOneWidget);
-      await next(tester);
-      expect(find.text('请选择未来的预约时间'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'missing cargo cannot advance; hazardous category is unavailable',
-    (tester) async {
-      final container = await showDraft(tester, WaybillDraft());
-      expect(find.text('危险品 · 暂不开放'), findsOneWidget);
-      final hazardous = tester.widget<ChoiceChip>(
-        find.widgetWithText(ChoiceChip, '危险品 · 暂不开放'),
-      );
-      expect(hazardous.onSelected, isNull);
-      await next(tester);
-      expect(container.read(waybillDraftProvider).draft.step, 0);
-      expect(find.text('请选择货物类别'), findsOneWidget);
-      expect(find.text('重量下限须为大于 0 的数字'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'validated cargo advances and back navigation restores editable values',
-    (tester) async {
-      final container = await showDraft(
-        tester,
-        WaybillDraft(fields: validCargo()),
-      );
-      await tester.enterText(find.byKey(const ValueKey('weightMin')), '12');
-      await next(tester);
-      expect(container.read(waybillDraftProvider).draft.step, 1);
-      expect(find.byKey(const ValueKey('start.pick')), findsOneWidget);
-      await tester.tap(find.byTooltip('上一步'));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<TextFormField>(find.byKey(const ValueKey('weightMin')))
-            .initialValue,
-        '12',
-      );
-    },
-  );
-
-  testWidgets(
-    'map picker updates the correct endpoint and preserves the other',
-    (tester) async {
-      final container = await showDraft(
-        tester,
-        WaybillDraft(
-          fields: {...validSite('start'), ...validSite('end')},
-          step: 2,
-        ),
-      );
-      await tester.tap(find.byKey(const ValueKey('end.pick')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('选定终点'));
-      await tester.pumpAndSettle();
-      final draft = container.read(waybillDraftProvider).draft;
-      expect(draft.value('end.lat'), '28.123456');
-      expect(draft.value('end.lng'), '113.654321');
-      expect(draft.value('start.lat'), '27.8981');
-    },
-  );
-
-  testWidgets('winch fields are required only when landing is impossible', (
-    tester,
-  ) async {
-    final container = await showDraft(
-      tester,
-      WaybillDraft(fields: validSite('start'), step: 1),
-    );
-    await tester.tap(find.text('不能 · 绞盘吊放'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('start.winchMin')), findsOneWidget);
-    await next(tester);
-    expect(container.read(waybillDraftProvider).draft.step, 1);
-    await tester.tap(find.text('能 · 落地放货'));
-    await tester.pumpAndSettle();
-    await next(tester);
-    expect(container.read(waybillDraftProvider).draft.step, 2);
-  });
-
-  testWidgets(
-    'review saves only a local draft and offers no payment/order action',
-    (tester) async {
-      await showDraft(
-        tester,
         WaybillDraft(
           fields: {
-            ...validCargo(),
-            ...validSite('start'),
-            ...validSite('end'),
-            'timeMode': 'now',
+            ...completeDraft().fields,
+            'declaredValue': '500',
+            'start.notes': '门口联系',
           },
           step: 4,
         ),
+        theme: AppTheme.lightTheme,
       );
-      expect(find.text('保存运单草稿'), findsOneWidget);
-      expect(find.text('支付定金并下单'), findsNothing);
-      expect(find.textContaining('200'), findsNothing);
-      await next(tester);
-      expect(find.text('运单草稿已保存'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('review-时间')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(FilledButton, '确认运单，前往模拟支付').hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .maxScrollExtent,
+        0,
+      );
+      await tester.tap(find.byKey(const ValueKey('review-货物')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.text('货物详情'), findsOneWidget);
+      expect(find.text('货物类别'), findsOneWidget);
+      expect(find.text('包装方式'), findsOneWidget);
+      expect(find.text('吊点信息'), findsOneWidget);
+      expect(find.text('500 元'), findsOneWidget);
+      await tester.tap(find.text('我知道了'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('review-起点')));
+      await tester.pumpAndSettle();
+      expect(find.text('起点详情'), findsOneWidget);
+      expect(find.text('门口联系'), findsOneWidget);
+      await tester.tap(find.byTooltip('关闭'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('summary shows grouped values without inline text fields', (
+    tester,
+  ) async {
+    await showDraft(tester, completeDraft());
+    expect(find.byType(TextFormField), findsNothing);
+    expect(find.textContaining('10–20 kg'), findsOneWidget);
+    expect(find.byKey(const ValueKey('edit-start.contact')), findsOneWidget);
+    expect(find.byKey(const ValueKey('edit-end.contact')), findsOneWidget);
+  });
+  testWidgets(
+    'category closes without committing edits, saves only its own fields',
+    (tester) async {
+      final container = await showDraft(tester, completeDraft());
+      await edit(tester, 'category');
+      expect(find.byKey(const ValueKey('weightMin')), findsNothing);
+      await tester.tap(find.widgetWithText(ChoiceChip, '易碎'));
+      await tester.tap(find.byTooltip('关闭'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(waybillDraftProvider).draft.value('category'),
+        '普通',
+      );
+      await edit(tester, 'category');
+      await tester.tap(find.widgetWithText(ChoiceChip, '易碎'));
+      await saveEditor(tester);
+      expect(
+        container.read(waybillDraftProvider).draft.value('category'),
+        '易碎',
+      );
+      expect(
+        container.read(waybillDraftProvider).draft.value('start.phone'),
+        '13800138000',
+      );
+      expect(find.text('易碎'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'specification keeps quantity controls and rejects invalid values',
+    (tester) async {
+      final container = await showDraft(tester, completeDraft());
+      await edit(tester, 'specification');
+      await tester.ensureVisible(find.byTooltip('增加件数'));
+      await tester.tap(find.byTooltip('增加件数'));
+      await tester.pumpAndSettle();
+      expect(container.read(waybillDraftProvider).draft.value('count'), '2');
+      await tester.enterText(find.byKey(const ValueKey('count')), '1.5');
+      await saveEditor(tester);
+      expect(find.byKey(const ValueKey('waybill-editor-save')), findsOneWidget);
+      await tester.enterText(find.byKey(const ValueKey('count')), '4');
+      await saveEditor(tester);
+      expect(container.read(waybillDraftProvider).draft.value('count'), '4');
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('contacts validate phone and edit the correct endpoint', (
+    tester,
+  ) async {
+    final container = await showDraft(tester, completeDraft());
+    await edit(tester, 'end.contact');
+    expect(find.byKey(const ValueKey('end.site')), findsNothing);
+    await tester.enterText(find.byKey(const ValueKey('end.phone')), 'bad');
+    await saveEditor(tester);
+    expect(find.text('请填写有效联系电话'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('end.phone')),
+      '13900139000',
+    );
+    await saveEditor(tester);
+    expect(
+      container.read(waybillDraftProvider).draft.value('end.phone'),
+      '13900139000',
+    );
+    expect(
+      container.read(waybillDraftProvider).draft.value('start.phone'),
+      '13800138000',
+    );
+  });
+  testWidgets('map returns into the sheet and commits only after save', (
+    tester,
+  ) async {
+    final container = await showDraft(tester, completeDraft());
+    await edit(tester, 'end.location');
+    await tester.tap(find.byKey(const ValueKey('end.pick')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('选定终点'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(waybillDraftProvider).draft.value('end.lat'),
+      '27.8981',
+    );
+    await saveEditor(tester);
+    expect(
+      container.read(waybillDraftProvider).draft.value('end.lat'),
+      '28.123456',
+    );
+    final saved = container.read(waybillDraftProvider).draft;
+    expect(saved.value('end.place'), '地图测试点');
+    expect(saved.value('end.placeAddress'), '测试路88号');
+    expect(saved.cloudFields.containsKey('end.place'), isFalse);
+    expect(saved.cloudFields.containsKey('end.placeAddress'), isFalse);
+    expect(find.text('地图测试点'), findsOneWidget);
+    expect(
+      container.read(waybillDraftProvider).draft.value('start.lat'),
+      '27.8981',
+    );
+  });
+  testWidgets(
+    'site conditions require winch heights only when landing is impossible',
+    (tester) async {
+      final container = await showDraft(tester, completeDraft());
+      await edit(tester, 'start.conditions');
+      await tester.tap(find.text('不能 · 绞盘吊放'));
+      await tester.pumpAndSettle();
+      await saveEditor(tester);
+      expect(find.byKey(const ValueKey('start.winchMin')), findsOneWidget);
+      expect(
+        container.read(waybillDraftProvider).draft.value('start.landing'),
+        'yes',
+      );
+      await tester.tap(find.text('能 · 落地放货'));
+      await tester.pumpAndSettle();
+      await saveEditor(tester);
+      expect(find.byKey(const ValueKey('waybill-editor-save')), findsNothing);
+    },
+  );
+  testWidgets(
+    'appointment reuses project wheel pickers and commits only on save',
+    (tester) async {
+      final scheduled = DateTime.now().add(const Duration(days: 2));
+      final stamp = scheduled.toIso8601String();
+      final container = await showDraft(
+        tester,
+        WaybillDraft(
+          fields: {
+            ...completeDraft().fields,
+            'timeMode': 'scheduled',
+            'scheduledAt': stamp,
+          },
+        ),
+      );
+      await edit(tester, 'time');
+      final label = stamp.replaceAll('T', ' ').substring(0, 16);
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      expect(find.text('选择日期'), findsOneWidget);
+      expect(find.byType(DatePickerDialog), findsNothing);
+      expect(find.byType(ListWheelScrollView), findsNWidgets(3));
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(waybillDraftProvider).draft.value('scheduledAt'),
+        stamp,
+      );
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+      expect(find.text('选择时间'), findsOneWidget);
+      expect(find.byType(TimePickerDialog), findsNothing);
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(waybillDraftProvider).draft.value('scheduledAt'),
+        stamp,
+      );
+      await saveEditor(tester);
+      final saved = DateTime.parse(
+        container.read(waybillDraftProvider).draft.value('scheduledAt'),
+      );
+      expect(saved.year, scheduled.year);
+      expect(saved.month, scheduled.month);
+      expect(saved.day, scheduled.day);
+      expect(saved.hour, scheduled.hour);
+      expect(saved.minute, scheduled.minute);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('invalid appointment remains editable in its own sheet', (
+    tester,
+  ) async {
+    await showDraft(
+      tester,
+      WaybillDraft(fields: {'timeMode': 'scheduled', 'scheduledAt': 'bad'}),
+    );
+    await edit(tester, 'time');
+    expect(find.text('选择预约日期与时间'), findsOneWidget);
+    await saveEditor(tester);
+    expect(find.text('请选择未来的预约时间'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets(
+    'confirm opens the first invalid group instead of bypassing validation',
+    (tester) async {
+      final container = await showDraft(tester, WaybillDraft());
+      await next(tester);
+      expect(find.widgetWithText(ChoiceChip, '普通'), findsOneWidget);
+      await saveEditor(tester);
+      expect(find.text('请选择货物类别'), findsWidgets);
+      expect(container.read(waybillDraftProvider).draft.step, 0);
+    },
+  );
+  testWidgets(
+    'valid summary reaches review, amounts stay authoritative and can return to edit',
+    (tester) async {
+      await showDraft(tester, completeDraft());
+      await next(tester);
+      expect(find.text('¥125.50'), findsOneWidget);
+      expect(find.text('¥180.50/单'), findsOneWidget);
+      expect(find.textContaining('¥306.00'), findsNothing);
+      await tester.tap(find.byTooltip('上一步'));
+      await tester.pumpAndSettle();
+      await edit(tester, 'lifting');
+      expect(find.byKey(const ValueKey('lifting')), findsOneWidget);
+      expect(find.byKey(const ValueKey('category')), findsNothing);
+    },
+  );
+  testWidgets(
+    'restoring another draft closes the editor without overwriting restored values',
+    (tester) async {
+      final container = await showDraft(tester, completeDraft());
+      await edit(tester, 'category');
+      await tester.tap(find.widgetWithText(ChoiceChip, '易碎'));
+      container
+          .read(waybillDraftProvider.notifier)
+          .restore(WaybillDraft(fields: {...validCargo(), 'category': '冷链'}));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('waybill-editor-save')), findsNothing);
+      expect(
+        container.read(waybillDraftProvider).draft.value('category'),
+        '冷链',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('photos have a dedicated editor and empty-state summary', (
+    tester,
+  ) async {
+    await showDraft(tester, completeDraft());
+    await edit(tester, 'cargo.photos');
+    expect(find.text('照片（选填）'), findsOneWidget);
+    expect(find.byType(TextFormField), findsNothing);
+    await saveEditor(tester);
+    expect(find.byKey(const ValueKey('waybill-editor-save')), findsNothing);
+  });
+  for (final dark in [false, true]) {
+    testWidgets('narrow summary and editor layout dark=$dark', (tester) async {
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await showDraft(
+        tester,
+        completeDraft(),
+        theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
+      );
+      await edit(tester, 'specification');
+      expect(tester.takeException(), isNull);
+      await saveEditor(tester);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

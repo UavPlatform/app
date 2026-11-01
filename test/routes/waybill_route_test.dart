@@ -74,11 +74,7 @@ void main() {
       await tester.tap(find.text('检查并评估运单'));
       await tester.pumpAndSettle();
       expect(find.text(blocker), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('查看我的派单运单'),
-        160,
-        scrollable: find.byType(Scrollable).last,
-      );
+      await tester.tap(find.byTooltip('更多订单操作'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('查看我的派单运单'));
       await tester.pumpAndSettle();
@@ -118,7 +114,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(WaybillPage), findsOneWidget);
       expect(find.byType(BottomNavigationBar), findsNothing);
-      await tester.enterText(find.byKey(const ValueKey('weightMin')), '12');
+      await tester.tap(find.byKey(const ValueKey('edit-category')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, '普通'));
+      await tester.tap(find.byKey(const ValueKey('waybill-editor-save')));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
@@ -136,15 +135,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(WaybillPage), findsOneWidget);
       expect(
-        container.read(waybillDraftProvider).draft.value('weightMin'),
-        '12',
+        container.read(waybillDraftProvider).draft.value('category'),
+        '普通',
       );
-      expect(
-        tester
-            .widget<TextFormField>(find.byKey(const ValueKey('weightMin')))
-            .initialValue,
-        '12',
-      );
+      expect(find.text('普通'), findsOneWidget);
+      expect(find.byType(TextFormField), findsNothing);
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('我的'));

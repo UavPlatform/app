@@ -40,7 +40,7 @@ class WaybillField extends StatelessWidget {
           ? const TextStyle(fontSize: 14, color: Color(0xFF1D2129))
           : null,
       decoration: compact
-          ? compactDecoration(hint ?? label, errors[name])
+          ? compactDecoration(context, hint ?? label, errors[name])
           : InputDecoration(
               labelText: label,
               hintText: hint,
@@ -51,26 +51,31 @@ class WaybillField extends StatelessWidget {
   );
 }
 
-InputDecoration compactDecoration(String hint, String? error) {
-  final border = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(8),
-    borderSide: BorderSide.none,
-  );
+InputDecoration compactDecoration(
+  BuildContext context,
+  String hint,
+  String? error,
+) {
+  final colors = Theme.of(context).colorScheme;
+  OutlineInputBorder border(Color color, [double width = 1]) =>
+      OutlineInputBorder(
+        borderRadius: BorderRadius.circular(4),
+        borderSide: BorderSide(color: color, width: width),
+      );
   return InputDecoration(
     hintText: hint,
     errorText: error,
     errorMaxLines: 3,
     isDense: true,
-    filled: true,
-    fillColor: const Color(0xFFF7F8FA),
-    hintStyle: const TextStyle(color: Color(0xFFA2A9B3), fontSize: 13),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+    filled: false,
+    hintStyle: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
     floatingLabelBehavior: FloatingLabelBehavior.never,
-    border: border,
-    enabledBorder: border,
-    focusedBorder: border,
-    errorBorder: border,
-    focusedErrorBorder: border,
+    border: border(colors.outlineVariant),
+    enabledBorder: border(colors.outlineVariant),
+    focusedBorder: border(colors.primary, 1.5),
+    errorBorder: border(colors.error),
+    focusedErrorBorder: border(colors.error, 1.5),
   );
 }
 
@@ -80,10 +85,12 @@ class CargoFields extends StatelessWidget {
     required this.draft,
     required this.onChanged,
     required this.errors,
+    this.section,
   });
   final WaybillDraft draft;
   final DraftChanged onChanged;
   final Map<String, String> errors;
+  final int? section;
 
   @override
   Widget build(BuildContext context) {
@@ -120,134 +127,152 @@ class CargoFields extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 12,
       children: [
-        WaybillSection(
-          children: [
-            const Text('货物类别', style: heading),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final category in WaybillDraft.categories)
-                  ChoiceChip(
-                    label: Text(category),
-                    selected: draft.value('category') == category,
-                    onSelected: (_) => onChanged('category', category),
-                    showCheckmark: false,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 4,
+        if (section == null || section == 0)
+          WaybillSection(
+            children: [
+              const Text('货物类别', style: heading),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final category in WaybillDraft.categories)
+                    ChoiceChip(
+                      label: Text(category),
+                      selected: draft.value('category') == category,
+                      onSelected: (_) => onChanged('category', category),
+                      showCheckmark: false,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 4,
+                      ),
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 7),
+                      backgroundColor: const Color(0xFFF2F3F5),
+                      selectedColor: const Color(0xFFE8F3FF),
+                      side: BorderSide(
+                        color: draft.value('category') == category
+                            ? waybillBlue
+                            : Colors.transparent,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      labelStyle: TextStyle(
+                        fontSize: 12,
+                        color: draft.value('category') == category
+                            ? waybillBlue
+                            : const Color(0xFF4E5969),
+                        fontWeight: draft.value('category') == category
+                            ? FontWeight.w700
+                            : FontWeight.normal,
+                      ),
                     ),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 7),
-                    backgroundColor: const Color(0xFFF2F3F5),
-                    selectedColor: const Color(0xFFE8F3FF),
-                    side: BorderSide(
-                      color: draft.value('category') == category
-                          ? waybillBlue
-                          : Colors.transparent,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    labelStyle: TextStyle(
-                      fontSize: 12,
-                      color: draft.value('category') == category
-                          ? waybillBlue
-                          : const Color(0xFF4E5969),
-                      fontWeight: draft.value('category') == category
-                          ? FontWeight.w700
-                          : FontWeight.normal,
+                  CustomPaint(
+                    foregroundPainter: const DashedCategoryBorder(),
+                    child: ChoiceChip(
+                      label: const Text('危险品 · 暂不开放'),
+                      selected: false,
+                      showCheckmark: false,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      side: BorderSide.none,
+                      disabledColor: const Color(0xFFF2F3F5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 4,
+                      ),
+                      labelStyle: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFA2A9B3),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                CustomPaint(
-                  foregroundPainter: const DashedCategoryBorder(),
-                  child: ChoiceChip(
-                    label: const Text('危险品 · 暂不开放'),
-                    selected: false,
-                    showCheckmark: false,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                    side: BorderSide.none,
-                    disabledColor: const Color(0xFFF2F3F5),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 4,
-                    ),
-                    labelStyle: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFFA2A9B3),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                ],
+              ),
+              if (errors['category'] != null)
+                Text(
+                  errors['category']!,
+                  style: const TextStyle(
+                    color: Color(0xFFF53F3F),
+                    fontSize: 12,
                   ),
                 ),
-              ],
-            ),
-            if (errors['category'] != null)
-              Text(
-                errors['category']!,
-                style: const TextStyle(color: Color(0xFFF53F3F), fontSize: 12),
+            ],
+          ),
+        if (section == null || section == 1)
+          WaybillSection(
+            children: [
+              const Text('重量与规格', style: heading),
+              group(
+                '重量范围 (kg)',
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: field('weightMin', '下限', numeric: true)),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 9,
+                      ),
+                      child: Text('~', style: caption),
+                    ),
+                    Expanded(
+                      child: field('weightMax', '上限（选填）', numeric: true),
+                    ),
+                  ],
+                ),
               ),
-          ],
-        ),
-        WaybillSection(
-          children: [
-            const Text('重量与规格', style: heading),
-            group(
-              '重量范围 (kg)',
+              group(
+                '尺寸规格 (cm)',
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: field('length', '长度', numeric: true)),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 7, vertical: 9),
+                      child: Text('×', style: caption),
+                    ),
+                    Expanded(child: field('width', '宽度', numeric: true)),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 7, vertical: 9),
+                      child: Text('×', style: caption),
+                    ),
+                    Expanded(child: field('height', '高度', numeric: true)),
+                  ],
+                ),
+              ),
+              _CargoQuantity(
+                draft: draft,
+                onChanged: onChanged,
+                errors: errors,
+              ),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: field('weightMin', '下限', numeric: true)),
                   const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                    child: Text('~', style: caption),
+                    padding: EdgeInsets.only(top: 9, right: 14),
+                    child: Text('包装说明', style: caption),
                   ),
-                  Expanded(child: field('weightMax', '上限（选填）', numeric: true)),
+                  Expanded(child: field('packaging', '例如：木箱、纸箱或托盘')),
                 ],
               ),
-            ),
-            group(
-              '尺寸规格 (cm)',
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: field('length', '长度', numeric: true)),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 7, vertical: 9),
-                    child: Text('×', style: caption),
-                  ),
-                  Expanded(child: field('width', '宽度', numeric: true)),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 7, vertical: 9),
-                    child: Text('×', style: caption),
-                  ),
-                  Expanded(child: field('height', '高度', numeric: true)),
-                ],
+            ],
+          ),
+        if (section == null || section == 2)
+          WaybillSection(
+            children: [
+              const Text('作业补充', style: heading),
+              group('吊点说明', field('lifting', '填写吊点位置与固定方式')),
+              group(
+                '货值（元，选填）',
+                field('declaredValue', '填写申报货值', numeric: true),
               ),
-            ),
-            _CargoQuantity(draft: draft, onChanged: onChanged, errors: errors),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 9, right: 14),
-                  child: Text('包装说明', style: caption),
-                ),
-                Expanded(child: field('packaging', '例如：木箱、纸箱或托盘')),
-              ],
-            ),
-          ],
-        ),
-        WaybillSection(
-          children: [
-            const Text('作业补充', style: heading),
-            group('吊点说明', field('lifting', '填写吊点位置与固定方式')),
-            group('货值（元，选填）', field('declaredValue', '填写申报货值', numeric: true)),
-          ],
-        ),
+            ],
+          ),
       ],
     );
   }
@@ -336,7 +361,11 @@ class _CargoQuantityState extends State<_CargoQuantity> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 14, color: Color(0xFF1D2129)),
-            decoration: compactDecoration('数量', widget.errors['count']),
+            decoration: compactDecoration(
+              context,
+              '数量',
+              widget.errors['count'],
+            ),
           ),
         ),
         const SizedBox(width: 6),

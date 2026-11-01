@@ -2,6 +2,7 @@ import 'package:uav_pilot_app/api/dispatch_material_api.dart';
 import 'package:uav_pilot_app/providers/dispatch_material_provider.dart';
 import 'package:uav_pilot_app/pages/waybill/dispatch_material_panel.dart';
 import 'package:flutter/material.dart';
+import 'package:uav_pilot_app/pages/waybill/dispatch_detail_surface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uav_pilot_app/api/generated/openapi_models.dart';
@@ -15,6 +16,56 @@ import 'package:uav_pilot_app/widgets/flow_ui.dart';
 import '../dispatch_order_test_support.dart';
 
 void main() {
+  testWidgets(
+    'fee drawer uses live paid state, keeps unknown balance and hides revoked data',
+    (tester) async {
+      final permitted = StateProvider((ref) => true);
+      final data = orderJson(stage: 'WAITING_ACCEPTANCE', funds: 'PAID')
+        ..['bill'] = {
+          'quote': {
+            'totalAmount': 108.74,
+            'depositAmount': 100,
+            'pilotServiceFee': 100,
+          },
+        };
+      final order = DispatchOrder(ApiDispatchOrderVO.fromJson(data));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            waybillDraftScopeProvider.overrideWithValue('fee-account'),
+            dispatchOrderProvider(order.id).overrideWith((ref) async {
+              if (!ref.watch(permitted)) throw StateError('revoked');
+              return order;
+            }),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: DispatchPriceCard(
+                quote: order.data.bill!.quote,
+                bill: order.data.bill,
+                orderId: order.id,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('查看费用明细'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.text('-¥100.00'), findsOneWidget);
+      final tail = find.widgetWithText(SelectableText, '待确认');
+      expect(tail, findsWidgets);
+      expect(find.text('¥8.74'), findsNothing);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(DispatchDetailSheet)),
+      );
+      container.read(permitted.notifier).state = false;
+      await tester.pumpAndSettle();
+      expect(find.text('-¥100.00'), findsNothing);
+      expect(find.text('费用暂不可用，请返回重试'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'all-materials page selects evidence beyond the compact preview',
     (tester) async {
@@ -168,7 +219,7 @@ void main() {
       );
       expect(reference, findsOneWidget);
       final container = ProviderScope.containerOf(
-        tester.element(find.byType(FlowDetailPage)),
+        tester.element(find.byType(DispatchDetailSheet)),
       );
       container.read(account.notifier).state = 'account-b';
       await tester.pumpAndSettle();
