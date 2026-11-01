@@ -56,6 +56,8 @@ class DispatchChatPage extends ConsumerWidget {
                 key: ValueKey('${ref.watch(waybillDraftScopeProvider)}/$id'),
                 sessionId: id,
                 sessionName: '订单聊天',
+                orderId: orderId,
+                orderStatus: order.stageLabel,
                 readOnly: order.completed,
               ),
             );
