@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/generated/openapi_models.dart';
 import '../api/review_api.dart';
 import 'auth_provider.dart';
+import 'paged_list.dart';
 
 final reviewApiProvider = Provider<ReviewApi>(
   (ref) => ReviewApi(ref.watch(httpClientProvider)),
@@ -21,15 +22,34 @@ final orderReviewProvider = FutureProvider.autoDispose
       return result.data;
     });
 
-/// 我发出的评价列表（首页 20 条，足够演示与日常使用；分页另议）。
-final myReviewsProvider = FutureProvider.autoDispose<List<ApiOrderReview>>((
-  ref,
-) async {
-  final result = await ref.watch(reviewApiProvider).myReviews();
-  if (!result.success) {
-    throw FailureNotice(
-      resultFailureMessage(result, fallback: '评价暂时无法加载，请稍后刷新'),
+class MyReviewsNotifier extends OffsetPagedNotifier<ApiOrderReview> {
+  MyReviewsNotifier(this._api) : super();
+  final ReviewApi _api;
+
+  @override
+  String itemKey(ApiOrderReview item) =>
+      item.id?.toString() ?? item.orderNum ?? '${item.hashCode}';
+
+  @override
+  Future<OffsetPage<ApiOrderReview>> fetchPage(int page) async {
+    final result = await _api.myReviews(page: page);
+    if (!result.success) {
+      throw FailureNotice(
+        resultFailureMessage(result, fallback: '评价暂时无法加载，请稍后刷新'),
+      );
+    }
+    final data = result.data;
+    final current = data?.currentPage ?? page;
+    final total = data?.totalPages ?? 0;
+    return (
+      items: data?.reviews ?? const <ApiOrderReview>[],
+      page: current,
+      hasNext: current + 1 < total,
     );
   }
-  return result.data?.reviews ?? const <ApiOrderReview>[];
-});
+}
+
+final myReviewsProvider = StateNotifierProvider.autoDispose<
+  MyReviewsNotifier,
+  PagedListState<ApiOrderReview>
+>((ref) => MyReviewsNotifier(ref.watch(reviewApiProvider))..load());

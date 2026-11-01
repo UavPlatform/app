@@ -150,7 +150,7 @@ void main() {
       location.pending.last.complete(DispatchLocationFix.fromMap(validFix()));
       await tester.pumpAndSettle();
       expect(api.updates, 1);
-      expect(find.text('本页暂无附近待接订单'), findsOneWidget);
+      expect(find.text('暂无附近待接订单'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       client.dio.close();
     },

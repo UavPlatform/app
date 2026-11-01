@@ -3,6 +3,7 @@ import '../api/equipment_api.dart';
 import '../api/generated/openapi_models.dart';
 import '../services/equipment_request_store.dart';
 import 'auth_provider.dart';
+import 'paged_list.dart';
 import 'waybill_draft_provider.dart';
 
 final equipmentApiProvider = Provider(
@@ -21,11 +22,33 @@ final equipmentModelStockProvider =
       ref.watch(waybillDraftScopeProvider);
       return ref.watch(equipmentApiProvider).modelStock();
     });
-final equipmentBorrowsProvider = FutureProvider.autoDispose
-    .family<ApiDroneBorrowPageVO, int>((ref, page) {
-      ref.watch(waybillDraftScopeProvider);
-      return ref.watch(equipmentApiProvider).mine(page);
-    });
+
+class EquipmentBorrowsNotifier extends OffsetPagedNotifier<ApiDroneBorrowVO> {
+  EquipmentBorrowsNotifier(this._api) : super();
+  final EquipmentApi _api;
+
+  @override
+  String itemKey(ApiDroneBorrowVO item) => item.borrowId ?? '${item.hashCode}';
+
+  @override
+  Future<OffsetPage<ApiDroneBorrowVO>> fetchPage(int page) async {
+    final result = await _api.mine(page);
+    return (
+      items: result.items ?? const <ApiDroneBorrowVO>[],
+      page: result.page ?? page,
+      hasNext: result.hasNext ?? false,
+    );
+  }
+}
+
+final equipmentBorrowsProvider = StateNotifierProvider.autoDispose<
+  EquipmentBorrowsNotifier,
+  PagedListState<ApiDroneBorrowVO>
+>((ref) {
+  ref.watch(waybillDraftScopeProvider);
+  return EquipmentBorrowsNotifier(ref.watch(equipmentApiProvider))..load();
+});
+
 final equipmentCurrentProvider =
     FutureProvider.autoDispose<ApiDroneBorrowPageVO>((ref) {
       ref.watch(waybillDraftScopeProvider);

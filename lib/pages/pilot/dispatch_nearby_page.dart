@@ -1,4 +1,4 @@
-import '../../widgets/flow_ui.dart';
+import '../../widgets/infinite_list.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,7 +31,7 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
     with WidgetsBindingObserver {
   bool _enabled = false, _claiming = false, _stopping = false;
   bool _foreground = true, _routeActive = false;
-  int _epoch = 0, _page = 0;
+  int _epoch = 0;
   String? _error;
   String? _sessionKey;
   ApiDispatchPositionVO? _position;
@@ -198,6 +198,69 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
     }
   }
 
+  Widget _buildHall() {
+    final hall = ref.watch(dispatchNearbyHallProvider);
+    if (hall.isInitialLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (hall.error != null && hall.items.isEmpty) {
+      return Center(
+        child: TextButton(
+          onPressed: () =>
+              ref.read(dispatchNearbyHallProvider.notifier).load(refresh: true),
+          child: const Text('附近订单查询失败，点击重试'),
+        ),
+      );
+    }
+    if (hall.locationState != null && hall.locationState != 'READY') {
+      return Center(
+        child: TextButton(
+          onPressed: _refresh,
+          child: const Text('位置已失效，重新定位'),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        Text('起点周边 ${hall.radiusKm} 公里 · 直线距离估算'),
+        Expanded(
+          child: InfiniteList(
+            onRefresh: () => ref
+                .read(dispatchNearbyHallProvider.notifier)
+                .load(refresh: true),
+            onLoadMore: () =>
+                ref.read(dispatchNearbyHallProvider.notifier).load(),
+            hasMore: hall.hasNext,
+            loadingMore: hall.loading && hall.items.isNotEmpty,
+            itemCount: hall.items.length,
+            empty: const Center(child: Text('暂无附近待接订单')),
+            itemBuilder: (context, index) {
+              final item = hall.items[index];
+              return Card(
+                child: ListTile(
+                  selected: item.offer!.orderId == widget.orderId,
+                  title: Text(
+                    '${item.offer!.fields!['category']} · 距起点约 ${item.distanceMeters!.toStringAsFixed(0)} 米',
+                  ),
+                  subtitle: Text(
+                    '${item.offer!.fields!['start.site']} → ${item.offer!.fields!['end.site']}\n${dispatchWeightLabel(item.offer!.fields!)} · 飞手服务费 ¥${item.offer!.pilotServiceFee}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  isThreeLine: true,
+                  trailing: TextButton(
+                    onPressed: _claiming ? null : () => _claim(item),
+                    child: const Text('接单'),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('附近订单')),
@@ -236,83 +299,7 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
           Padding(padding: const EdgeInsets.all(8), child: Text(_error!)),
         if (widget.orderId != null)
           const Text('来自历史派单通知。通知中的订单若未列出，可能已被接走、取消或离开附近范围。'),
-        if (_enabled && _position != null)
-          Expanded(
-            child: ref
-                .watch(dispatchNearbyHallProvider(_page))
-                .when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => Center(
-                    child: TextButton(
-                      onPressed: () =>
-                          ref.invalidate(dispatchNearbyHallProvider(_page)),
-                      child: const Text('附近订单查询失败，点击重试'),
-                    ),
-                  ),
-                  data: (hall) => hall.locationState != 'READY'
-                      ? Center(
-                          child: TextButton(
-                            onPressed: _refresh,
-                            child: const Text('位置已失效，重新定位'),
-                          ),
-                        )
-                      : Column(
-                          children: [
-                            Text('起点周边 ${hall.radiusKm} 公里 · 直线距离估算'),
-                            Expanded(
-                              child: hall.items!.isEmpty
-                                  ? const Center(child: Text('本页暂无附近待接订单'))
-                                  : FlowList(
-                                      children: [
-                                        for (final item in hall.items!)
-                                          Card(
-                                            child: ListTile(
-                                              selected:
-                                                  item.offer!.orderId ==
-                                                  widget.orderId,
-                                              title: Text(
-                                                '${item.offer!.fields!['category']} · 距起点约 ${item.distanceMeters!.toStringAsFixed(0)} 米',
-                                              ),
-                                              subtitle: Text(
-                                                '${item.offer!.fields!['start.site']} → ${item.offer!.fields!['end.site']}\n${dispatchWeightLabel(item.offer!.fields!)} · 飞手服务费 ¥${item.offer!.pilotServiceFee}',
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              isThreeLine: true,
-                                              trailing: TextButton(
-                                                onPressed: _claiming
-                                                    ? null
-                                                    : () => _claim(item),
-                                                child: const Text('接单'),
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                TextButton(
-                                  onPressed: _page == 0
-                                      ? null
-                                      : () => setState(() => _page--),
-                                  child: const Text('上一页'),
-                                ),
-                                Text('第 ${_page + 1} 页'),
-                                TextButton(
-                                  onPressed: hall.hasNext == true
-                                      ? () => setState(() => _page++)
-                                      : null,
-                                  child: const Text('下一页'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                ),
-          ),
+        if (_enabled && _position != null) Expanded(child: _buildHall()),
       ],
     ),
   );
