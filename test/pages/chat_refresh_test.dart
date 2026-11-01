@@ -154,7 +154,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(sends, 1);
       expect(input.controller!.text, '货物已准备好');
-      expect(find.text('发送失败，请稍后重试'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.text('消息发送未完成，请稍后重试'),
+        ),
+        findsOneWidget,
+      );
       input.controller!.clear();
       input.focusNode!.unfocus();
       await tester.pump(const Duration(seconds: 4));
