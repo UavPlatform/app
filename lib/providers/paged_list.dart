@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Shared paging snapshot for offset / page-index lists.
@@ -37,15 +39,25 @@ class PagedListState<T> {
 typedef OffsetPage<T> = ({List<T> items, int page, bool hasNext});
 
 /// Offset page loader: refresh replaces; append dedupes by [itemKey].
+///
+/// A [load] with `refresh: true` that arrives while another load is in flight
+/// is queued (`_pendingHead`) and run after the current load finishes —
+/// same idea as [DispatchInboxNotifier._pendingHead].
 abstract class OffsetPagedNotifier<T> extends StateNotifier<PagedListState<T>> {
   OffsetPagedNotifier() : super(PagedListState<T>());
+
+  bool _pendingHead = false;
 
   String itemKey(T item);
 
   Future<OffsetPage<T>> fetchPage(int page);
 
   Future<void> load({bool refresh = false}) async {
-    if (state.loading || (!refresh && !state.hasNext)) return;
+    if (state.loading) {
+      if (refresh) _pendingHead = true;
+      return;
+    }
+    if (!refresh && !state.hasNext) return;
     final before = state;
     state = before.copyWith(loading: true, clearError: true);
     try {
@@ -70,6 +82,11 @@ abstract class OffsetPagedNotifier<T> extends StateNotifier<PagedListState<T>> {
     } catch (error) {
       if (mounted) {
         state = before.copyWith(loading: false, error: '$error');
+      }
+    } finally {
+      if (_pendingHead && mounted) {
+        _pendingHead = false;
+        unawaited(load(refresh: true));
       }
     }
   }

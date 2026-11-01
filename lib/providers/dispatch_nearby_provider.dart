@@ -64,9 +64,14 @@ class NearbyHallListState {
 class DispatchNearbyHallNotifier extends StateNotifier<NearbyHallListState> {
   DispatchNearbyHallNotifier(this._api) : super(const NearbyHallListState());
   final DispatchNearbyApi _api;
+  bool _pendingHead = false;
 
   Future<void> load({bool refresh = false}) async {
-    if (state.loading || (!refresh && !state.hasNext)) return;
+    if (state.loading) {
+      if (refresh) _pendingHead = true;
+      return;
+    }
+    if (!refresh && !state.hasNext) return;
     final before = state;
     state = before.copyWith(loading: true, clearError: true);
     try {
@@ -100,6 +105,11 @@ class DispatchNearbyHallNotifier extends StateNotifier<NearbyHallListState> {
     } catch (error) {
       if (mounted) {
         state = before.copyWith(loading: false, error: '$error');
+      }
+    } finally {
+      if (_pendingHead && mounted) {
+        _pendingHead = false;
+        unawaited(load(refresh: true));
       }
     }
   }
