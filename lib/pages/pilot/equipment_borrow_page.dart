@@ -4,6 +4,7 @@ import '../../api/generated/openapi_models.dart';
 import '../../providers/equipment_provider.dart';
 import '../../providers/waybill_draft_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/infinite_list.dart';
 import 'equipment_apply_sheet.dart';
 import 'equipment_borrow_action.dart';
 
@@ -29,6 +30,7 @@ class EquipmentBorrowPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(waybillDraftScopeProvider);
+    final borrows = ref.watch(equipmentBorrowsProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('无人机'),
@@ -52,34 +54,38 @@ class EquipmentBorrowPage extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(equipmentCurrentProvider);
-          ref.invalidate(equipmentBorrowsProvider);
           try {
             await Future.wait([
               ref.read(equipmentCurrentProvider.future),
-              ref.read(equipmentBorrowsProvider(0).future),
+              ref.read(equipmentBorrowsProvider.notifier).load(refresh: true),
             ]);
           } catch (_) {
             /* providers render errors */
           }
         },
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-          children: [
-            Text(
-              '当前借着的飞机',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            _CurrentSection(key: ValueKey('current:$scope')),
-            const SizedBox(height: 24),
-            Text(
-              '我的申请',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            _ApplicationsSection(key: ValueKey('apps:$scope')),
-          ],
+        child: LoadMoreListener(
+          canLoadMore: borrows.hasNext && !borrows.loading,
+          onLoadMore: () =>
+              ref.read(equipmentBorrowsProvider.notifier).load(),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+            children: [
+              Text(
+                '当前借着的飞机',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              _CurrentSection(key: ValueKey('current:$scope')),
+              const SizedBox(height: 24),
+              Text(
+                '我的申请',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              _ApplicationsSection(key: ValueKey('apps:$scope')),
+            ],
+          ),
         ),
       ),
     );
@@ -120,60 +126,42 @@ class _CurrentSection extends ConsumerWidget {
   }
 }
 
-class _ApplicationsSection extends ConsumerStatefulWidget {
+class _ApplicationsSection extends ConsumerWidget {
   const _ApplicationsSection({super.key});
-  @override
-  ConsumerState<_ApplicationsSection> createState() =>
-      _ApplicationsSectionState();
-}
-
-class _ApplicationsSectionState extends ConsumerState<_ApplicationsSection> {
-  int _page = 0;
 
   @override
-  Widget build(BuildContext context) {
-    return ref.watch(equipmentBorrowsProvider(_page)).when(
-      loading: () => const Padding(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final page = ref.watch(equipmentBorrowsProvider);
+    if (page.isInitialLoading) {
+      return const Padding(
         padding: EdgeInsets.all(24),
         child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => TextButton(
-        onPressed: () => ref.invalidate(equipmentBorrowsProvider(_page)),
-        child: Text('$e\n重新查询'),
-      ),
-      data: (page) {
-        final items = page.items ?? const <ApiDroneBorrowVO>[];
-        return Column(
-          children: [
-            if (items.isEmpty)
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('暂无申请记录'),
-                ),
-              ),
-            for (final loan in items) _LoanCard(loan: loan),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                TextButton(
-                  onPressed: _page == 0
-                      ? null
-                      : () => setState(() => _page--),
-                  child: const Text('上一页'),
-                ),
-                Text('第 ${_page + 1} 页'),
-                TextButton(
-                  onPressed: page.hasNext == true
-                      ? () => setState(() => _page++)
-                      : null,
-                  child: const Text('下一页'),
-                ),
-              ],
+      );
+    }
+    if (page.error != null && page.items.isEmpty) {
+      return TextButton(
+        onPressed: () =>
+            ref.read(equipmentBorrowsProvider.notifier).load(refresh: true),
+        child: Text('${page.error}\n重新查询'),
+      );
+    }
+    return Column(
+      children: [
+        if (page.items.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('暂无申请记录'),
             ),
-          ],
-        );
-      },
+          ),
+        for (final loan in page.items) _LoanCard(loan: loan),
+        if (page.items.isNotEmpty || page.loading || page.hasNext)
+          InfiniteListFooter(
+            loading: page.loading && page.items.isNotEmpty,
+            hasMore: page.hasNext,
+            showEndMessage: page.items.isNotEmpty && !page.hasNext,
+          ),
+      ],
     );
   }
 }
