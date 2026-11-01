@@ -38,11 +38,12 @@ void main() {
         adapter: StubAdapter((options) async {
           if (options.uri.path == '/chat/Message/send') {
             sends++;
-            if (timeout)
+            if (timeout) {
               throw DioException(
                 requestOptions: options,
                 type: DioExceptionType.receiveTimeout,
               );
+            }
             return jsonResponse(200, {
               'success': false,
               'code': 403,
