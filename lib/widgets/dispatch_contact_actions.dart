@@ -10,29 +10,35 @@ class DispatchContactActions extends ConsumerWidget {
     super.key,
     required this.order,
     this.pilot = false,
+    this.hideChat = false,
+    this.chatOnly = false,
   });
   final DispatchOrder order;
   final bool pilot;
+  final bool hideChat, chatOnly;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (order.waiting || order.awaitingDeposit || order.cancelled) {
       return const SizedBox.shrink();
     }
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 12,
       children: [
-        OutlinedButton.icon(
-          onPressed: () => context.push(
-            Uri(
-              path: '${pilot ? '/pilot' : ''}/dispatch/orders/${order.id}/chat',
-              queryParameters: {'version': '${order.data.assignmentVersion}'},
-            ).toString(),
+        if (!hideChat)
+          OutlinedButton.icon(
+            onPressed: () => context.push(
+              Uri(
+                path:
+                    '${pilot ? '/pilot' : ''}/dispatch/orders/${order.id}/chat',
+                queryParameters: {'version': '${order.data.assignmentVersion}'},
+              ).toString(),
+            ),
+            icon: const Icon(Icons.chat_bubble_outline),
+            label: Text(order.completed ? '查看订单聊天' : '订单聊天'),
           ),
-          icon: const Icon(Icons.chat_outlined),
-          label: Text(order.completed ? '查看订单聊天' : '订单聊天'),
-        ),
-        if (pilot && !order.completed) ...[
+        if (pilot && !order.completed && !chatOnly) ...[
           const FlowNotice('地面出行导航，不用于无人机航线规划。'),
           for (final side in ['start', 'end'])
             OutlinedButton.icon(

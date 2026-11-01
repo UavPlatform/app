@@ -1,15 +1,14 @@
-import 'waybill_layout.dart';
-import '../../widgets/flow_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/waybill_draft_provider.dart';
-import 'photo_fields.dart';
-import 'site_fields.dart';
-import 'time_fields.dart';
-import 'waybill_fields.dart';
 import 'waybill_review.dart';
+import 'waybill_summary.dart';
+import 'waybill_edit_sheet.dart';
+import 'waybill_edit_group.dart';
+import 'waybill_form_theme.dart';
+import 'dispatch_checkout_card.dart';
 
 // REQ-SHIP-PUB-002. Assessment and payment remain validated by the server.
 class WaybillPage extends ConsumerStatefulWidget {
@@ -29,9 +28,9 @@ class _WaybillPageState extends ConsumerState<WaybillPage> {
     super.dispose();
   }
 
-  void _change(String key, String value) {
-    ref.read(waybillDraftProvider.notifier).update(key, value);
-    if (_errors.isNotEmpty) setState(() => _errors = {});
+  Future<void> _edit(WaybillEditGroup group) async {
+    final saved = await editWaybillGroup(context, group);
+    if (mounted && saved == true) setState(() => _errors = {});
   }
 
   void _move(int step) {
@@ -42,15 +41,21 @@ class _WaybillPageState extends ConsumerState<WaybillPage> {
 
   void _next() {
     final draft = ref.read(waybillDraftProvider).draft;
-    final errors = draft.errorsFor(draft.step);
+    final errors = <String, String>{};
+    for (var i = 0; i < 4; i++) {
+      final sectionErrors = draft.errorsFor(i);
+      errors.addAll(sectionErrors);
+    }
     if (errors.isNotEmpty) {
       setState(() => _errors = errors);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请检查本步标出的信息')));
+      _edit(
+        WaybillEditGroup.all.firstWhere(
+          (group) => group.keys.any(errors.containsKey),
+        ),
+      );
       return;
     }
-    _move(draft.step + 1);
+    _move(4);
   }
 
   Future<void> _save() async {
@@ -71,135 +76,125 @@ class _WaybillPageState extends ConsumerState<WaybillPage> {
     });
     final state = ref.watch(waybillDraftProvider);
     final draft = state.draft;
-    final step = draft.step;
+    final step = draft.step == 4 ? 4 : 0;
     final scope = ref.watch(waybillDraftScopeProvider);
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text('填写吊运运单'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1D2129),
-        leading: IconButton(
-          tooltip: step > 0 ? '上一步' : '返回',
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () {
-            if (step > 0) {
-              _move(step - 1);
-            } else {
-              context.go('/home');
-            }
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: state.saving ? null : _save,
-            child: const Text('保存草稿'),
+    return Theme(
+      data: waybillFormTheme(Theme.of(context)),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF3F4F6),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF111111),
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          titleTextStyle: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF111111),
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          WaybillStepIndicator(step: step),
-          if (state.error != null)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                state.error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+          title: Text(step == 4 ? '确认运单' : '填写运单'),
+          leading: IconButton(
+            tooltip: step > 0 ? '上一步' : '返回',
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () {
+              if (step > 0) {
+                _move(0);
+              } else {
+                context.go('/home');
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF2B65D9),
+                textStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              onPressed: state.saving ? null : _save,
+              child: const Text('保存草稿'),
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            if (state.error != null)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  state.error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _scroll,
+                padding: step == 4
+                    ? const EdgeInsets.fromLTRB(16, 8, 16, 12)
+                    : const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  children: [
+                    KeyedSubtree(
+                      key: ValueKey('$scope/$step/${state.formRevision}'),
+                      child: step == 4
+                          ? WaybillReview(draft: draft)
+                          : WaybillSummary(
+                              draft: draft,
+                              errors: _errors,
+                              onEdit: _edit,
+                            ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          Expanded(
-            child: FlowList(
-              controller: _scroll,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              spacing: 12,
-              children: [
-                WaybillGuide(
-                  title: const [
-                    '这次要运什么？',
-                    '从哪里起吊？',
-                    '送到哪里？',
-                    '什么时候出发？',
-                    '确认本次吊运',
-                  ][step],
-                  subtitle: const [
-                    '填写货物信息，再选择起终点和出发时间。',
-                    '精确选点，补充场地条件与现场联系人。',
-                    '确认卸货位置和交付方式，让现场衔接更顺畅。',
-                    '选择立即出发或预约时间。',
-                    '核对运单、查看评估与报价，然后创建订单。',
-                  ][step],
-                ),
-                KeyedSubtree(
-                  key: ValueKey('$scope/$step/${state.formRevision}'),
-                  child: switch (step) {
-                    0 => Column(
-                      spacing: 12,
-                      children: [
-                        CargoFields(
-                          draft: draft,
-                          onChanged: _change,
-                          errors: _errors,
-                        ),
-                        PhotoFields(draft: draft, group: 'cargo'),
-                      ],
-                    ),
-                    1 || 2 => Column(
-                      spacing: 12,
-                      children: [
-                        SiteFields(
-                          draft: draft,
-                          prefix: step == 1 ? 'start' : 'end',
-                          onChanged: _change,
-                          errors: _errors,
-                        ),
-                        PhotoFields(
-                          draft: draft,
-                          group: step == 1 ? 'start' : 'end',
-                        ),
-                      ],
-                    ),
-                    3 => TimeFields(
-                      draft: draft,
-                      onChanged: _change,
-                      errors: _errors,
-                    ),
-                    _ => WaybillReview(draft: draft),
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-          ),
+          ],
         ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    key: const ValueKey('waybill-next'),
-                    onPressed: step == 4
-                        ? (state.saving ? null : _save)
-                        : _next,
-                    child: Text(step == 4 ? '保存运单草稿' : '下一步'),
+        bottomNavigationBar: step == 4
+            ? DispatchCheckoutCard(draft: draft, compact: true)
+            : DecoratedBox(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    top: BorderSide(color: Color(0xFFEEEEEE), width: 0.5),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 46),
+                              maximumSize: const Size(double.infinity, 46),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            key: const ValueKey('waybill-next'),
+                            onPressed: step == 4
+                                ? (state.saving ? null : _save)
+                                : _next,
+                            child: Text(step == 4 ? '保存运单草稿' : '确认运单'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
       ),
     );
   }

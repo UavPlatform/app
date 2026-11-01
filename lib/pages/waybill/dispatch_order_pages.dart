@@ -1,8 +1,9 @@
+import 'dispatch_detail_surface.dart';
+import 'dispatch_order_status_card.dart';
 import 'dispatch_map_home.dart';
 import '../../widgets/dispatch_notification_entry.dart';
 import '../../widgets/flow_ui.dart';
 import 'dispatch_order_information.dart';
-import '../../widgets/dispatch_stage_progress.dart';
 import '../../widgets/dispatch_contact_actions.dart';
 import 'dispatch_nearby_status.dart';
 export '../../widgets/dispatch_stage_progress.dart';
@@ -158,40 +159,59 @@ class _OrderScaffold extends ConsumerWidget {
   final List<Widget> content;
   final int? step;
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
-    appBar: AppBar(
-      title: const Text('订单详情'),
-      actions: [
-        IconButton(
-          tooltip: '刷新订单',
-          icon: const Icon(Icons.refresh),
-          onPressed: () => ref.invalidate(dispatchOrderProvider(order.id)),
-        ),
-      ],
-    ),
-    body: FlowList(
-      padding: const EdgeInsets.all(20),
-      children: [
-        FlowHeader(
-          title: title,
-          subtitle: '运单 ${shortReference(order.id)}',
-          icon: order.waiting
-              ? Icons.radar_rounded
-              : Icons.local_shipping_outlined,
-        ),
-        if (step != null) DispatchStageProgress(current: step!),
-        ...content,
-        DispatchContactActions(order: order),
-        DispatchOrderInformationLink(order: order),
-        DispatchPriceCard(quote: order.data.bill?.quote, bill: order.data.bill),
-        if (!order.cancelled)
-          DispatchMaterialPanel(orderId: order.id, purpose: 'CARGO'),
-        const SizedBox(height: 20),
-        OutlinedButton(
-          onPressed: () => context.go('/dispatch/orders'),
-          child: const Text('全部订单'),
-        ),
-      ],
+  Widget build(BuildContext context, WidgetRef ref) => Theme(
+    data: dispatchDetailTheme(Theme.of(context)),
+    child: Scaffold(
+      appBar: AppBar(
+        title: const Text('订单详情'),
+        actions: [
+          IconButton(
+            tooltip: '刷新订单',
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.invalidate(dispatchOrderProvider(order.id)),
+          ),
+        ],
+      ),
+      bottomNavigationBar:
+          order.waiting || order.awaitingDeposit || order.cancelled
+          ? null
+          : SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: DispatchContactActions(order: order, chatOnly: true),
+              ),
+            ),
+      body: FlowList(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        spacing: 12,
+        children: [
+          DispatchOrderStatusCard(order: order, title: title, step: step),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 12,
+                children: content,
+              ),
+            ),
+          ),
+          DispatchOrderInformationLink(order: order),
+          DispatchPriceCard(
+            quote: order.data.bill?.quote,
+            bill: order.data.bill,
+            orderId: order.id,
+          ),
+          if (!order.cancelled)
+            DispatchMaterialPanel(orderId: order.id, purpose: 'CARGO'),
+          const SizedBox(height: 20),
+          OutlinedButton(
+            onPressed: () => context.go('/dispatch/orders'),
+            child: const Text('全部订单'),
+          ),
+        ],
+      ),
     ),
   );
 }

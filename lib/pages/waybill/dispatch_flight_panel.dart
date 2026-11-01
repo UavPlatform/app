@@ -75,6 +75,40 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
   }
 
   String _value(num? v, String unit) => v == null ? '未知' : '$v $unit';
+  Widget _metric(String key, String label, num? value) => Expanded(
+    child: Semantics(
+      label: '$label：${value ?? '未知'}',
+      child: Container(
+        height: 92,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _value(value, '').trim(),
+              key: ValueKey('flight-$key'),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1F2329),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF888888)),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(dispatchFlightProvider(widget.orderId));
@@ -99,31 +133,95 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
           children: [
             Row(
               children: [
-                const Expanded(child: Text('实际飞行数据')),
+                const Expanded(
+                  child: Text(
+                    '实际飞行数据',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1F2329),
+                    ),
+                  ),
+                ),
                 IconButton(
                   onPressed: () => ref
                       .read(dispatchFlightProvider(widget.orderId).notifier)
                       .refresh(),
                   tooltip: '刷新飞行数据',
-                  icon: const Icon(Icons.refresh),
+                  icon: const Icon(
+                    Icons.refresh,
+                    size: 20,
+                    color: Color(0xFF666666),
+                  ),
                 ),
               ],
             ),
             if (state.error != null) Text(state.error!),
-            Text(
-              view?.connection == null
-                  ? '尚未收到本单设备连接'
-                  : '${view!.connection!.modelName} · ${shortReference(view.connection!.serialNumber ?? '')}',
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F8FA),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: stale
+                            ? const Color(0xFFFFA940)
+                            : const Color(0xFF999999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          view?.connection == null
+                              ? '尚未收到本单设备连接'
+                              : '${view!.connection!.modelName} · ${shortReference(view.connection!.serialNumber ?? '')}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF666666),
+                            height: 1.4,
+                          ),
+                        ),
+                        Text(
+                          stale ? '连接已结束或数据待更新；以下为最后收到的数值' : '正在接收设备数据',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF666666),
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             if (view?.connection?.overweight == true)
               const Text('货物重量上限超过目录载重，请飞手现场核对。'),
             if (view?.connection != null &&
                 view?.connection?.maxPayloadKg == null)
               const Text('机型未匹配目录，载重提示不可用'),
-            Text(stale ? '连接已结束或数据待更新；以下为最后收到的数值' : '正在接收设备数据'),
-            Text('相对起飞点高度：${_value(sample?.altitude, '米')}'),
-            Text('水平速度：${_value(sample?.speed, '米/秒')}'),
-            Text('电量：${_value(sample?.battery, '%')}'),
+            Row(
+              children: [
+                _metric('altitude', '相对高度(m)', sample?.altitude),
+                const SizedBox(width: 8),
+                _metric('speed', '水平速度(m/s)', sample?.speed),
+                const SizedBox(width: 8),
+                _metric('battery', '设备电量(%)', sample?.battery),
+              ],
+            ),
             Text(
               '飞行状态：${sample?.flying == null
                   ? '未知'

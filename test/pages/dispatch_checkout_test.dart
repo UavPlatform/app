@@ -18,6 +18,7 @@ Future<({ProviderContainer container, FakeDispatchOrderApi api})> setup(
   bool enabled = true,
   bool prohibited = false,
   bool loseResponse = false,
+  bool compact = false,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -49,6 +50,7 @@ Future<({ProviderContainer container, FakeDispatchOrderApi api})> setup(
           body: SingleChildScrollView(
             child: Consumer(
               builder: (_, ref, _) => DispatchCheckoutCard(
+                compact: compact,
                 draft: ref.watch(waybillDraftProvider).draft,
               ),
             ),
@@ -101,6 +103,33 @@ Future<void> tap(WidgetTester tester, String label) async {
 }
 
 void main() {
+  testWidgets(
+    'compact checkout preserves declaration and create-retry idempotency',
+    (tester) async {
+      final result = await setup(tester, compact: true, loseResponse: true);
+      await tap(tester, '检查并评估运单');
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, '确认运单，前往模拟支付'),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tap(tester, '信息真实、无违禁品');
+      await tap(tester, '确认运单，前往模拟支付');
+      final key = result.container
+          .read(waybillDraftProvider)
+          .draft
+          .value('submission.requestKey');
+      expect(key, isNotEmpty);
+      await tap(tester, '确认运单，前往模拟支付');
+      expect(result.api.keys, [key, key]);
+      expect(find.byType(DispatchDepositPage), findsOneWidget);
+      expect(result.api.payments, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'full UI demo goes through separate deposit, waiting and cancellation pages',
     (tester) async {

@@ -1,6 +1,7 @@
+import 'dispatch_detail_surface.dart';
+import 'dispatch_order_status_card.dart';
 import '../../widgets/flow_ui.dart';
 import 'dispatch_order_information.dart';
-import '../../widgets/dispatch_stage_progress.dart';
 import '../../widgets/dispatch_contact_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -222,118 +223,142 @@ class _DispatchFulfillmentShellState
         : !widget.pilot && order.confirming
         ? 'SHIPPER_RECEIPT'
         : null;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('订单详情'),
-        actions: [
-          IconButton(
-            tooltip: '刷新订单',
-            onPressed: () {
-              ref.invalidate(dispatchOrderProvider(order.id));
-              ref.invalidate(dispatchPilotOrderProvider(order.id));
-            },
-            icon: const Icon(Icons.refresh),
+    return Theme(
+      data: dispatchDetailTheme(Theme.of(context)),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('订单详情'),
+          actions: [
+            IconButton(
+              tooltip: '刷新订单',
+              onPressed: () {
+                ref.invalidate(dispatchOrderProvider(order.id));
+                ref.invalidate(dispatchPilotOrderProvider(order.id));
+              },
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: DispatchContactActions(
+              order: order,
+              pilot: widget.pilot,
+              chatOnly: true,
+            ),
           ),
-        ],
-      ),
-      body: FlowList(
-        padding: const EdgeInsets.all(16),
-        children: [
-          FlowHeader(
-            title: order.stageLabel,
-            subtitle: '运单 ${shortReference(order.id)}',
-          ),
-          DispatchStageProgress(
-            current: order.transporting
-                ? 4
-                : order.confirming
-                ? 5
-                : 6,
-          ),
-          DispatchOrderInformationLink(order: order, pilot: widget.pilot),
-          DispatchPriceCard(quote: bill?.quote, bill: bill),
-          DispatchContactActions(order: order, pilot: widget.pilot),
-          if (order.transporting) ...[
-            if (widget.pilot) const Text('请在飞行端完成连机与飞行操作。'),
-            DispatchFlightPanel(
-              key: ValueKey(order.id),
+        ),
+        body: FlowList(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          spacing: 12,
+          children: [
+            DispatchOrderStatusCard(
+              order: order,
+              title: order.stageLabel,
+              step: order.transporting
+                  ? 4
+                  : order.confirming
+                  ? 5
+                  : 6,
+            ),
+            DispatchOrderInformationLink(order: order, pilot: widget.pilot),
+            DispatchPriceCard(
+              quote: bill?.quote,
+              bill: bill,
               orderId: order.id,
-              destination: destination,
+              pilot: widget.pilot,
             ),
-            if (!widget.pilot) const Text('送达后将通知你确认收货。'),
-          ],
-          if (order.confirming)
-            Text(
-              widget.pilot
-                  ? '送达凭证已提交，等待需求方上传收货凭证并确认。'
-                  : '请查看飞手送达凭证，上传本次收货凭证后确认收货。',
-            ),
-          DispatchMaterialPanel(
-            key: ValueKey('${order.id}:$purpose'),
-            orderId: order.id,
-            purpose: purpose,
-            onSelected: purpose == null
-                ? null
-                : (ids) => setState(() => _materials = ids),
-          ),
-          if (purpose != null)
-            FilledButton(
-              onPressed: _busy || _materials.isEmpty
-                  ? null
-                  : () => _act(widget.pilot ? '确认送达' : '确认收货并结单'),
-              child: Text(widget.pilot ? '确认送达' : '确认收货并结单'),
-            ),
-          if (!widget.pilot && !order.completed)
-            OutlinedButton(
-              onPressed: _busy ? null : () => _act('取消运单'),
-              child: const Text('取消运单'),
-            ),
-          if (order.completed) ...[
-            Text(
-              order.data.fundsStatus == 'BALANCE_DUE' ? '已确认收货，待支付尾款' : '已结算',
-            ),
-            if (!widget.pilot && order.data.fundsStatus == 'BALANCE_DUE')
-              FilledButton(
-                onPressed: _busy ? null : () => _act('模拟支付尾款'),
-                child: const Text('模拟支付尾款'),
+            if (widget.pilot && !order.completed)
+              DispatchContactActions(
+                order: order,
+                pilot: widget.pilot,
+                hideChat: true,
               ),
-            if (bill?.reviewScore != null)
-              Text('评价：${bill!.reviewScore} 分\n${bill.reviewComment ?? ''}')
-            else if (!widget.pilot && order.data.fundsStatus == 'SETTLED') ...[
-              DropdownButton<int>(
-                value: _score,
-                items: [
-                  for (var i = 1; i <= 5; i++)
-                    DropdownMenuItem(value: i, child: Text('$i 分')),
-                ],
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _score = value!),
+            if (order.transporting) ...[
+              if (widget.pilot) const Text('请在飞行端完成连机与飞行操作。'),
+              DispatchFlightPanel(
+                key: ValueKey(order.id),
+                orderId: order.id,
+                destination: destination,
               ),
-              TextField(
-                controller: _comment,
-                maxLength: 500,
-                enabled: !_busy,
-                decoration: const InputDecoration(labelText: '评价（选填）'),
-              ),
-              FilledButton(
-                onPressed: _busy ? null : () => _act('提交评价'),
-                child: const Text('提交评价'),
-              ),
+              if (!widget.pilot) const Text('送达后将通知你确认收货。'),
             ],
-          ],
-          if (_busy) const LinearProgressIndicator(),
-          if (_error != null)
-            Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            if (order.confirming)
+              Text(
+                widget.pilot
+                    ? '送达凭证已提交，等待需求方上传收货凭证并确认。'
+                    : '请查看飞手送达凭证，上传本次收货凭证后确认收货。',
+              ),
+            DispatchMaterialPanel(
+              key: ValueKey('${order.id}:$purpose'),
+              orderId: order.id,
+              purpose: purpose,
+              onSelected: purpose == null
+                  ? null
+                  : (ids) => setState(() => _materials = ids),
             ),
-          OutlinedButton(
-            onPressed: () =>
-                context.go(widget.pilot ? '/pilot/jobs' : '/dispatch/orders'),
-            child: const Text('返回订单列表'),
-          ),
-        ],
+            if (purpose != null)
+              FilledButton(
+                onPressed: _busy || _materials.isEmpty
+                    ? null
+                    : () => _act(widget.pilot ? '确认送达' : '确认收货并结单'),
+                child: Text(widget.pilot ? '确认送达' : '确认收货并结单'),
+              ),
+            if (!widget.pilot && !order.completed)
+              OutlinedButton(
+                onPressed: _busy ? null : () => _act('取消运单'),
+                child: const Text('取消运单'),
+              ),
+            if (order.completed) ...[
+              Text(
+                order.data.fundsStatus == 'BALANCE_DUE' ? '已确认收货，待支付尾款' : '已结算',
+              ),
+              if (!widget.pilot && order.data.fundsStatus == 'BALANCE_DUE')
+                FilledButton(
+                  onPressed: _busy ? null : () => _act('模拟支付尾款'),
+                  child: const Text('模拟支付尾款'),
+                ),
+              if (bill?.reviewScore != null)
+                Text('评价：${bill!.reviewScore} 分\n${bill.reviewComment ?? ''}')
+              else if (!widget.pilot &&
+                  order.data.fundsStatus == 'SETTLED') ...[
+                DropdownButton<int>(
+                  value: _score,
+                  items: [
+                    for (var i = 1; i <= 5; i++)
+                      DropdownMenuItem(value: i, child: Text('$i 分')),
+                  ],
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _score = value!),
+                ),
+                TextField(
+                  controller: _comment,
+                  maxLength: 500,
+                  enabled: !_busy,
+                  decoration: const InputDecoration(labelText: '评价（选填）'),
+                ),
+                FilledButton(
+                  onPressed: _busy ? null : () => _act('提交评价'),
+                  child: const Text('提交评价'),
+                ),
+              ],
+            ],
+            if (_busy) const LinearProgressIndicator(),
+            if (_error != null)
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            OutlinedButton(
+              onPressed: () =>
+                  context.go(widget.pilot ? '/pilot/jobs' : '/dispatch/orders'),
+              child: const Text('返回订单列表'),
+            ),
+          ],
+        ),
       ),
     );
   }

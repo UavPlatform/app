@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/waybill_draft.dart';
 import 'waybill_fields.dart';
+import '../../widgets/scroll_pickers.dart';
 
 class TimeFields extends StatelessWidget {
   const TimeFields({
@@ -24,16 +25,16 @@ class TimeFields extends StatelessWidget {
   Future<void> _pick(BuildContext context) async {
     final now = DateTime.now();
     final old = DateTime.tryParse(draft.value('scheduledAt'));
-    final date = await showDatePicker(
-      context: context,
-      initialDate: old != null && old.isAfter(now) ? old : now,
+    final date = await showScrollDatePicker(
+      context,
+      initial: old != null && old.isAfter(now) ? old : now,
       firstDate: DateTime(now.year, now.month, now.day),
       lastDate: DateTime(2100),
     );
     if (!context.mounted || date == null) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(old ?? now),
+    final time = await showScrollTimePicker(
+      context,
+      initial: TimeOfDay.fromDateTime(old ?? now),
     );
     if (!context.mounted || time == null) return;
     onChanged(

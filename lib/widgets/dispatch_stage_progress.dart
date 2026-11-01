@@ -6,7 +6,6 @@ class DispatchStageProgress extends StatelessWidget {
   static const labels = ['下单', '等待接单', '飞手准备中', '飞手到场', '运输中', '送达双确认', '已结单'];
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Semantics(
       label: '订单进度，第 ${current + 1} 步，共 ${labels.length} 步，${labels[current]}',
       child: Padding(
@@ -20,12 +19,19 @@ class DispatchStageProgress extends StatelessWidget {
                 Expanded(
                   child: Text(
                     '订单进度',
-                    style: Theme.of(context).textTheme.titleSmall,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF666666),
+                    ),
                   ),
                 ),
                 Text(
                   '${current + 1} / ${labels.length}',
-                  style: TextStyle(color: scheme.primary),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1D6FE9),
+                  ),
                 ),
               ],
             ),
@@ -43,12 +49,12 @@ class DispatchStageProgress extends StatelessWidget {
                           duration: MediaQuery.disableAnimationsOf(context)
                               ? Duration.zero
                               : const Duration(milliseconds: 220),
-                          height: i == current ? 10 : 6,
+                          height: 6,
                           decoration: BoxDecoration(
                             color: i <= current
-                                ? scheme.primary
-                                : scheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(10),
+                                ? const Color(0xFF1D6FE9)
+                                : const Color(0xFFE5E7EB),
+                            borderRadius: BorderRadius.circular(3),
                           ),
                         ),
                       ),
