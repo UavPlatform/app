@@ -1,3 +1,4 @@
+import '../utils/failure_message.dart';
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -141,11 +142,17 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
           ..sort((a, b) => b.sortTime.compareTo(a.sortTime));
         state = state.copyWith(loading: false, sessions: sessions);
       } else {
-        state = state.copyWith(loading: false, error: result.message ?? '加载失败');
+        state = state.copyWith(
+          loading: false,
+          error: resultFailureMessage(result, fallback: '消息暂时无法加载，请稍后刷新'),
+        );
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      state = state.copyWith(loading: false, error: '加载失败');
+      state = state.copyWith(
+        loading: false,
+        error: failureMessage(error, fallback: '消息暂时无法加载，请稍后刷新'),
+      );
     }
   }
 
@@ -168,7 +175,7 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
       if (!result.success || result.data == null) {
         state = state.copyWith(
           creatingSession: false,
-          error: result.message ?? '创建会话失败',
+          error: resultFailureMessage(result, fallback: '创建会话失败'),
         );
         return null;
       }
@@ -184,9 +191,12 @@ class SessionListNotifier extends StateNotifier<SessionListState> {
         error: null,
       );
       return session;
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return null;
-      state = state.copyWith(creatingSession: false, error: '创建会话失败');
+      state = state.copyWith(
+        creatingSession: false,
+        error: failureMessage(error, fallback: '聊天会话创建未完成，请返回订单重试'),
+      );
       return null;
     }
   }
@@ -312,12 +322,15 @@ class TaskChatSessionsNotifier extends StateNotifier<TaskChatSessionsState> {
       } else {
         state = state.copyWith(
           loading: false,
-          error: result.message ?? '获取任务会话失败',
+          error: resultFailureMessage(result, fallback: '获取任务会话失败'),
         );
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      state = state.copyWith(loading: false, error: '网络请求失败');
+      state = state.copyWith(
+        loading: false,
+        error: failureMessage(error, fallback: '任务会话暂时无法加载，请稍后刷新'),
+      );
     }
   }
 
@@ -420,11 +433,17 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
           ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
         state = state.copyWith(loading: false, messages: messages);
       } else {
-        state = state.copyWith(loading: false, error: result.message ?? '加载失败');
+        state = state.copyWith(
+          loading: false,
+          error: resultFailureMessage(result, fallback: '消息暂时无法加载，请稍后刷新'),
+        );
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      state = state.copyWith(loading: false, error: '加载失败');
+      state = state.copyWith(
+        loading: false,
+        error: failureMessage(error, fallback: '消息暂时无法加载，请稍后刷新'),
+      );
     }
   }
 
@@ -446,11 +465,17 @@ class MessageListNotifier extends StateNotifier<MessageListState> {
         return true;
       }
       if (!mounted) return false;
-      state = state.copyWith(sending: false, error: result.message ?? '发送失败');
+      state = state.copyWith(
+        sending: false,
+        error: resultFailureMessage(result, fallback: '消息发送未完成，请稍后重试'),
+      );
       return false;
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return false;
-      state = state.copyWith(sending: false, error: '发送失败');
+      state = state.copyWith(
+        sending: false,
+        error: failureMessage(error, fallback: '消息发送未完成，请稍后重试'),
+      );
       return false;
     }
   }

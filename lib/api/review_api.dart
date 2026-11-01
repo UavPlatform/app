@@ -1,3 +1,4 @@
+import '../utils/failure_message.dart';
 // 订单评价接口（/review/*）：用户确认完成（订单 COMPLETED）后对飞手打分评价，一单一评。
 
 import 'package:dio/dio.dart';
@@ -40,7 +41,9 @@ class ReviewApi {
         queryParameters: ApiPaths.reviewSubmitQuery(
           orderNum: orderNum,
           rating: rating,
-          content: (content == null || content.trim().isEmpty) ? null : content.trim(),
+          content: (content == null || content.trim().isEmpty)
+              ? null
+              : content.trim(),
         )..removeWhere((_, v) => v == null),
       );
       return Result.fromJson(
@@ -53,7 +56,10 @@ class ReviewApi {
   }
 
   /// 我发出的评价（分页，按时间倒序）。
-  Future<Result<ApiReviewListVO>> myReviews({int page = 0, int size = 20}) async {
+  Future<Result<ApiReviewListVO>> myReviews({
+    int page = 0,
+    int size = 20,
+  }) async {
     final response = await _client.dio.get(
       ApiPaths.reviewMy,
       queryParameters: ApiPaths.reviewMyQuery(page: page, size: size),
@@ -66,13 +72,15 @@ class ReviewApi {
 
   Result<T> _failure<T>(DioException e, String fallback) {
     final data = e.response?.data;
-    if (data is Map<String, dynamic>) {
-      return Result(
-        success: false,
-        code: data['code'] as int?,
-        message: data['message'] as String? ?? fallback,
-      );
-    }
-    return Result(success: false, message: fallback);
+    return Result(
+      success: false,
+      code: data is Map && data['code'] is int
+          ? data['code'] as int
+          : e.response?.statusCode,
+      errorCode: data is Map && data['errorCode'] is String
+          ? data['errorCode'] as String
+          : null,
+      message: failureMessage(e, fallback: fallback),
+    );
   }
 }

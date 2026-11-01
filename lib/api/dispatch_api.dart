@@ -1,3 +1,4 @@
+import '../utils/failure_message.dart';
 import 'package:dio/dio.dart';
 
 import '../models/waybill_draft.dart';
@@ -5,8 +6,9 @@ import 'generated/openapi_models.dart';
 import 'generated/openapi_paths.dart';
 import 'http_client.dart';
 
-class DispatchApiException implements Exception {
+class DispatchApiException implements Exception, UserFacingFailure {
   const DispatchApiException(this.message, {this.code});
+  @override
   final String message;
   final String? code;
   @override
@@ -82,7 +84,12 @@ class DispatchApi {
       final body = response.data as Map<String, dynamic>;
       if (body['success'] != true) {
         throw DispatchApiException(
-          body['message'] as String? ?? '操作未完成，请重试',
+          businessFailureMessage(
+            message: body['message'] as String?,
+            errorCode: body['errorCode'] as String?,
+            statusCode: body['code'] as int?,
+            fallback: '操作未完成，请刷新后重试',
+          ),
           code: body['errorCode'] as String?,
         );
       }
@@ -90,7 +97,7 @@ class DispatchApi {
     } on DioException catch (error) {
       final body = error.response?.data;
       throw DispatchApiException(
-        body is Map ? body['message'] as String? ?? '请求失败，请重试' : '连接失败，请稍后重试',
+        failureMessage(error, fallback: '操作未完成，请刷新后重试'),
         code: body is Map ? body['errorCode'] as String? : null,
       );
     }

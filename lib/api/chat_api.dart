@@ -21,7 +21,12 @@ class ChatApi {
           .toList();
       return Result(success: true, code: 200, data: list);
     }
-    return Result(success: false, code: data['code'], message: data['message'] as String?);
+    return Result(
+      success: false,
+      code: data['code'],
+      errorCode: data['errorCode'] as String?,
+      message: data['message'] as String?,
+    );
   }
 
   Future<Result<SessionVo>> createSession({
@@ -39,8 +44,10 @@ class ChatApi {
     };
     if (taskNum != null) body['taskNum'] = taskNum;
     if (applicationId != null) body['applicationId'] = applicationId;
-    final response =
-        await _client.dio.post(ApiPaths.chatSessionCreate, data: body);
+    final response = await _client.dio.post(
+      ApiPaths.chatSessionCreate,
+      data: body,
+    );
     final data = response.data as Map<String, dynamic>;
     if (data['success'] == true && data['data'] != null) {
       return Result(
@@ -49,15 +56,22 @@ class ChatApi {
         data: SessionVo.fromJson(data['data'] as Map<String, dynamic>),
       );
     }
-    return Result(success: false, code: data['code'], message: data['message'] as String?);
+    return Result(
+      success: false,
+      code: data['code'],
+      errorCode: data['errorCode'] as String?,
+      message: data['message'] as String?,
+    );
   }
 
   /// 任务内嵌会话聚合（GET /task/{taskNum}/chat-sessions）：
   /// 返回该任务下与各意向飞手的一对一会话（含 applicationId、未读数、最后一条消息）。
   Future<Result<List<TaskChatSessionVo>>> listTaskChatSessions(
-      String taskNum) async {
-    final response =
-        await _client.dio.get(ApiPaths.taskChatSessionsPath(taskNum));
+    String taskNum,
+  ) async {
+    final response = await _client.dio.get(
+      ApiPaths.taskChatSessionsPath(taskNum),
+    );
     final data = response.data as Map<String, dynamic>;
     if (data['success'] == true && data['data'] != null) {
       final list = (data['data'] as List<dynamic>)
@@ -68,6 +82,7 @@ class ChatApi {
     return Result(
       success: false,
       code: data['code'] as int?,
+      errorCode: data['errorCode'] as String?,
       message: data['message'] as String?,
     );
   }
@@ -75,7 +90,9 @@ class ChatApi {
   // ==================== 消息 ====================
 
   Future<Result<List<MessageVo>>> getMessages(int sessionId) async {
-    final response = await _client.dio.get(ApiPaths.chatMessageMessagesPath(sessionId));
+    final response = await _client.dio.get(
+      ApiPaths.chatMessageMessagesPath(sessionId),
+    );
     final data = response.data as Map<String, dynamic>;
     if (data['success'] == true) {
       final list = (data['data'] as List<dynamic>)
@@ -83,19 +100,29 @@ class ChatApi {
           .toList();
       return Result(success: true, code: 200, data: list);
     }
-    return Result(success: false, code: data['code'], message: data['message'] as String?);
+    return Result(
+      success: false,
+      code: data['code'],
+      errorCode: data['errorCode'] as String?,
+      message: data['message'] as String?,
+    );
   }
 
   Future<Result<void>> sendMessage({
     required int sessionId,
     required String content,
   }) async {
-    final response = await _client.dio.post(ApiPaths.chatMessageSend, data: {
-      'sessionId': sessionId,
-      'content': content,
-    });
+    final response = await _client.dio.post(
+      ApiPaths.chatMessageSend,
+      data: {'sessionId': sessionId, 'content': content},
+    );
     final data = response.data as Map<String, dynamic>;
-    return Result(success: data['success'] == true, code: data['code'], message: data['message'] as String?);
+    return Result(
+      success: data['success'] == true,
+      code: data['code'],
+      errorCode: data['errorCode'] as String?,
+      message: data['message'] as String?,
+    );
   }
 
   /// 获取每个会话的未读消息数
@@ -107,6 +134,11 @@ class ChatApi {
       final map = raw.map((k, v) => MapEntry(int.parse(k), (v as num).toInt()));
       return Result(success: true, code: 200, data: map);
     }
-    return Result(success: false, code: data['code'], message: data['message'] as String?);
+    return Result(
+      success: false,
+      code: data['code'],
+      errorCode: data['errorCode'] as String?,
+      message: data['message'] as String?,
+    );
   }
 }

@@ -1,3 +1,4 @@
+import '../utils/failure_message.dart';
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -108,9 +109,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> login(String userName, String password) async {
     try {
-      final result = await _api.login(LoginRequest(userName: userName, password: password));
+      final result = await _api.login(
+        LoginRequest(userName: userName, password: password),
+      );
       if (!result.success || result.data == null) {
-        state = state.copyWith(error: result.message ?? '登录失败');
+        state = state.copyWith(
+          error: resultFailureMessage(
+            result,
+            fallback: '登录未完成，请稍后重试',
+            login: true,
+          ),
+        );
         return;
       }
       await _tokenStorage.saveTokens(
@@ -124,21 +133,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: null,
         sessionExpired: false,
       );
-    } catch (_) {
-      state = state.copyWith(error: '网络请求失败，请稍后重试');
+    } catch (error) {
+      state = state.copyWith(
+        error: failureMessage(error, fallback: '登录未完成，请稍后重试'),
+      );
     }
   }
 
   Future<void> register(String userName, String password) async {
     try {
-      final result = await _api.register(RegisterRequest(userName: userName, password: password));
+      final result = await _api.register(
+        RegisterRequest(userName: userName, password: password),
+      );
       if (!result.success) {
-        state = state.copyWith(error: result.message ?? '注册失败');
+        state = state.copyWith(
+          error: resultFailureMessage(result, fallback: '注册未完成，请稍后重试'),
+        );
         return;
       }
       state = state.copyWith(error: null);
-    } catch (_) {
-      state = state.copyWith(error: '网络请求失败，请稍后重试');
+    } catch (error) {
+      state = state.copyWith(
+        error: failureMessage(error, fallback: '注册未完成，请稍后重试'),
+      );
     }
   }
 
@@ -170,5 +187,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-  (ref) => AuthNotifier(ref.watch(authApiProvider), ref.watch(tokenStorageProvider)),
+  (ref) =>
+      AuthNotifier(ref.watch(authApiProvider), ref.watch(tokenStorageProvider)),
 );

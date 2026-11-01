@@ -1,3 +1,4 @@
+import '../utils/failure_message.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/aircraft_api.dart';
@@ -50,17 +51,20 @@ class AircraftModelsNotifier extends StateNotifier<AircraftModelsState> {
       } else {
         state = state.copyWith(
           loading: false,
-          error: result.message ?? '获取机型目录失败',
+          error: resultFailureMessage(result, fallback: '获取机型目录失败'),
         );
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      state = state.copyWith(loading: false, error: '网络请求失败');
+      state = state.copyWith(
+        loading: false,
+        error: failureMessage(error, fallback: '机型目录暂时无法加载，请稍后刷新'),
+      );
     }
   }
 }
 
 final aircraftModelsProvider =
     StateNotifierProvider<AircraftModelsNotifier, AircraftModelsState>(
-  (ref) => AircraftModelsNotifier(ref.watch(aircraftApiProvider)),
-);
+      (ref) => AircraftModelsNotifier(ref.watch(aircraftApiProvider)),
+    );

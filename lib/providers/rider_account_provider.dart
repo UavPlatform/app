@@ -1,3 +1,4 @@
+import '../utils/failure_message.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/rider_account_api.dart';
 import '../models/rider_uav.dart';
@@ -7,7 +8,6 @@ final riderAccountApiProvider = Provider<RiderAccountApi>(
   (ref) => RiderAccountApi(ref.watch(httpClientProvider)),
 );
 
-
 // 飞手注册
 class RiderRegisterState {
   final bool loading;
@@ -16,10 +16,7 @@ class RiderRegisterState {
   const RiderRegisterState({this.loading = false, this.error});
 
   RiderRegisterState copyWith({bool? loading, String? error}) {
-    return RiderRegisterState(
-      loading: loading ?? this.loading,
-      error: error,
-    );
+    return RiderRegisterState(loading: loading ?? this.loading, error: error);
   }
 }
 
@@ -41,13 +38,19 @@ class RiderRegisterNotifier extends StateNotifier<RiderRegisterState> {
         djiId: djiId,
       );
       if (!result.success || result.data == null) {
-        state = state.copyWith(loading: false, error: result.message ?? '注册失败');
+        state = state.copyWith(
+          loading: false,
+          error: resultFailureMessage(result, fallback: '注册失败'),
+        );
         return false;
       }
       state = state.copyWith(loading: false);
       return true;
-    } catch (_) {
-      state = state.copyWith(loading: false, error: '网络请求失败');
+    } catch (error) {
+      state = state.copyWith(
+        loading: false,
+        error: failureMessage(error, fallback: '飞手注册未完成，请稍后重试'),
+      );
       return false;
     }
   }
@@ -55,9 +58,8 @@ class RiderRegisterNotifier extends StateNotifier<RiderRegisterState> {
 
 final riderRegisterProvider =
     StateNotifierProvider<RiderRegisterNotifier, RiderRegisterState>(
-  (ref) => RiderRegisterNotifier(ref.watch(riderAccountApiProvider)),
-);
-
+      (ref) => RiderRegisterNotifier(ref.watch(riderAccountApiProvider)),
+    );
 
 // 无人机管理
 class DroneListState {
@@ -65,9 +67,17 @@ class DroneListState {
   final bool loading;
   final String? error;
 
-  const DroneListState({this.drones = const [], this.loading = true, this.error});
+  const DroneListState({
+    this.drones = const [],
+    this.loading = true,
+    this.error,
+  });
 
-  DroneListState copyWith({List<RiderUav>? drones, bool? loading, String? error}) {
+  DroneListState copyWith({
+    List<RiderUav>? drones,
+    bool? loading,
+    String? error,
+  }) {
     return DroneListState(
       drones: drones ?? this.drones,
       loading: loading ?? this.loading,
@@ -88,10 +98,16 @@ class DroneListNotifier extends StateNotifier<DroneListState> {
       if (result.success && result.data != null) {
         state = state.copyWith(loading: false, drones: result.data!);
       } else {
-        state = state.copyWith(loading: false, error: result.message ?? '加载失败');
+        state = state.copyWith(
+          loading: false,
+          error: resultFailureMessage(result, fallback: '加载失败'),
+        );
       }
-    } catch (_) {
-      state = state.copyWith(loading: false, error: '加载失败');
+    } catch (error) {
+      state = state.copyWith(
+        loading: false,
+        error: failureMessage(error, fallback: '无人机列表暂时无法加载，请稍后刷新'),
+      );
     }
   }
 
@@ -102,13 +118,17 @@ class DroneListNotifier extends StateNotifier<DroneListState> {
         aircraftModelId: aircraftModelId,
       );
       if (!result.success) {
-        state = state.copyWith(error: result.message ?? '绑定失败');
+        state = state.copyWith(
+          error: resultFailureMessage(result, fallback: '绑定失败'),
+        );
         return false;
       }
       await load();
       return true;
-    } catch (_) {
-      state = state.copyWith(error: '绑定失败');
+    } catch (error) {
+      state = state.copyWith(
+        error: failureMessage(error, fallback: '无人机绑定未完成，请刷新设备列表确认'),
+      );
       return false;
     }
   }
@@ -117,15 +137,19 @@ class DroneListNotifier extends StateNotifier<DroneListState> {
     try {
       final result = await _api.unbindDrone(djiId);
       if (!result.success) {
-        state = state.copyWith(error: result.message ?? '解绑失败');
+        state = state.copyWith(
+          error: resultFailureMessage(result, fallback: '解绑失败'),
+        );
         return false;
       }
       state = state.copyWith(
         drones: state.drones.where((d) => d.djiId != djiId).toList(),
       );
       return true;
-    } catch (_) {
-      state = state.copyWith(error: '解绑失败');
+    } catch (error) {
+      state = state.copyWith(
+        error: failureMessage(error, fallback: '无人机解绑未完成，请刷新设备列表确认'),
+      );
       return false;
     }
   }
@@ -135,5 +159,5 @@ class DroneListNotifier extends StateNotifier<DroneListState> {
 
 final droneListProvider =
     StateNotifierProvider<DroneListNotifier, DroneListState>(
-  (ref) => DroneListNotifier(ref.watch(riderAccountApiProvider)),
-);
+      (ref) => DroneListNotifier(ref.watch(riderAccountApiProvider)),
+    );

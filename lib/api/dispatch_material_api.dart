@@ -1,3 +1,4 @@
+import '../utils/failure_message.dart';
 import 'package:dio/dio.dart';
 import '../services/attachment_file_source.dart';
 import '../services/attachment_upload_rules.dart';
@@ -105,8 +106,10 @@ class DispatchMaterialApi {
               status != null && status >= 200 && status < 300,
         ),
       );
-    } on DioException {
-      throw const DispatchApiException('文件直传未完成，请重新上传');
+    } on DioException catch (error) {
+      throw DispatchApiException(
+        failureMessage(error, fallback: '文件直传未完成，请重新上传'),
+      );
     }
     final confirmed = await dispatchRequest(
       () => client.dio.post(

@@ -1,3 +1,4 @@
+import '../../../utils/failure_message.dart';
 // 订单评价区块（用户端任务详情，订单已完成后展示）：
 //   未评价 → 「评价飞手」打开评分弹窗（1~5 星 + 可选文字）→ POST /review/submit；
 //   已评价 → 只读展示星级、内容与时间（后端一单一评）。
@@ -28,8 +29,10 @@ class ReviewSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('服务评价',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+          const Text(
+            '服务评价',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          ),
           const SizedBox(height: 12),
           state.when(
             loading: () => const Padding(
@@ -44,12 +47,15 @@ class ReviewSection extends ConsumerWidget {
             ),
             error: (e, _) => Row(
               children: [
-                const Expanded(
-                  child: Text('评价加载失败',
-                      style: TextStyle(color: AppColors.onSurfaceVariant)),
+                Expanded(
+                  child: Text(
+                    failureMessage(e, fallback: '评价暂时无法加载，请稍后刷新'),
+                    style: TextStyle(color: AppColors.onSurfaceVariant),
+                  ),
                 ),
                 TextButton(
-                  onPressed: () => ref.invalidate(orderReviewProvider(orderNum)),
+                  onPressed: () =>
+                      ref.invalidate(orderReviewProvider(orderNum)),
                   child: const Text('重试'),
                 ),
               ],
@@ -69,7 +75,10 @@ class ReviewSection extends ConsumerWidget {
       children: [
         Text(
           '订单已完成，给${riderName ?? '飞手'}的服务打个分吧',
-          style: const TextStyle(fontSize: 14, color: AppColors.onSurfaceVariant),
+          style: const TextStyle(
+            fontSize: 14,
+            color: AppColors.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -103,7 +112,11 @@ class ReviewCard extends StatelessWidget {
   final ApiOrderReview review;
   final bool showOrderNum;
 
-  const ReviewCard({super.key, required this.review, this.showOrderNum = false});
+  const ReviewCard({
+    super.key,
+    required this.review,
+    this.showOrderNum = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -119,19 +132,31 @@ class ReviewCard extends StatelessWidget {
             Text('$rating 分', style: const TextStyle(fontSize: 13)),
             const Spacer(),
             if (time.length >= 16)
-              Text(time.substring(0, 16),
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.onSurfaceVariant)),
+              Text(
+                time.substring(0, 16),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
           ],
         ),
         if (review.content != null && review.content!.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(review.content!, style: const TextStyle(fontSize: 14, height: 1.5)),
+          Text(
+            review.content!,
+            style: const TextStyle(fontSize: 14, height: 1.5),
+          ),
         ],
         if (showOrderNum && review.orderNum != null) ...[
           const SizedBox(height: 6),
-          Text('订单号 ${review.orderNum}',
-              style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceVariant)),
+          Text(
+            '订单号 ${review.orderNum}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
         ],
       ],
     );
@@ -143,7 +168,12 @@ class StarRow extends StatelessWidget {
   final double size;
   final ValueChanged<int>? onChanged;
 
-  const StarRow({super.key, required this.rating, this.size = 18, this.onChanged});
+  const StarRow({
+    super.key,
+    required this.rating,
+    this.size = 18,
+    this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -194,7 +224,9 @@ class _ReviewDialogState extends ConsumerState<_ReviewDialog> {
       _submitting = true;
       _error = null;
     });
-    final result = await ref.read(reviewApiProvider).submit(
+    final result = await ref
+        .read(reviewApiProvider)
+        .submit(
           orderNum: widget.orderNum,
           rating: _rating,
           content: _controller.text,
@@ -205,7 +237,7 @@ class _ReviewDialogState extends ConsumerState<_ReviewDialog> {
     } else {
       setState(() {
         _submitting = false;
-        _error = result.message ?? '评价提交失败，请稍后重试';
+        _error = resultFailureMessage(result, fallback: '评价提交未完成，请稍后重试');
       });
     }
   }
@@ -223,11 +255,15 @@ class _ReviewDialogState extends ConsumerState<_ReviewDialog> {
               StarRow(
                 rating: _rating,
                 size: 30,
-                onChanged: _submitting ? null : (v) => setState(() => _rating = v),
+                onChanged: _submitting
+                    ? null
+                    : (v) => setState(() => _rating = v),
               ),
               const SizedBox(width: 8),
-              Text(_ratingHints[_rating],
-                  style: const TextStyle(color: AppColors.onSurfaceVariant)),
+              Text(
+                _ratingHints[_rating],
+                style: const TextStyle(color: AppColors.onSurfaceVariant),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -243,19 +279,27 @@ class _ReviewDialogState extends ConsumerState<_ReviewDialog> {
             ),
           ),
           if (_error != null)
-            Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
+            Text(
+              _error!,
+              style: const TextStyle(color: AppColors.error, fontSize: 13),
+            ),
         ],
       ),
       actions: [
         TextButton(
-          onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+          onPressed: _submitting
+              ? null
+              : () => Navigator.of(context).pop(false),
           child: const Text('取消'),
         ),
         FilledButton(
           onPressed: _submitting ? null : _submit,
           child: _submitting
               ? const SizedBox(
-                  width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Text('提交评价'),
         ),
       ],

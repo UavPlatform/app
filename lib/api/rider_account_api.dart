@@ -15,10 +15,7 @@ class RiderAccountApi {
     required String password,
     String? djiId,
   }) async {
-    final body = <String, dynamic>{
-      'userName': userName,
-      'password': password,
-    };
+    final body = <String, dynamic>{'userName': userName, 'password': password};
     if (djiId != null && djiId.isNotEmpty) {
       body['djiId'] = djiId;
     }
@@ -27,7 +24,10 @@ class RiderAccountApi {
   }
 
   /// 绑定无人机（契约要求同时提交机型 ID，机型取自 GET /api/aircraft-models）
-  Future<Result<void>> bindDrone(String djiId, {required int aircraftModelId}) async {
+  Future<Result<void>> bindDrone(
+    String djiId, {
+    required int aircraftModelId,
+  }) async {
     final response = await _client.dio.post(
       ApiPaths.riderDroneBind,
       queryParameters: ApiPaths.riderDroneBindQuery(
@@ -39,6 +39,7 @@ class RiderAccountApi {
     return Result(
       success: data['success'] == true,
       code: data['code'] as int?,
+      errorCode: data['errorCode'] as String?,
       message: data['message'] as String?,
     );
   }
@@ -53,6 +54,7 @@ class RiderAccountApi {
     return Result(
       success: data['success'] == true,
       code: data['code'] as int?,
+      errorCode: data['errorCode'] as String?,
       message: data['message'] as String?,
     );
   }
@@ -70,6 +72,7 @@ class RiderAccountApi {
     return Result(
       success: data['success'] == true,
       code: data['code'] as int?,
+      errorCode: data['errorCode'] as String?,
       message: data['message'] as String?,
     );
   }

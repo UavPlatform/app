@@ -1,3 +1,4 @@
+import '../../utils/failure_message.dart';
 import '../../widgets/flow_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,7 +56,11 @@ class _DispatchMaterialPanelState extends ConsumerState<DispatchMaterialPanel> {
           .upload(widget.orderId, widget.purpose!, file);
       if (current()) ref.invalidate(dispatchMaterialsProvider(widget.orderId));
     } catch (error) {
-      if (current()) setState(() => _error = error.toString());
+      if (current()) {
+        setState(
+          () => _error = failureMessage(error, fallback: '材料上传未完成，请检查文件后重试'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

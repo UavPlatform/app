@@ -1,3 +1,4 @@
+import '../../utils/failure_message.dart';
 // 我的评价（GET /review/my）：用户发出的订单评价列表，带加载/空/错误态。
 
 import 'package:flutter/material.dart';
@@ -23,9 +24,11 @@ class MyReviewsPage extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               const SizedBox(height: 160),
-              const Center(
-                child: Text('评价加载失败',
-                    style: TextStyle(color: AppColors.onSurfaceVariant)),
+              Center(
+                child: Text(
+                  failureMessage(e, fallback: '评价暂时无法加载，请稍后刷新'),
+                  style: TextStyle(color: AppColors.onSurfaceVariant),
+                ),
               ),
               const SizedBox(height: 12),
               Center(
@@ -41,16 +44,30 @@ class MyReviewsPage extends ConsumerWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: const [
                     SizedBox(height: 160),
-                    Icon(Icons.star_outline, size: 64, color: AppColors.outline),
+                    Icon(
+                      Icons.star_outline,
+                      size: 64,
+                      color: AppColors.outline,
+                    ),
                     SizedBox(height: 12),
                     Center(
-                      child: Text('还没有评价过订单',
-                          style: TextStyle(fontSize: 16, color: AppColors.onSurfaceVariant)),
+                      child: Text(
+                        '还没有评价过订单',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
                     ),
                     SizedBox(height: 6),
                     Center(
-                      child: Text('订单确认完成后，可在订单详情里评价飞手',
-                          style: TextStyle(fontSize: 13, color: AppColors.outline)),
+                      child: Text(
+                        '订单确认完成后，可在订单详情里评价飞手',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.outline,
+                        ),
+                      ),
                     ),
                   ],
                 )
