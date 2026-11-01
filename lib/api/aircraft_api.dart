@@ -24,6 +24,7 @@ class AircraftApi {
     return Result(
       success: false,
       code: data['code'] as int?,
+      errorCode: data['errorCode'] as String?,
       message: data['message'] as String?,
     );
   }

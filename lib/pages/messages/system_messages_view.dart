@@ -1,3 +1,4 @@
+import '../../utils/failure_message.dart';
 // 系统通知聚合页（t33，APP P3-4 空壳消除）：
 // 聚合展示系统会话（chat_session.type=2）中的任务状态通知卡片。
 // 成功加载通知后推进服务端已读状态，并同步会话列表红点。
@@ -48,7 +49,7 @@ class _SystemMessagesViewState extends ConsumerState<SystemMessagesView> {
         if (!mounted) return;
         if (!sessions.success || sessions.data == null) {
           setState(() {
-            _error = sessions.message ?? '加载失败';
+            _error = resultFailureMessage(sessions, fallback: '加载失败');
             _loading = false;
           });
           return;
@@ -68,10 +69,10 @@ class _SystemMessagesViewState extends ConsumerState<SystemMessagesView> {
       } else {
         await _loadMessages(sessionId);
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = '加载失败，请检查网络';
+        _error = failureMessage(error, fallback: '系统通知暂时无法加载，请稍后刷新');
         _loading = false;
       });
     }
@@ -89,7 +90,7 @@ class _SystemMessagesViewState extends ConsumerState<SystemMessagesView> {
       await ref.read(sessionListProvider.notifier).markSessionRead(sessionId);
     } else {
       setState(() {
-        _error = result.message ?? '加载失败';
+        _error = resultFailureMessage(result, fallback: '加载失败');
         _loading = false;
       });
     }

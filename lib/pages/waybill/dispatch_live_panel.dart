@@ -1,3 +1,4 @@
+import '../../utils/failure_message.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -169,9 +170,13 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
         }
         setState(() => _message = '已连接本单直播，等待实际画面');
       }
-    } catch (_) {
+    } catch (error) {
       await _release();
-      if (mounted) setState(() => _message = '暂时无法观看本单直播，请检查网络后重试');
+      if (mounted) {
+        setState(
+          () => _message = failureMessage(error, fallback: '暂时无法观看本单直播，请稍后重试'),
+        );
+      }
     } finally {
       _busy = false;
       if (mounted && _foreground) {

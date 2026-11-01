@@ -1,3 +1,4 @@
+import '../../utils/failure_message.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -36,11 +37,13 @@ class _PhotoFieldsState extends ConsumerState<PhotoFields> {
       }
       // Use an immutable key per photo so removals do not renumber the draft.
       notifier.update('${widget.group}.photo.${const Uuid().v4()}', path);
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('照片未能保存，请检查权限和可用空间后重试')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failureMessage(error, fallback: '照片未能保存，请检查可用空间后重试')),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _picking = false);

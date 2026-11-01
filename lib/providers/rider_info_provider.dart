@@ -1,3 +1,4 @@
+import '../utils/failure_message.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/generated/openapi_models.dart';
@@ -9,10 +10,14 @@ final riderInfoApiProvider = Provider<RiderInfoApi>(
 );
 
 /// 本人飞手资料；失败时抛出服务端文案，交由 UI 展示重试。
-final riderInfoProvider = FutureProvider.autoDispose<ApiRiderInfoVO>((ref) async {
+final riderInfoProvider = FutureProvider.autoDispose<ApiRiderInfoVO>((
+  ref,
+) async {
   final result = await ref.watch(riderInfoApiProvider).getInfo();
   if (!result.success || result.data == null) {
-    throw result.message ?? '飞手资料加载失败';
+    throw FailureNotice(
+      resultFailureMessage(result, fallback: '飞手资料暂时无法加载，请稍后刷新'),
+    );
   }
   return result.data!;
 });

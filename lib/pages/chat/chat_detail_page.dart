@@ -105,9 +105,14 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
         .sendMessage(content: text);
     if (!sent && mounted) {
       _textController.text = text;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('发送失败，请稍后重试')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ref.read(messageListProvider(widget.sessionId)).error ??
+                '消息发送未完成，请稍后重试',
+          ),
+        ),
+      );
     }
   }
 
