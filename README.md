@@ -16,6 +16,23 @@ For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
 
+## 真实后端集成测试（profile=`it`）
+
+不在普通 PR CI 中运行。本地或 GitHub Actions（`Integration (backend it)`，workflow_dispatch / 每晚）对一次性 `it` 后端跑：
+
+```bash
+# 另开终端：backend 仓
+bash tools/it/up.sh
+
+# app 仓
+flutter test integration_test/app_backend_it_test.dart \
+  -d flutter-tester \
+  --dart-define=IT_BASE_URL=http://127.0.0.1:8082 \
+  --dart-define=SKIP_TRTC=true
+```
+
+`SKIP_TRTC=true` 时使用 stub 引擎，生产 Android/iOS 行为不变。种子账号见 backend README「IT 集成测试环境」。
+
 ## OpenAPI 契约（消费侧）
 
 后端契约由 backend 仓导出（`backend/spec/openapi/drone-backend.openapi.json`），本仓 **vendor + sha256 对账 + 生成物入库**。
