@@ -1,13 +1,13 @@
 import '../../widgets/flow_ui.dart';
 import '../../widgets/infinite_list.dart';
 import '../waybill/dispatch_order_information.dart';
-import '../../widgets/dispatch_notification_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/dispatch_order.dart';
 import '../../providers/dispatch_order_provider.dart';
 import '../../providers/waybill_draft_provider.dart';
+import 'dispatch_hall_ui.dart';
 export 'dispatch_pilot_order_page.dart';
 
 class DispatchPilotHallPage extends ConsumerStatefulWidget {
@@ -52,35 +52,53 @@ class _DispatchPilotHallPageState extends ConsumerState<DispatchPilotHallPage> {
   Widget build(BuildContext context) {
     final hall = ref.watch(dispatchPilotHallProvider);
     return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
-        title: const Text('派单大厅'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Text(
+          '派单大厅',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF111111),
+          ),
+        ),
         actions: [
-          TextButton(
-            onPressed: () => context.push('/pilot/dispatch/nearby'),
-            child: const Text('附近订单'),
-          ),
-          const DispatchNotificationEntry(),
-          IconButton(
-            tooltip: '刷新大厅',
-            onPressed: hall.loading ? null : _refresh,
-            icon: const Icon(Icons.refresh),
-          ),
-          TextButton(
-            onPressed: () => context.go('/pilot/jobs'),
-            child: const Text('我的接单'),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton(
+              onPressed: () => context.push('/pilot/dispatch/nearby'),
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFFE8F3FF),
+                foregroundColor: const Color(0xFF1D6FE9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.near_me_outlined, size: 15),
+                  SizedBox(width: 4),
+                  Text(
+                    '附近订单',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
       body: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: FlowHeader(
-              title: '选择你的下一单',
-              subtitle: '先接者得。接单后查看联系人，按阶段完成交付。',
-              icon: Icons.explore_outlined,
-            ),
-          ),
+          const DispatchHallWorkbench(),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.all(12),
@@ -93,63 +111,32 @@ class _DispatchPilotHallPageState extends ConsumerState<DispatchPilotHallPage> {
             child: hall.isInitialLoading
                 ? const Center(child: CircularProgressIndicator())
                 : hall.error != null && hall.items.isEmpty
-                    ? Center(
-                        child: TextButton(
-                          onPressed: _refresh,
-                          child: Text('${hall.error}\n重新查询大厅'),
-                        ),
-                      )
-                    : InfiniteList(
-                        onRefresh: _refresh,
-                        onLoadMore: () => ref
-                            .read(dispatchPilotHallProvider.notifier)
-                            .load(),
-                        hasMore: hall.hasNext,
-                        loadingMore: hall.loading && hall.items.isNotEmpty,
-                        itemCount: hall.items.length,
-                        empty: const Center(child: Text('暂无待接订单')),
-                        itemBuilder: (context, index) {
-                          final offer = hall.items[index];
-                          return Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                spacing: 12,
-                                children: [
-                                  Text(
-                                    '${offer.data.fields!['category'] ?? ''} · ${dispatchWeightLabel(offer.data.fields!)} · ${offer.data.fields!['count'] ?? ''} 件',
-                                  ),
-                                  Text(
-                                    '起点：${offer.data.fields!['start.site'] ?? ''}',
-                                  ),
-                                  Text(
-                                    '终点：${offer.data.fields!['end.site'] ?? ''}',
-                                  ),
-                                  Text(
-                                    offer.data.fields!['timeMode'] ==
-                                            'scheduled'
-                                        ? '预约：${offer.data.fields!['scheduledAt']}'
-                                        : '立即出发',
-                                  ),
-                                  if (offer.data.pilotServiceFee != null)
-                                    Text(
-                                      '飞手服务费：¥${offer.data.pilotServiceFee!.toStringAsFixed(2)}/单',
-                                    ),
-                                  const Text(
-                                    '预估净收入和建议机型暂未提供。接单后可查看联系人与完整场地信息。',
-                                  ),
-                                  FilledButton(
-                                    onPressed:
-                                        _busy ? null : () => _claim(offer),
-                                    child: const Text('立即接单'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                ? Center(
+                    child: TextButton(
+                      onPressed: _refresh,
+                      child: Text('${hall.error}\n重新查询大厅'),
+                    ),
+                  )
+                : InfiniteList(
+                    onRefresh: _refresh,
+                    onLoadMore: () =>
+                        ref.read(dispatchPilotHallProvider.notifier).load(),
+                    hasMore: hall.hasNext,
+                    loadingMore: hall.loading && hall.items.isNotEmpty,
+                    itemCount: hall.items.length,
+                    padding: const EdgeInsets.only(bottom: 16),
+                    separatorHeight: 0,
+                    empty: DispatchHallEmptyState(
+                      onNearby: () => context.push('/pilot/dispatch/nearby'),
+                    ),
+                    itemBuilder: (context, index) {
+                      final offer = hall.items[index];
+                      return DispatchHallOfferCard(
+                        offer: offer,
+                        onClaim: _busy ? null : () => _claim(offer),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -162,7 +149,11 @@ class DispatchPilotJobsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
     appBar: AppBar(
-      title: const Text('我的派单'),
+      title: const Text('我的订单'),
+      leading: BackButton(
+        onPressed: () =>
+            context.canPop() ? context.pop() : context.go('/pilot/profile'),
+      ),
       actions: [
         IconButton(
           tooltip: '刷新我的接单',
@@ -182,7 +173,16 @@ class DispatchPilotJobsPage extends ConsumerWidget {
             ),
           ),
           data: (orders) => orders.isEmpty
-              ? const Center(child: Text('暂无当前指派订单'))
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  children: const [
+                    FlowEmptyState(
+                      title: '暂无当前指派订单',
+                      icon: Icons.assignment_outlined,
+                    ),
+                  ],
+                )
               : FlowList(
                   children: [
                     const Padding(

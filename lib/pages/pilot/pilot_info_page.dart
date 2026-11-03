@@ -1,3 +1,4 @@
+import '../../widgets/flow_ui.dart';
 // 飞手资料（「我的」→ 飞手资料）：查看并编辑实名信息、所在地/自我介绍与驾驶资质。
 // 数据走 GET/PATCH /rider/info；身份证号只展示脱敏值，修改时才需重新填写完整号码。
 
@@ -69,12 +70,9 @@ class PilotInfoPage extends ConsumerWidget {
               const SizedBox(height: 12),
               _section('驾驶资质', [
                 if ((vo.qualifications ?? const []).isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      '还没有登记资质，点右上角「编辑」添加机型与执照等级',
-                      style: TextStyle(color: AppColors.onSurfaceVariant),
-                    ),
+                  const FlowEmptyState(
+                    title: '还没有登记资质，点右上角「编辑」添加机型与执照等级',
+                    icon: Icons.verified_user_outlined,
                   ),
                 ...(vo.qualifications ?? const []).map(
                   (q) => ListTile(
@@ -152,7 +150,13 @@ class PilotInfoPage extends ConsumerWidget {
               style: const TextStyle(color: AppColors.onSurfaceVariant),
             ),
           ),
-          Expanded(child: Text(value)),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ),
           ?trailing,
         ],
       ),
@@ -320,9 +324,9 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
               ],
             ),
             if (_quals.isEmpty)
-              const Text(
-                '暂无资质',
-                style: TextStyle(color: AppColors.onSurfaceVariant),
+              const FlowEmptyState(
+                title: '暂无资质',
+                icon: Icons.verified_user_outlined,
               ),
             ..._quals.asMap().entries.map((e) {
               final q = e.value;

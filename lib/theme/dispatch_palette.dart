@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 class DispatchPalette {
   static Color status(BuildContext context, String? stage) {
     final color = switch (stage) {
-      'AWAITING_DEPOSIT' => const Color(0xFFAF590C),
-      'WAITING_ACCEPTANCE' => const Color(0xFF7851A9),
-      'PILOT_PREPARING' => const Color(0xFF3565A6),
-      'PILOT_ARRIVED' => const Color(0xFF147D7A),
-      'IN_TRANSIT' => const Color(0xFFD95B00),
-      'DELIVERY_CONFIRMATION' => const Color(0xFF875298),
-      'COMPLETED' => const Color(0xFF22825B),
-      _ => const Color(0xFF64748B),
+      'AWAITING_DEPOSIT' => const Color(0xFFFF6B00),
+      'WAITING_ACCEPTANCE' => const Color(0xFFFF6B00),
+      'PILOT_PREPARING' => const Color(0xFF1D6FE9),
+      'PILOT_ARRIVED' => const Color(0xFF1D6FE9),
+      'IN_TRANSIT' => const Color(0xFF1D6FE9),
+      'DELIVERY_CONFIRMATION' => const Color(0xFFFF6B00),
+      'COMPLETED' => const Color(0xFF00B578),
+      _ => const Color(0xFF888888),
     };
     return Theme.of(context).brightness == Brightness.dark
         ? Color.lerp(color, Colors.white, .42)!

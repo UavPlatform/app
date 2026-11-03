@@ -43,10 +43,10 @@ class FlowHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,9 +55,9 @@ class FlowHeader extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: scheme.primary,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: scheme.onPrimary, size: 28),
+            child: Icon(icon, color: scheme.onPrimary, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -68,7 +68,7 @@ class FlowHeader extends StatelessWidget {
                   title,
                   style: TextStyle(
                     color: scheme.onPrimaryContainer,
-                    fontSize: 26,
+                    fontSize: 18,
                     fontWeight: FontWeight.w700,
                     height: 1.2,
                   ),
@@ -78,7 +78,7 @@ class FlowHeader extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: scheme.onPrimaryContainer,
+                      color: scheme.onSurfaceVariant,
                       fontSize: 13,
                       height: 1.5,
                     ),
@@ -105,17 +105,16 @@ class FlowNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final dark = scheme.brightness == Brightness.dark;
-    final color = warning ? const Color(0xFFB15A12) : scheme.secondary;
+    final color = warning ? const Color(0xFFFF6B00) : scheme.primary;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: dark
             ? scheme.surfaceContainerHigh
             : warning
-            ? const Color(0xFFFFEFDB)
-            : const Color(0xFFE7F3EC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: .18)),
+            ? const Color(0xFFFFF0E6)
+            : const Color(0xFFE8F3FF),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,13 +160,28 @@ class FlowDetailsLink extends StatelessWidget {
     child: ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: CircleAvatar(
-        backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
-        foregroundColor: Theme.of(context).colorScheme.onTertiaryContainer,
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        foregroundColor: Theme.of(context).colorScheme.primary,
         child: Icon(icon),
       ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(summary, maxLines: 2, overflow: TextOverflow.ellipsis),
-      trailing: const Icon(Icons.chevron_right_rounded),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        summary,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 13,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      trailing: const Icon(
+        Icons.chevron_right_rounded,
+        size: 18,
+        color: Color(0xFFCCCCCC),
+      ),
       onTap: () =>
           Navigator.of(context).push(MaterialPageRoute<void>(builder: builder)),
     ),
@@ -202,21 +216,96 @@ class FlowValue extends StatelessWidget {
   const FlowValue(this.label, this.value, {super.key});
   final String label, value;
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+      Expanded(
+        flex: 2,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ),
-      const SizedBox(height: 6),
-      SelectableText(
-        value.isEmpty ? '未填写' : value,
-        style: const TextStyle(fontSize: 15, height: 1.5),
+      const SizedBox(width: 12),
+      Expanded(
+        flex: 3,
+        child: SelectableText(
+          value.isEmpty ? '未填写' : value,
+          textAlign: TextAlign.right,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            height: 1.5,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
       ),
     ],
   );
+}
+
+/// Presentation-only empty state; actions remain owned by their original page.
+class FlowEmptyState extends StatelessWidget {
+  const FlowEmptyState({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.icon = Icons.inbox_outlined,
+  });
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 32, color: scheme.primary),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: scheme.onSurface,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              subtitle!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }

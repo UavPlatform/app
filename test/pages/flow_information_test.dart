@@ -17,6 +17,75 @@ import '../dispatch_order_test_support.dart';
 
 void main() {
   testWidgets(
+    'order detail drawers fit short content and scroll long content without hiding close',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [waybillDraftScopeProvider.overrideWithValue('account')],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Column(
+                  children: [
+                    for (final count in [1, 30])
+                      TextButton(
+                        onPressed: () => showDispatchDetailSheet(
+                          context,
+                          title: '详情',
+                          scope: 'account',
+                          builder: (_) => SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (var i = 0; i < count; i++)
+                                  DispatchDetailGroup(
+                                    title: '分组$i',
+                                    values: [('信息', '值$i')],
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        child: Text('打开$count'),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('打开1'));
+      await tester.pumpAndSettle();
+      final shortHeight = tester.getSize(find.byType(BottomSheet)).height;
+      expect(shortHeight, lessThan(400));
+      await tester.tap(find.text('我知道了'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('打开30'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byType(BottomSheet)).height,
+        greaterThan(shortHeight),
+      );
+      expect(
+        tester.getSize(find.byType(BottomSheet)).height,
+        lessThanOrEqualTo(844),
+      );
+      expect(find.text('我知道了').hitTestable(), findsOneWidget);
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -5000),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('值29').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
     'fee drawer uses live paid state, keeps unknown balance and hides revoked data',
     (tester) async {
       final permitted = StateProvider((ref) => true);
