@@ -37,8 +37,8 @@ class AppBottomNav extends StatelessWidget {
         backgroundColor: Theme.of(context).brightness == Brightness.light
             ? hudSand
             : Theme.of(context).bottomNavigationBarTheme.backgroundColor,
-        unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-        selectedItemColor: hudTeal,
+        unselectedItemColor: const Color(0xFF999999),
+        selectedItemColor: const Color(0xFF1D6FE9),
         selectedFontSize: 12,
         iconSize: 24,
         elevation: 0,

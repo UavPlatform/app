@@ -11,7 +11,7 @@ class PilotBottomNav extends StatelessWidget {
     if (location.startsWith('/pilot/equipment')) return 1;
     if (location.startsWith('/pilot/messages')) return 2;
     if (location.startsWith('/pilot/profile')) return 3;
-    // 首页及任务大厅、我的订单都归在「首页」栏。
+    // 派单大厅是首页；我的订单为独立路由，不属于底部导航。
     return 0;
   }
 

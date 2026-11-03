@@ -1,3 +1,4 @@
+import '../../widgets/flow_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_colors.dart';
@@ -33,22 +34,12 @@ class _DroneManagePageState extends ConsumerState<DroneManagePage> {
             child: state.drones.isEmpty
                 ? ListView(
                     children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.6,
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.flight, size: 64,
-                                  color: AppColors.outlineVariant.withOpacity(0.5)),
-                              const SizedBox(height: 16),
-                              const Text('无需手动添加无人机',
-                                  style: TextStyle(color: AppColors.onSurfaceVariant, fontSize: 16)),
-                              const SizedBox(height: 8),
-                              const Text('执飞时 djifly 连上飞机会自动记录机型和机身号',
-                                  style: TextStyle(color: AppColors.outline, fontSize: 13)),
-                            ],
-                          ),
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: FlowEmptyState(
+                          title: '无需手动添加无人机',
+                          subtitle: '执飞时 djifly 连上飞机会自动记录机型和机身号',
+                          icon: Icons.flight_rounded,
                         ),
                       ),
                     ],
@@ -62,22 +53,35 @@ class _DroneManagePageState extends ConsumerState<DroneManagePage> {
                         margin: const EdgeInsets.only(bottom: 12),
                         child: ListTile(
                           leading: Container(
-                            width: 44, height: 44,
+                            width: 44,
+                            height: 44,
                             decoration: BoxDecoration(
                               color: AppColors.primaryLight,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.flight, color: AppColors.primary),
+                            child: const Icon(
+                              Icons.flight,
+                              color: AppColors.primary,
+                            ),
                           ),
-                          title: Text('DJI ID: ${drone.djiId}',
-                              style: const TextStyle(fontWeight: FontWeight.w500)),
+                          title: Text(
+                            'DJI ID: ${drone.djiId}',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
                           subtitle: Text(
                             drone.createTime ?? '',
-                            style: const TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.onSurfaceVariant,
+                            ),
                           ),
                           trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline, color: AppColors.error),
-                            onPressed: () => _showUnbindDialog(context, drone.djiId),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: AppColors.error,
+                            ),
+                            onPressed: () =>
+                                _showUnbindDialog(context, drone.djiId),
                           ),
                         ),
                       );
@@ -96,7 +100,10 @@ class _DroneManagePageState extends ConsumerState<DroneManagePage> {
         title: const Text('解绑无人机'),
         content: Text('确定要解绑 $djiId 吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('解绑', style: TextStyle(color: AppColors.error)),
@@ -109,10 +116,16 @@ class _DroneManagePageState extends ConsumerState<DroneManagePage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!context.mounted) return;
-      final success = await ref.read(droneListProvider.notifier).unbindDrone(djiId);
+      final success = await ref
+          .read(droneListProvider.notifier)
+          .unbindDrone(djiId);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(success ? '已解绑' : ref.read(droneListProvider).error ?? '解绑失败')),
+        SnackBar(
+          content: Text(
+            success ? '已解绑' : ref.read(droneListProvider).error ?? '解绑失败',
+          ),
+        ),
       );
     });
   }

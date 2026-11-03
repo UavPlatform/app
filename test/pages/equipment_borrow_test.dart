@@ -12,56 +12,57 @@ import 'package:uav_pilot_app/services/token_storage.dart';
 import '../equipment_test_support.dart';
 
 void main() {
-  testWidgets(
-    'apply by model reuses attempt; return works on approved loan',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
-      final client = HttpClient(TokenStorage(prefs));
-      final api = FakeEquipmentApi(client);
-      addTearDown(() => client.dio.close());
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            equipmentApiProvider.overrideWithValue(api),
-            sharedPreferencesProvider.overrideWithValue(prefs),
-            waybillDraftScopeProvider.overrideWithValue('equipment-test-scope'),
-            dispatchPilotOrdersProvider.overrideWith((ref) async => []),
-          ],
-          child: const MaterialApp(home: EquipmentBorrowPage()),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('当前没有已借出的飞机'), findsOneWidget);
+  testWidgets('apply by model reuses attempt; return works on approved loan', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final client = HttpClient(TokenStorage(prefs));
+    final api = FakeEquipmentApi(client);
+    addTearDown(() => client.dio.close());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          equipmentApiProvider.overrideWithValue(api),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          waybillDraftScopeProvider.overrideWithValue('equipment-test-scope'),
+          dispatchPilotOrdersProvider.overrideWith((ref) async => []),
+        ],
+        child: const MaterialApp(home: EquipmentBorrowPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('暂未借用设备'), findsOneWidget);
+    expect(find.text('暂无申请记录'), findsOneWidget);
+    expect(find.text('① 提交申请'), findsOneWidget);
 
-      await tester.tap(find.text('发起申请'));
-      await tester.pumpAndSettle();
-      expect(find.text('发起借机申请'), findsOneWidget);
+    await tester.tap(find.text('立即申请'));
+    await tester.pumpAndSettle();
+    expect(find.text('发起借机申请'), findsOneWidget);
 
-      await tester.tap(find.textContaining('FC30（在库'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('FC30（在库'));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('提交申请'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('申请响应丢失'), findsOneWidget);
+    await tester.tap(find.text('提交申请'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('申请响应丢失'), findsOneWidget);
 
-      await tester.tap(find.text('提交申请'));
-      await tester.pumpAndSettle();
-      expect(api.keys, hasLength(2));
-      expect(api.keys[0], api.keys[1]);
-      expect(api.lastModelId, 1);
+    await tester.tap(find.text('提交申请'));
+    await tester.pumpAndSettle();
+    expect(api.keys, hasLength(2));
+    expect(api.keys[0], api.keys[1]);
+    expect(api.lastModelId, 1);
 
-      api.active = true;
-      await tester.tap(find.byTooltip('刷新'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('TEST-SERIAL'), findsWidgets);
+    api.active = true;
+    await tester.tap(find.byTooltip('刷新'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('TEST-SERIAL'), findsWidgets);
 
-      await tester.tap(find.text('归还').first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '确认归还'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('归还时间：2026-10-23'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    await tester.tap(find.text('归还').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确认归还'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('归还时间：2026-10-23'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

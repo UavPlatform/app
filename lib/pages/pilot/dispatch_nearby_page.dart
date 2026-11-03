@@ -1,3 +1,4 @@
+import '../../widgets/flow_ui.dart';
 import '../../widgets/infinite_list.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -214,15 +215,21 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
     }
     if (hall.locationState != null && hall.locationState != 'READY') {
       return Center(
-        child: TextButton(
-          onPressed: _refresh,
-          child: const Text('位置已失效，重新定位'),
-        ),
+        child: TextButton(onPressed: _refresh, child: const Text('位置已失效，重新定位')),
       );
     }
     return Column(
       children: [
-        Text('起点周边 ${hall.radiusKm} 公里 · 直线距离估算'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Text(
+            '起点周边 ${hall.radiusKm} 公里 · 直线距离估算',
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
         Expanded(
           child: InfiniteList(
             onRefresh: () => ref
@@ -233,7 +240,10 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
             hasMore: hall.hasNext,
             loadingMore: hall.loading && hall.items.isNotEmpty,
             itemCount: hall.items.length,
-            empty: const Center(child: Text('暂无附近待接订单')),
+            empty: const FlowEmptyState(
+              title: '暂无附近待接订单',
+              icon: Icons.radar_rounded,
+            ),
             itemBuilder: (context, index) {
               final item = hall.items[index];
               return Card(
