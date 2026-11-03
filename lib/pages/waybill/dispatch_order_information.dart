@@ -83,8 +83,15 @@ class DispatchOrderInformationPage extends ConsumerWidget {
         ? ref.watch(dispatchPilotOrderProvider(orderId))
         : ref.watch(dispatchOrderProvider(orderId));
     final content = state.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          heightFactor: embedded ? 1 : null,
+          child: const CircularProgressIndicator(),
+        ),
+      ),
       error: (_, _) => Center(
+        heightFactor: embedded ? 1 : null,
         child: TextButton(
           onPressed: () {
             if (pilot) {
@@ -134,11 +141,20 @@ class DispatchOrderInformationPage extends ConsumerWidget {
               DispatchDetailGroup(
                 title: '联系人信息',
                 values: [
-                  (
-                    '起点联系人',
-                    '${value('start.contact')} · ${value('start.phone')}',
-                  ),
-                  ('终点联系人', '${value('end.contact')} · ${value('end.phone')}'),
+                  if (value('start.contact') == value('end.contact') &&
+                      value('start.phone') == value('end.phone')) ...[
+                    ('联系人', value('start.contact')),
+                    ('联系电话', value('start.phone')),
+                  ] else ...[
+                    (
+                      '起点联系人',
+                      '${value('start.contact')} · ${value('start.phone')}',
+                    ),
+                    (
+                      '终点联系人',
+                      '${value('end.contact')} · ${value('end.phone')}',
+                    ),
+                  ],
                 ],
               ),
               DispatchDetailGroup(

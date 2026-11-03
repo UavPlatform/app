@@ -8,6 +8,7 @@ import 'waybill_summary.dart';
 import 'waybill_edit_sheet.dart';
 import 'waybill_edit_group.dart';
 import 'waybill_form_theme.dart';
+import 'waybill_location_picker.dart';
 import 'dispatch_checkout_card.dart';
 
 // REQ-SHIP-PUB-002. Assessment and payment remain validated by the server.
@@ -23,12 +24,44 @@ class _WaybillPageState extends ConsumerState<WaybillPage> {
   final _scroll = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (mounted) ref.read(waybillDraftProvider.notifier).resumeLatest();
+    });
+  }
+
+  @override
   void dispose() {
     _scroll.dispose();
     super.dispose();
   }
 
   Future<void> _edit(WaybillEditGroup group) async {
+    if (group.id.endsWith('.location')) {
+      final initial = ref.read(waybillDraftProvider);
+      final scope = ref.read(waybillDraftScopeProvider);
+      final picked = await pickWaybillLocation(context, group.prefix!);
+      if (!mounted ||
+          picked == null ||
+          scope != ref.read(waybillDraftScopeProvider)) {
+        return;
+      }
+      final current = ref.read(waybillDraftProvider);
+      if (current.formRevision != initial.formRevision ||
+          group.keys.any(
+            (key) => current.draft.value(key) != initial.draft.value(key),
+          )) {
+        return;
+      }
+      var draft = current.draft;
+      for (final entry in picked.entries) {
+        draft = draft.change(entry.key, entry.value);
+      }
+      ref.read(waybillDraftProvider.notifier).replace(draft);
+      setState(() => _errors = {});
+      return;
+    }
     final saved = await editWaybillGroup(context, group);
     if (mounted && saved == true) setState(() => _errors = {});
   }
@@ -46,6 +79,7 @@ class _WaybillPageState extends ConsumerState<WaybillPage> {
       final sectionErrors = draft.errorsFor(i);
       errors.addAll(sectionErrors);
     }
+    errors.addAll(WaybillEditGroup.contact.errors(draft));
     if (errors.isNotEmpty) {
       setState(() => _errors = errors);
       _edit(
@@ -153,7 +187,11 @@ class _WaybillPageState extends ConsumerState<WaybillPage> {
           ],
         ),
         bottomNavigationBar: step == 4
-            ? DispatchCheckoutCard(draft: draft, compact: true)
+            ? DispatchCheckoutCard(
+                key: ValueKey('$scope/${state.activeId}/${state.formRevision}'),
+                draft: draft,
+                compact: true,
+              )
             : DecoratedBox(
                 decoration: const BoxDecoration(
                   color: Colors.white,

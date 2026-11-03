@@ -45,6 +45,16 @@ class _EditSheetState extends ConsumerState<_EditSheet> {
     super.initState();
     final state = ref.read(waybillDraftProvider);
     _draft = _initial = state.draft;
+    if (widget.group.id == 'contact') {
+      for (final field in ['contact', 'phone']) {
+        final value = _draft.value('start.$field').trim().isNotEmpty
+            ? _draft.value('start.$field')
+            : _draft.value('end.$field');
+        _draft = _draft
+            .change('start.$field', value)
+            .change('end.$field', value);
+      }
+    }
     _scope = ref.read(waybillDraftScopeProvider);
     _revision = state.formRevision;
   }
@@ -56,6 +66,9 @@ class _EditSheetState extends ConsumerState<_EditSheet> {
     if (!_current) return;
     setState(() {
       _draft = _draft.change(key, value);
+      if (widget.group.id == 'contact' && key.startsWith('start.')) {
+        _draft = _draft.change(key.replaceFirst('start.', 'end.'), value);
+      }
       _errors = {};
     });
   }
@@ -93,15 +106,16 @@ class _EditSheetState extends ConsumerState<_EditSheet> {
     });
     final group = widget.group;
     final media = MediaQuery.of(context);
-    final height = (media.size.height * 0.85 - media.viewInsets.bottom).clamp(
-      180.0,
+    final height = (media.size.height - media.viewInsets.bottom - 16).clamp(
+      0.0,
       media.size.height,
     );
     return Padding(
       padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-      child: SizedBox(
-        height: height,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: height),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
@@ -122,7 +136,13 @@ class _EditSheetState extends ConsumerState<_EditSheet> {
               ),
             ),
             const Divider(height: 1),
-            Expanded(
+            if (group.id == 'contact' &&
+                WaybillEditGroup.contactsDiffer(_initial))
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Text('原草稿两端联系人不同，保存后将统一使用以下联系人。'),
+              ),
+            Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: group.photos != null

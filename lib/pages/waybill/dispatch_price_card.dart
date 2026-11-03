@@ -21,32 +21,34 @@ class DispatchPriceCard extends ConsumerWidget {
   final String? orderId;
   String money(num? value) =>
       value == null ? '待确认' : '¥${value.toStringAsFixed(2)}';
-  void _showFeeDetailBottomSheet(BuildContext context, WidgetRef ref) =>
-      showDispatchDetailSheet(
-        context,
-        title: '费用明细',
-        scope: ref.read(waybillDraftScopeProvider),
-        builder: (_) => Consumer(
-          builder: (context, ref, _) {
-            if (orderId == null) return _details(quote, bill);
-            final live = pilot
-                ? ref.watch(dispatchPilotOrderProvider(orderId!))
-                : ref.watch(dispatchOrderProvider(orderId!));
-            return live.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, _) => const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('费用暂不可用，请返回重试'),
-              ),
-              data: (order) => _details(
-                order.data.bill?.quote,
-                order.data.bill,
-                order: order,
-              ),
-            );
-          },
-        ),
-      );
+  void _showFeeDetailBottomSheet(
+    BuildContext context,
+    WidgetRef ref,
+  ) => showDispatchDetailSheet(
+    context,
+    title: '费用明细',
+    scope: ref.read(waybillDraftScopeProvider),
+    builder: (_) => Consumer(
+      builder: (context, ref, _) {
+        if (orderId == null) return _details(quote, bill);
+        final live = pilot
+            ? ref.watch(dispatchPilotOrderProvider(orderId!))
+            : ref.watch(dispatchOrderProvider(orderId!));
+        return live.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(heightFactor: 1, child: CircularProgressIndicator()),
+          ),
+          error: (_, _) => const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('费用暂不可用，请返回重试'),
+          ),
+          data: (order) =>
+              _details(order.data.bill?.quote, order.data.bill, order: order),
+        );
+      },
+    ),
+  );
 
   Widget _details(
     ApiDispatchQuoteVO? q,

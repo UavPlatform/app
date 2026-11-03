@@ -4,6 +4,7 @@ import '../../models/waybill_draft.dart';
 import '../../providers/waybill_draft_provider.dart';
 import 'dispatch_fees_card.dart';
 import 'waybill_review_details.dart';
+import 'waybill_edit_group.dart';
 
 class WaybillReview extends ConsumerWidget {
   const WaybillReview({super.key, required this.draft});
@@ -30,8 +31,6 @@ class WaybillReview extends ConsumerWidget {
             ? '落地放货'
             : '绞盘吊放 ${draft.value('$prefix.winchMin')}–${draft.value('$prefix.winchMax')} m',
       ),
-      ('现场联系人', draft.value('$prefix.contact')),
-      ('联系电话', draft.value('$prefix.phone')),
       if (draft.value('$prefix.notes').isNotEmpty)
         ('现场备注', draft.value('$prefix.notes')),
     ];
@@ -135,7 +134,9 @@ class WaybillReview extends ConsumerWidget {
               divider,
               row(
                 '起点',
-                '${draft.value('start.place').isEmpty ? draft.value('start.site') : draft.value('start.place')} · ${draft.value('start.contact')} · ${draft.value('start.phone')}',
+                draft.value('start.place').isEmpty
+                    ? draft.value('start.site')
+                    : draft.value('start.place'),
                 Icons.my_location_outlined,
                 const Color(0xFFE6F8F0),
                 const Color(0xFF00B578),
@@ -144,11 +145,36 @@ class WaybillReview extends ConsumerWidget {
               divider,
               row(
                 '终点',
-                '${draft.value('end.place').isEmpty ? draft.value('end.site') : draft.value('end.place')} · ${draft.value('end.contact')} · ${draft.value('end.phone')}',
+                draft.value('end.place').isEmpty
+                    ? draft.value('end.site')
+                    : draft.value('end.place'),
                 Icons.location_on_outlined,
                 const Color(0xFFFFF0E6),
                 const Color(0xFFFF6B00),
                 siteFields('end'),
+              ),
+              divider,
+              row(
+                '联系人',
+                WaybillEditGroup.contact.summary(draft),
+                Icons.person_outline,
+                const Color(0xFFE8F3FF),
+                const Color(0xFF1D6FE9),
+                [
+                  if (WaybillEditGroup.contactsDiffer(draft)) ...[
+                    (
+                      '起点联系人',
+                      '${draft.value('start.contact')} · ${draft.value('start.phone')}',
+                    ),
+                    (
+                      '终点联系人',
+                      '${draft.value('end.contact')} · ${draft.value('end.phone')}',
+                    ),
+                  ] else ...[
+                    ('联系人姓名', draft.value('start.contact')),
+                    ('联系电话', draft.value('start.phone')),
+                  ],
+                ],
               ),
               divider,
               row(

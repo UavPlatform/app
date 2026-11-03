@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:uav_pilot_app/models/dispatch_order.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,21 +15,35 @@ import 'package:uav_pilot_app/services/token_storage.dart';
 import '../dispatch_order_test_support.dart';
 import '../models/waybill_draft_test.dart' show validCargo, validSite;
 
+class _GatedReadinessApi extends FakeDispatchOrderApi {
+  _GatedReadinessApi(super.client, this.gate);
+  final Completer<void> gate;
+  @override
+  Future<DispatchReadiness> readiness() async {
+    await gate.future;
+    return super.readiness();
+  }
+}
+
 Future<({ProviderContainer container, FakeDispatchOrderApi api})> setup(
   WidgetTester tester, {
   bool enabled = true,
   bool prohibited = false,
   bool loseResponse = false,
   bool compact = false,
+  Completer<void>? readinessGate,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   final client = HttpClient(TokenStorage(prefs));
   addTearDown(() => client.dio.close());
-  final api = FakeDispatchOrderApi(client)
-    ..enabled = enabled
-    ..prohibited = prohibited
-    ..loseCreateResponse = loseResponse;
+  final api =
+      (readinessGate == null
+            ? FakeDispatchOrderApi(client)
+            : _GatedReadinessApi(client, readinessGate))
+        ..enabled = enabled
+        ..prohibited = prohibited
+        ..loseCreateResponse = loseResponse;
   final notifier = WaybillDraftNotifier(prefs, 'checkout-draft')
     ..replace(
       WaybillDraft(
@@ -103,6 +119,27 @@ Future<void> tap(WidgetTester tester, String label) async {
 }
 
 void main() {
+  testWidgets(
+    'switching to an identical draft invalidates an in-flight assessment',
+    (tester) async {
+      final gate = Completer<void>();
+      final env = await setup(tester, readinessGate: gate);
+      final original = env.container.read(waybillDraftProvider).draft;
+      final originalId = env.container.read(waybillDraftProvider).activeId;
+      await tester.ensureVisible(find.text('检查并评估运单'));
+      await tester.tap(find.text('检查并评估运单'));
+      await tester.pump();
+      final notifier = env.container.read(waybillDraftProvider.notifier);
+      await notifier.createDraft();
+      notifier.restore(original);
+      expect(notifier.state.activeId, isNot(originalId));
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(env.api.assessments, 0);
+      expect(notifier.state.draft.value('submission.orderId'), isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'compact checkout preserves declaration and create-retry idempotency',
     (tester) async {

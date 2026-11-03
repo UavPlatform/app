@@ -53,9 +53,13 @@ class _DispatchCheckoutCardState extends ConsumerState<DispatchCheckoutCard> {
     }
     if (submit && !_accepted) return;
     final scope = ref.read(waybillDraftScopeProvider);
+    final draftState = ref.read(waybillDraftProvider);
     bool current() =>
         mounted &&
         scope == ref.read(waybillDraftScopeProvider) &&
+        draftState.activeId == ref.read(waybillDraftProvider).activeId &&
+        draftState.formRevision ==
+            ref.read(waybillDraftProvider).formRevision &&
         _fingerprint(draft) == _fingerprint(widget.draft);
     final api = ref.read(dispatchOrderApiProvider);
     setState(() {
