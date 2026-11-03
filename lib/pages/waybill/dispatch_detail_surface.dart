@@ -61,7 +61,11 @@ class DispatchDetailSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => Container(
     constraints: BoxConstraints(
-      maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+      maxHeight:
+          (MediaQuery.sizeOf(context).height -
+                  MediaQuery.viewInsetsOf(context).bottom -
+                  24)
+              .clamp(0.0, double.infinity),
     ),
     decoration: const BoxDecoration(
       color: Colors.white,
@@ -154,6 +158,7 @@ class DispatchDetailGroup extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
     ),
     child: Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(

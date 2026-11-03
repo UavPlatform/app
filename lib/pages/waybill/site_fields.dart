@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../models/waybill_draft.dart';
 import 'waybill_fields.dart';
+import 'waybill_location_picker.dart';
 
 class SiteFields extends StatelessWidget {
   const SiteFields({
@@ -20,18 +20,11 @@ class SiteFields extends StatelessWidget {
   final int? section;
 
   Future<void> _pick(BuildContext context) async {
-    final route = prefix == 'start' ? '/map/pick?point=start' : '/map/pick';
-    final result = await context.push<String>(route);
+    final result = await pickWaybillLocation(context, prefix);
     if (!context.mounted || result == null) return;
-    final parts = result.split(';');
-    final coordinates = parts.first.split(',');
-    if (coordinates.length != 2) return;
-    onChanged('$prefix.lat', coordinates[0]);
-    onChanged('$prefix.lng', coordinates[1]);
-    // 地点名称/地址只作本地展示（不在 cloudFieldNames 内，不会提交给后端）。
-    final name = parts.length > 1 ? parts[1].trim() : '';
-    onChanged('$prefix.place', name);
-    onChanged('$prefix.placeAddress', parts.length > 2 ? parts[2].trim() : '');
+    for (final entry in result.entries) {
+      onChanged(entry.key, entry.value);
+    }
   }
 
   @override
@@ -103,8 +96,8 @@ class SiteFields extends StatelessWidget {
           field('notes', '现场备注（选填）'),
         ],
         if (section == null || section == 2) ...[
-          field('contact', '现场联系人姓名'),
-          field('phone', '现场联系人电话'),
+          field('contact', '联系人姓名'),
+          field('phone', '联系电话'),
         ],
       ],
     );

@@ -25,6 +25,7 @@ class _PhotoFieldsState extends ConsumerState<PhotoFields> {
     final scope = ref.read(waybillDraftScopeProvider);
     if (scope == null) return;
     final notifier = ref.read(waybillDraftProvider.notifier);
+    final initial = ref.read(waybillDraftProvider);
     setState(() => _picking = true);
     try {
       final path = await ref
@@ -32,6 +33,8 @@ class _PhotoFieldsState extends ConsumerState<PhotoFields> {
           .pick(source, scope);
       if (!mounted ||
           path == null ||
+          initial.activeId != ref.read(waybillDraftProvider).activeId ||
+          initial.formRevision != ref.read(waybillDraftProvider).formRevision ||
           ref.read(waybillDraftScopeProvider) != scope) {
         return;
       }

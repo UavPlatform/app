@@ -10,10 +10,9 @@ import '../pages/waybill/waybill_page.dart';
 import '../pages/waybill/dispatch_order_pages.dart';
 import '../pages/messages/message_list_page.dart';
 import '../pages/messages/dispatch_notification_page.dart';
-import '../pages/profile/my_reviews_page.dart';
+import '../pages/profile/draft_box_page.dart';
+import '../pages/profile/order_history_page.dart';
 import '../pages/profile/profile_page.dart';
-import '../pages/profile/address_list_page.dart';
-import '../pages/profile/address_edit_page.dart';
 import '../pages/home/map_picker_page.dart';
 import '../pages/pilot/dispatch_pilot_pages.dart';
 import '../pages/pilot/pilot_home_page.dart';
@@ -93,6 +92,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(
+        path: '/pilot/jobs',
+        builder: (_, _) => const DispatchPilotJobsPage(),
+      ),
+      GoRoute(
         path: '/pilot/dispatch/nearby',
         builder: (_, state) =>
             DispatchNearbyPage(orderId: state.uri.queryParameters['orderId']),
@@ -153,13 +156,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: '/reviews',
-        builder: (context, state) => const MyReviewsPage(),
+        path: '/orders/history',
+        builder: (_, _) => const OrderHistoryPage(),
       ),
-      GoRoute(
-        path: '/addresses',
-        builder: (context, state) => const AddressListPage(),
-      ),
+      GoRoute(path: '/drafts', builder: (_, _) => const DraftBoxPage()),
+      GoRoute(path: '/reviews', redirect: (_, _) => '/orders/history'),
+      GoRoute(path: '/addresses', redirect: (_, _) => '/drafts'),
       GoRoute(
         path: '/pilot/info',
         builder: (context, state) => const PilotInfoPage(),
@@ -172,17 +174,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/rider/register',
         builder: (context, state) => const RiderRegisterPage(),
       ),
-      GoRoute(
-        path: '/address/edit',
-        builder: (context, state) => const AddressEditPage(),
-      ),
+      GoRoute(path: '/address/edit', redirect: (_, _) => '/drafts'),
 
       // ========== 用户端底部导航 ==========
       ShellRoute(
         navigatorKey: _userShellKey,
         builder: (context, state, child) => AppBottomNav(child: child),
         routes: [
-          GoRoute(path: '/', redirect: (_, __) => '/home'),
+          GoRoute(path: '/', redirect: (_, _) => '/home'),
           GoRoute(
             path: '/home',
             pageBuilder: (context, state) => const NoTransitionPage(
@@ -213,16 +212,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: PilotHomePage()),
           ),
-          GoRoute(
-            path: '/pilot/tasks',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: DispatchPilotHallPage()),
-          ),
-          GoRoute(
-            path: '/pilot/jobs',
-            pageBuilder: (context, state) =>
-                const NoTransitionPage(child: DispatchPilotJobsPage()),
-          ),
+          GoRoute(path: '/pilot/tasks', redirect: (_, _) => '/pilot/home'),
           GoRoute(
             path: '/pilot/equipment',
             pageBuilder: (context, state) =>

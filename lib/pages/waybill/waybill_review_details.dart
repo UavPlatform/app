@@ -29,7 +29,11 @@ class _ReviewDetails extends ConsumerWidget {
     final current = scope == ref.watch(waybillDraftScopeProvider);
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        maxHeight:
+            (MediaQuery.sizeOf(context).height -
+                    MediaQuery.viewInsetsOf(context).bottom -
+                    24)
+                .clamp(0.0, double.infinity),
       ),
       decoration: const BoxDecoration(
         color: Colors.white,

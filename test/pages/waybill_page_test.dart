@@ -106,6 +106,105 @@ WaybillDraft completeDraft() => WaybillDraft(
 
 void main() {
   testWidgets(
+    'old endpoint contacts are preserved on cancel and unified only after confirmation',
+    (tester) async {
+      final container = await showDraft(
+        tester,
+        WaybillDraft(
+          fields: {
+            ...completeDraft().fields,
+            'end.contact': '终点旧联系人',
+            'end.phone': '13900139000',
+          },
+        ),
+      );
+      await next(tester);
+      expect(container.read(waybillDraftProvider).draft.step, 0);
+      expect(find.text('原草稿两端联系人不同，保存后将统一使用以下联系人。'), findsOneWidget);
+      await tester.tap(find.byTooltip('关闭'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(waybillDraftProvider).draft.value('end.contact'),
+        '终点旧联系人',
+      );
+      await edit(tester, 'contact');
+      await saveEditor(tester);
+      final saved = container.read(waybillDraftProvider).draft;
+      expect(saved.value('end.contact'), saved.value('start.contact'));
+      expect(saved.value('end.phone'), saved.value('start.phone'));
+      expect(saved.cloudFields['end.phone'], '13800138000');
+    },
+  );
+
+  testWidgets('cancelled or stale map selections leave the draft unchanged', (
+    tester,
+  ) async {
+    final container = await showDraft(tester, completeDraft());
+    await edit(tester, 'start.location');
+    GoRouter.of(tester.element(find.text('选定起点'))).pop();
+    await tester.pumpAndSettle();
+    expect(
+      container.read(waybillDraftProvider).draft.value('start.lat'),
+      '27.8981',
+    );
+    await edit(tester, 'start.location');
+    container
+        .read(waybillDraftProvider.notifier)
+        .restore(completeDraft().change('start.lat', '30.111'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('选定起点'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(waybillDraftProvider).draft.value('start.lat'),
+      '30.111',
+    );
+  });
+
+  testWidgets(
+    'editors and review drawers size to content and remain usable with the keyboard',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetViewInsets);
+      await showDraft(tester, completeDraft());
+      await edit(tester, 'category');
+      final categoryHeight = tester.getSize(find.byType(BottomSheet)).height;
+      await tester.tap(find.byTooltip('关闭'));
+      await tester.pumpAndSettle();
+      await edit(tester, 'contact');
+      expect(
+        tester.getSize(find.byType(BottomSheet)).height,
+        greaterThan(categoryHeight),
+      );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('waybill-editor-save')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      tester.view.resetViewInsets();
+      await tester.tap(find.byTooltip('关闭'));
+      await tester.pumpAndSettle();
+      await next(tester);
+      await tester.tap(find.byKey(const ValueKey('review-时间')));
+      await tester.pumpAndSettle();
+      final timeHeight = tester.getSize(find.byType(BottomSheet)).height;
+      await tester.tap(find.text('我知道了'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('review-货物')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byType(BottomSheet)).height,
+        greaterThan(timeHeight),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'review fits normal phone height and opens structured bottom-sheet details',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
@@ -165,8 +264,9 @@ void main() {
     await showDraft(tester, completeDraft());
     expect(find.byType(TextFormField), findsNothing);
     expect(find.textContaining('10–20 kg'), findsOneWidget);
-    expect(find.byKey(const ValueKey('edit-start.contact')), findsOneWidget);
-    expect(find.byKey(const ValueKey('edit-end.contact')), findsOneWidget);
+    expect(find.byKey(const ValueKey('edit-contact')), findsOneWidget);
+    expect(find.byKey(const ValueKey('edit-start.contact')), findsNothing);
+    expect(find.byKey(const ValueKey('edit-end.contact')), findsNothing);
   });
   testWidgets(
     'category closes without committing edits, saves only its own fields',
@@ -213,58 +313,56 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-  testWidgets('contacts validate phone and edit the correct endpoint', (
-    tester,
-  ) async {
-    final container = await showDraft(tester, completeDraft());
-    await edit(tester, 'end.contact');
-    expect(find.byKey(const ValueKey('end.site')), findsNothing);
-    await tester.enterText(find.byKey(const ValueKey('end.phone')), 'bad');
-    await saveEditor(tester);
-    expect(find.text('请填写有效联系电话'), findsOneWidget);
-    await tester.enterText(
-      find.byKey(const ValueKey('end.phone')),
-      '13900139000',
-    );
-    await saveEditor(tester);
-    expect(
-      container.read(waybillDraftProvider).draft.value('end.phone'),
-      '13900139000',
-    );
-    expect(
-      container.read(waybillDraftProvider).draft.value('start.phone'),
-      '13800138000',
-    );
-  });
-  testWidgets('map returns into the sheet and commits only after save', (
-    tester,
-  ) async {
-    final container = await showDraft(tester, completeDraft());
-    await edit(tester, 'end.location');
-    await tester.tap(find.byKey(const ValueKey('end.pick')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('选定终点'));
-    await tester.pumpAndSettle();
-    expect(
-      container.read(waybillDraftProvider).draft.value('end.lat'),
-      '27.8981',
-    );
-    await saveEditor(tester);
-    expect(
-      container.read(waybillDraftProvider).draft.value('end.lat'),
-      '28.123456',
-    );
-    final saved = container.read(waybillDraftProvider).draft;
-    expect(saved.value('end.place'), '地图测试点');
-    expect(saved.value('end.placeAddress'), '测试路88号');
-    expect(saved.cloudFields.containsKey('end.place'), isFalse);
-    expect(saved.cloudFields.containsKey('end.placeAddress'), isFalse);
-    expect(find.text('地图测试点'), findsOneWidget);
-    expect(
-      container.read(waybillDraftProvider).draft.value('start.lat'),
-      '27.8981',
-    );
-  });
+  testWidgets(
+    'shared contact validates phone and updates both endpoints only on save',
+    (tester) async {
+      final container = await showDraft(tester, completeDraft());
+      await edit(tester, 'contact');
+      expect(find.byKey(const ValueKey('end.site')), findsNothing);
+      await tester.enterText(find.byKey(const ValueKey('start.phone')), 'bad');
+      await saveEditor(tester);
+      expect(find.text('请填写有效联系电话'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('start.phone')),
+        '13900139000',
+      );
+      expect(
+        container.read(waybillDraftProvider).draft.value('start.phone'),
+        '13800138000',
+      );
+      await saveEditor(tester);
+      expect(
+        container.read(waybillDraftProvider).draft.value('end.phone'),
+        '13900139000',
+      );
+      expect(
+        container.read(waybillDraftProvider).draft.value('start.phone'),
+        '13900139000',
+      );
+    },
+  );
+  testWidgets(
+    'route selection opens map directly and immediately stores only the selected endpoint',
+    (tester) async {
+      final container = await showDraft(tester, completeDraft());
+      await edit(tester, 'end.location');
+      expect(find.byType(BottomSheet), findsNothing);
+      await tester.tap(find.text('选定终点'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(waybillDraftProvider).draft.value('end.lat'),
+        '28.123456',
+      );
+      expect(
+        container.read(waybillDraftProvider).draft.value('start.lat'),
+        '27.8981',
+      );
+      final draft = container.read(waybillDraftProvider).draft;
+      expect(draft.value('end.place'), '地图测试点');
+      expect(draft.value('end.placeAddress'), '测试路88号');
+      expect(draft.cloudFields.containsKey('end.place'), isFalse);
+    },
+  );
   testWidgets(
     'site conditions require winch heights only when landing is impossible',
     (tester) async {

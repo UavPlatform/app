@@ -114,6 +114,7 @@ class WaybillSummary extends StatelessWidget {
         WaybillEditGroup.site('end').skip(1).toList(),
       ),
       _section('出发安排', Icons.schedule_outlined, const [WaybillEditGroup.time]),
+      _section('联系信息', Icons.person_outline, const [WaybillEditGroup.contact]),
     ],
   );
 }

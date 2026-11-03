@@ -1,7 +1,6 @@
 import 'dispatch_detail_surface.dart';
 import 'dispatch_order_status_card.dart';
 import 'dispatch_map_home.dart';
-import '../../widgets/dispatch_notification_entry.dart';
 import '../../widgets/flow_ui.dart';
 import 'dispatch_order_information.dart';
 import '../../widgets/dispatch_contact_actions.dart';
@@ -327,15 +326,6 @@ class DispatchOrderListPage extends ConsumerWidget {
               onPressed: () =>
                   context.canPop() ? context.pop() : context.go('/home'),
             ),
-      actions: [
-        if (tabRoot) const DispatchNotificationEntry(),
-        if (tabRoot)
-          IconButton(
-            tooltip: '刷新运单',
-            onPressed: () => ref.invalidate(dispatchOrdersProvider),
-            icon: const Icon(Icons.refresh),
-          ),
-      ],
     ),
     body: ref
         .watch(dispatchOrdersProvider)

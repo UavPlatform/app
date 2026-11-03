@@ -47,10 +47,6 @@ class WaybillEditGroup {
         '$prefix.winchMax',
         '$prefix.notes',
       }, prefix: prefix),
-      WaybillEditGroup('$prefix.contact', '$title联系人', stage, 2, {
-        '$prefix.contact',
-        '$prefix.phone',
-      }, prefix: prefix),
       WaybillEditGroup(
         '$prefix.photos',
         '$title照片',
@@ -62,6 +58,20 @@ class WaybillEditGroup {
     ];
   }
 
+  static const contact = WaybillEditGroup('contact', '联系人', 1, 2, {
+    'start.contact',
+    'start.phone',
+    'end.contact',
+    'end.phone',
+  }, prefix: 'start');
+
+  static bool contactsDiffer(WaybillDraft draft) => ['contact', 'phone'].any(
+    (field) =>
+        draft.value('start.$field').trim().isNotEmpty &&
+        draft.value('end.$field').trim().isNotEmpty &&
+        draft.value('start.$field').trim() != draft.value('end.$field').trim(),
+  );
+
   static const time = WaybillEditGroup('time', '出发时间', 3, 0, {
     'timeMode',
     'scheduledAt',
@@ -71,18 +81,33 @@ class WaybillEditGroup {
     ...cargo,
     ...site('start'),
     ...site('end'),
+    contact,
     time,
   ];
 
-  Map<String, String> errors(WaybillDraft draft) => Map.fromEntries(
-    draft.errorsFor(stage).entries.where((e) => keys.contains(e.key)),
-  );
+  Map<String, String> errors(WaybillDraft draft) {
+    if (id == 'contact') {
+      final errors = <String, String>{
+        ...draft.errorsFor(1),
+        ...draft.errorsFor(2),
+      }..removeWhere((key, _) => !keys.contains(key));
+      if (contactsDiffer(draft)) errors['start.contact'] = '请确认统一联系人';
+      return errors;
+    }
+    return Map.fromEntries(
+      draft.errorsFor(stage).entries.where((e) => keys.contains(e.key)),
+    );
+  }
 
   String summary(WaybillDraft draft) {
     String join(Iterable<String> values) =>
         values.where((v) => v.trim().isNotEmpty).join(' · ');
     String value(String key, [String unit = '']) =>
         draft.value(key).isEmpty ? '' : '${draft.value(key)}$unit';
+    if (id == 'contact') {
+      if (contactsDiffer(draft)) return '请确认统一联系人';
+      return join([value('start.contact'), value('start.phone')]);
+    }
     if (photos != null) {
       final count = draft.fields.entries
           .where(
