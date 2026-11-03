@@ -117,7 +117,11 @@ void main() {
         adapter: StubAdapter((options) async {
           if (options.uri.path == '/chat/Message/send') {
             sends++;
-            return jsonResponse(200, {'success': false, 'message': '发送失败'});
+            return jsonResponse(200, {
+              'success': false,
+              'errorCode': 'NO_PERMISSION',
+              'message': '无权发送此订单的消息',
+            });
           }
           if (options.uri.path == '/chat/Message/messages/11') {
             reads++;
@@ -154,7 +158,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(sends, 1);
       expect(input.controller!.text, '货物已准备好');
-      expect(find.text('发送失败，请稍后重试'), findsOneWidget);
+      expect(find.text('无权发送此订单的消息'), findsNWidgets(2));
       input.controller!.clear();
       input.focusNode!.unfocus();
       await tester.pump(const Duration(seconds: 4));
