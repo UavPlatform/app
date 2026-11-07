@@ -125,37 +125,14 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
       requestFailed: state.error != null,
     );
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: 12,
           children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    '实际飞行数据',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1F2329),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => ref
-                      .read(dispatchFlightProvider(widget.orderId).notifier)
-                      .refresh(),
-                  tooltip: '刷新飞行数据',
-                  icon: const Icon(
-                    Icons.refresh,
-                    size: 20,
-                    color: Color(0xFF666666),
-                  ),
-                ),
-              ],
-            ),
+            DispatchLivePanel(orderId: widget.orderId, showFlightHeading: true),
             if (state.error != null) Text(state.error!),
             Container(
               padding: const EdgeInsets.all(10),
@@ -222,15 +199,54 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
                 _metric('battery', '设备电量(%)', sample?.battery),
               ],
             ),
-            Text(
-              '飞行状态：${sample?.flying == null
-                  ? '未知'
-                  : sample!.flying!
-                  ? '飞行中'
-                  : '未飞行'}',
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F8FA),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                spacing: 8,
+                children: [
+                  Row(
+                    spacing: 12,
+                    children: [
+                      _flightValue(
+                        '飞行状态',
+                        sample?.flying == null
+                            ? '未知'
+                            : sample!.flying!
+                            ? '飞行中'
+                            : '未飞行',
+                      ),
+                      _flightValue(
+                        '距卸货点直线距离',
+                        _remaining == null
+                            ? '未知'
+                            : '${_remaining!.toStringAsFixed(0)} 米',
+                      ),
+                    ],
+                  ),
+                  Row(
+                    spacing: 12,
+                    children: [
+                      _flightValue(
+                        '轨迹状态',
+                        position == null ? '暂无实际位置' : '已收到实际位置',
+                        tooltip: position == null
+                            ? null
+                            : '最后位置接收时间：${point?.receivedAt ?? '未知'}',
+                      ),
+                      _flightValue(
+                        '预计到达',
+                        eta == null ? '暂无法估算' : '约 ${(eta / 60).ceil()} 分钟',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            if (position != null) ...[
-              Text('最后位置接收时间：${point?.receivedAt ?? '未知'}'),
+            if (position != null)
               SizedBox(
                 height: 260,
                 child: MissionMap(
@@ -248,11 +264,6 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
                   zoom: 15,
                 ),
               ),
-            ] else
-              const Text('尚无本单实际位置，不绘制轨迹'),
-            Text(
-              '最后位置至卸货点直线距离：${_remaining == null ? '未知' : '${_remaining!.toStringAsFixed(0)} 米'}',
-            ),
             if (view?.connectionHistory?.isNotEmpty == true)
               FlowDetailsLink(
                 title: '本单设备与连接记录',
@@ -302,16 +313,45 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
                   ),
                 ),
               ),
-            Text(
-              eta == null
-                  ? '预计到达：暂无法估算，等待新位置和有效飞行速度'
-                  : '预计到达（按当前速度直线估算）：约 ${(eta / 60).ceil()} 分钟',
+            const Text(
+              '估算不含等待、装卸或航线绕行，不用于计费或确认送达。飞行控制请在 djifly 操作。',
+              style: TextStyle(
+                fontSize: 11,
+                color: Color(0xFF9CA3AF),
+                height: 1.3,
+              ),
             ),
-            const Text('估算不含等待、装卸或航线绕行，不用于计费或确认送达。飞行控制请在 djifly 操作。'),
-            DispatchLivePanel(orderId: widget.orderId),
           ],
         ),
       ),
     );
   }
 }
+
+Widget _flightValue(String label, String value, {String? tooltip}) => Expanded(
+  child: Tooltip(
+    message: tooltip ?? '$label：$value',
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 2,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF888888)),
+        ),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF333333),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    ),
+  ),
+);

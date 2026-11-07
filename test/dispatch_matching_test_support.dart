@@ -39,6 +39,8 @@ class FakeMatchingApi extends FakeDispatchOrderApi {
             'lifting': '双吊点',
             for (final side in ['start', 'end']) ...{
               '$side.site': '空地',
+              '$side.place': side == 'start' ? '仓库北门' : '卸货区',
+              if (side == 'start') '$side.placeAddress': '测试路 18 号',
               '$side.lat': '28.2',
               '$side.lng': '113.0',
               '$side.landing': 'yes',

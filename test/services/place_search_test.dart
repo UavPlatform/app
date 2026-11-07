@@ -7,8 +7,44 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-  tearDown(
-    () => messenger.setMockMethodCallHandler(PlaceSearch.channel, null),
+  tearDown(() => messenger.setMockMethodCallHandler(PlaceSearch.channel, null));
+
+  test(
+    'reverse chooses the closest POI and describes the pin relative to it',
+    () async {
+      messenger.setMockMethodCallHandler(PlaceSearch.channel, (call) async {
+        expect(call.method, 'reverse');
+        expect(call.arguments['longitude'], 112.001);
+        return {
+          'address': '测试区',
+          'pois': [
+            {'name': '远处仓库', 'latitude': 28.0, 'longitude': 112.01},
+            {'name': '近处站点', 'latitude': 28.0, 'longitude': 112.0},
+          ],
+        };
+      });
+      final label = await PlaceSearch().reverse(
+        key: 'k',
+        point: const LatLng(28, 112.001),
+      );
+      expect(label?.name, '近处站点东侧约98米');
+      expect(label?.address, '测试区');
+    },
+  );
+
+  test(
+    'reverse uses the formatted address when no nearby POI is returned',
+    () async {
+      messenger.setMockMethodCallHandler(
+        PlaceSearch.channel,
+        (_) async => {'address': '测试村'},
+      );
+      final label = await PlaceSearch().reverse(
+        key: 'k',
+        point: const LatLng(28, 112),
+      );
+      expect(label?.name, '测试村');
+    },
   );
 
   test('SDK results keep name, address, district and coordinates', () async {
@@ -63,21 +99,24 @@ void main() {
     expect(payload!['center'], {'latitude': 27.9, 'longitude': 112.9});
   });
 
-  test('invalid SDK rows are dropped instead of yielding bad coordinates', () async {
-    messenger.setMockMethodCallHandler(
-      PlaceSearch.channel,
-      (_) async => [
-        {'name': '', 'latitude': 27.9, 'longitude': 112.9},
-        {'name': '越界', 'latitude': 91, 'longitude': 112.9},
-        {'name': '无坐标'},
-        {'name': '有效点', 'latitude': 27.9, 'longitude': 112.9},
-      ],
-    );
+  test(
+    'invalid SDK rows are dropped instead of yielding bad coordinates',
+    () async {
+      messenger.setMockMethodCallHandler(
+        PlaceSearch.channel,
+        (_) async => [
+          {'name': '', 'latitude': 27.9, 'longitude': 112.9},
+          {'name': '越界', 'latitude': 91, 'longitude': 112.9},
+          {'name': '无坐标'},
+          {'name': '有效点', 'latitude': 27.9, 'longitude': 112.9},
+        ],
+      );
 
-    final results = await PlaceSearch().search(key: 'k', keyword: '点');
+      final results = await PlaceSearch().search(key: 'k', keyword: '点');
 
-    expect(results.map((result) => result.name), ['有效点']);
-  });
+      expect(results.map((result) => result.name), ['有效点']);
+    },
+  );
 
   test('empty keyword never reaches the platform channel', () async {
     var invoked = false;
@@ -113,10 +152,8 @@ void main() {
   test('platform failures surface the SDK message', () async {
     messenger.setMockMethodCallHandler(
       PlaceSearch.channel,
-      (_) async => throw PlatformException(
-        code: 'SEARCH_FAILED',
-        message: '搜索失败，请稍后重试',
-      ),
+      (_) async =>
+          throw PlatformException(code: 'SEARCH_FAILED', message: '搜索失败，请稍后重试'),
     );
 
     await expectLater(

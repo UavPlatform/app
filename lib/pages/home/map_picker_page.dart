@@ -91,11 +91,17 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
         '${point.longitude.toStringAsFixed(6)}';
     final place = _place;
     // 名称/地址是可选的附加段；消费方只读第一段坐标（site_fields.dart）。
-    final name = _segment(place?.name);
-    final address = _segment(place?.description);
+    final resolved = place == null
+        ? ref.read(mapPointLabelProvider(point)).valueOrNull
+        : null;
+    final name = _segment(place?.name ?? resolved?.name);
+    final address = _segment(place?.description ?? resolved?.address);
     context.pop(
-      [coordinates, if (name.isNotEmpty) name, if (address.isNotEmpty) address]
-          .join(';'),
+      [
+        coordinates,
+        if (name.isNotEmpty || address.isNotEmpty) name,
+        if (address.isNotEmpty) address,
+      ].join(';'),
     );
   }
 
@@ -249,12 +255,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
             ),
           ),
           if (_showResults && (_results.isNotEmpty || _searchError != null))
-            Positioned(
-              left: 12,
-              right: 12,
-              top: 8,
-              child: _buildResultPanel(),
-            ),
+            Positioned(left: 12, right: 12, top: 8, child: _buildResultPanel()),
           // 底部面板：引导态 / 已选态
           Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomPanel()),
         ],
@@ -332,10 +333,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
           child: Text(
             _searchError!,
             key: const ValueKey('place-search-message'),
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
           ),
         ),
       for (final result in _results)
@@ -425,6 +423,12 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
   Widget _buildSelected() {
     final point = _point!;
     final place = _place;
+    final resolved = place == null
+        ? ref.watch(mapPointLabelProvider(point))
+        : null;
+    final resolving = resolved?.isLoading == true;
+    final name = place?.name ?? resolved?.valueOrNull?.name;
+    final address = place?.description ?? resolved?.valueOrNull?.address;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -436,34 +440,20 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (place != null && place.name.isNotEmpty)
-                    Text(
-                      place.name,
-                      key: const ValueKey('place-selected-name'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   Text(
-                    '${point.latitude.toStringAsFixed(6)}, '
-                    '${point.longitude.toStringAsFixed(6)}',
-                    style: TextStyle(
-                      fontSize: place == null ? 15 : 12,
-                      fontWeight: place == null
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                      color: place == null
-                          ? null
-                          : AppColors.onSurfaceVariant,
+                    name ?? (resolving ? '正在查找附近地点…' : '已选地图位置'),
+                    key: const ValueKey('place-selected-name'),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (place != null && place.description.isNotEmpty)
+                  if (address != null && address.isNotEmpty && address != name)
                     Text(
-                      place.description,
-                      maxLines: 1,
+                      address,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 12,
@@ -506,7 +496,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            onPressed: _confirm,
+            onPressed: resolving ? null : _confirm,
             icon: const Icon(Icons.check, size: 20),
             label: const Text('确认'),
           ),

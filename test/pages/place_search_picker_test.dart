@@ -106,39 +106,37 @@ Future<String? Function()> _pumpPicker(
 }
 
 void main() {
-  testWidgets('typing searches the SDK and selecting a result fills the panel', (
-    tester,
-  ) async {
-    final search = _FakePlaceSearch(
-      results: [_place('湘潭北站', 27.961, 112.905)],
-    );
-    final picked = await _pumpPicker(tester, search: search);
+  testWidgets(
+    'typing searches the SDK and selecting a result fills the panel',
+    (tester) async {
+      final search = _FakePlaceSearch(
+        results: [_place('湘潭北站', 27.961, 112.905)],
+      );
+      final picked = await _pumpPicker(tester, search: search);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('place-search-field')),
-      '湘潭北站',
-    );
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('place-search-field')),
+        '湘潭北站',
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
 
-    expect(search.calls, ['湘潭北站']);
-    expect(find.byKey(const ValueKey('place-湘潭北站')), findsOneWidget);
-    expect(find.text('雨湖区 九华经济开发区'), findsOneWidget);
+      expect(search.calls, ['湘潭北站']);
+      expect(find.byKey(const ValueKey('place-湘潭北站')), findsOneWidget);
+      expect(find.text('雨湖区 九华经济开发区'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('place-湘潭北站')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('place-湘潭北站')));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('place-search-results')), findsNothing);
-    expect(
-      find.byKey(const ValueKey('place-selected-name')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('27.961000'), findsOneWidget);
+      expect(find.byKey(const ValueKey('place-search-results')), findsNothing);
+      expect(find.byKey(const ValueKey('place-selected-name')), findsOneWidget);
+      expect(find.textContaining('27.961000'), findsNothing);
 
-    await tester.tap(find.text('确认'));
-    await tester.pumpAndSettle();
-    expect(picked(), '27.961000,112.905000;湘潭北站;雨湖区 九华经济开发区');
-  });
+      await tester.tap(find.text('确认'));
+      await tester.pumpAndSettle();
+      expect(picked(), '27.961000,112.905000;湘潭北站;雨湖区 九华经济开发区');
+    },
+  );
 
   testWidgets('debounce collapses rapid typing into one search', (
     tester,
@@ -215,21 +213,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('place-search-results')), findsNothing);
-    expect(
-      tester.widget<TextField>(field).controller!.text,
-      isEmpty,
-    );
+    expect(tester.widget<TextField>(field).controller!.text, isEmpty);
   });
 
   testWidgets('site field stores picked place name and address locally', (
     tester,
   ) async {
-    var draft = WaybillDraft(fields: {
-      'end.lat': '28.1',
-      'end.lng': '113.6',
-      'end.place': '',
-      'end.placeAddress': '',
-    });
+    var draft = WaybillDraft(
+      fields: {
+        'end.lat': '28.1',
+        'end.lng': '113.6',
+        'end.place': '',
+        'end.placeAddress': '',
+      },
+    );
     late StateSetter rebuild;
     final router = GoRouter(
       initialLocation: '/',
@@ -277,10 +274,7 @@ void main() {
     expect(draft.value('end.lng'), '113.654321');
     expect(draft.value('end.place'), '湘潭北站');
     expect(draft.value('end.placeAddress'), '雨湖区 九华经济开发区');
-    expect(
-      find.text('湘潭北站 · 28.123456, 113.654321'),
-      findsOneWidget,
-    );
+    expect(find.text('湘潭北站 · 28.123456, 113.654321'), findsOneWidget);
     // 地点名称是本地展示字段，不能进入提交给后端的云端字段。
     expect(draft.cloudFields.containsKey('end.place'), isFalse);
   });

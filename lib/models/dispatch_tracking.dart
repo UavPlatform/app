@@ -79,7 +79,7 @@ List<DispatchTrackingStep> dispatchTrackingSteps(DispatchOrder order) {
     );
     return result;
   }
-  result.add(DispatchTrackingStep('定金已模拟支付', time: data.depositPaidAt));
+  result.add(DispatchTrackingStep('定金已支付', time: data.depositPaidAt));
   const labels = [
     '等待飞手接单',
     '飞手已接单，准备中',

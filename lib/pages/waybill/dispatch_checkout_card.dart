@@ -1,3 +1,4 @@
+import '../../utils/payment_display_text.dart';
 import 'dart:convert';
 import 'dispatch_price_card.dart';
 import 'dart:collection';
@@ -73,7 +74,7 @@ class _DispatchCheckoutCardState extends ConsumerState<DispatchCheckoutCard> {
         setState(
           () => _message = readiness.blockers.isEmpty
               ? '下单条件尚未就绪，请稍后重试'
-              : readiness.blockers.join('\n'),
+              : readiness.blockers.map(paymentDisplayText).join('\n'),
         );
         return;
       }
@@ -144,7 +145,7 @@ class _DispatchCheckoutCardState extends ConsumerState<DispatchCheckoutCard> {
           spacing: 12,
           children: [
             Text('确认下单', style: Theme.of(context).textTheme.titleMedium),
-            const Text('当前使用模拟支付，不会真实扣款。按起终点直线距离计价，加固定飞手服务费；定金在结算时抵扣。'),
+            const Text('按起终点直线距离计价，加固定飞手服务费；定金在结算时抵扣。'),
             const Text('创建订单后上传草稿照片，服务端核验后才计入材料；失败可重试或进入已有订单补充。'),
             if (assessment != null)
               DispatchPriceCard(quote: assessment.data.quote),
@@ -189,7 +190,7 @@ class _DispatchCheckoutCardState extends ConsumerState<DispatchCheckoutCard> {
               onPressed: _busy || !_accepted || assessment?.allowed != true
                   ? null
                   : () => _run(submit: true),
-              child: const Text('确认运单，前往模拟支付'),
+              child: const Text('确认运单，前往支付'),
             ),
             TextButton(
               // REQ-ALL-XC-004: this alias redirects to the existing home shell.
@@ -234,7 +235,7 @@ class _DispatchCheckoutCardState extends ConsumerState<DispatchCheckoutCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('当前使用模拟支付，不会真实扣款；定金在结算时抵扣。', style: note),
+                const Text('定金在结算时抵扣。', style: note),
                 if (widget.draft.fields.entries.any(
                   (e) => e.key.contains('.photo.') && e.value.isNotEmpty,
                 ))
@@ -371,7 +372,7 @@ class _DispatchCheckoutCardState extends ConsumerState<DispatchCheckoutCard> {
                               ? null
                               : () => _run(submit: true),
                           child: const Text(
-                            '确认运单，前往模拟支付',
+                            '确认运单，前往支付',
                             textAlign: TextAlign.center,
                           ),
                         ),

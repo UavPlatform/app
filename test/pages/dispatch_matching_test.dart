@@ -94,19 +94,48 @@ void main() {
   testWidgets(
     'pilot hall claims then shows separate preparation and arrival pages and releases',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 720);
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+      addTearDown(tester.view.reset);
       final api = await setupMatching(tester);
       expect(find.textContaining('13800000000'), findsNothing);
       await tap(tester, '立即接单');
       expect(find.byType(DispatchPilotPreparationPage), findsOneWidget);
-      for (
-        var i = 0;
-        i < 15 && find.textContaining('联系人：').evaluate().isEmpty;
-        i++
-      ) {
-        await tester.drag(find.byType(Scrollable).first, const Offset(0, -180));
-        await tester.pumpAndSettle();
-      }
-      expect(find.textContaining('13800000000'), findsWidgets);
+      final arrival = find.widgetWithText(FilledButton, '我已到场');
+      expect(find.byTooltip('复制运单号').hitTestable(), findsOneWidget);
+      expect(find.text('进度 3 / 7'), findsOneWidget);
+      final bounds = tester.getRect(arrival);
+      expect(bounds.bottom, lessThanOrEqualTo(696));
+      expect(find.text('仓库北门').hitTestable(), findsOneWidget);
+      expect(find.text('测试路 18 号').hitTestable(), findsOneWidget);
+      expect(find.text('卸货区').hitTestable(), findsOneWidget);
+      expect(find.text('28.2, 113.0'), findsNothing);
+      expect(find.byTooltip('刷新订单').hitTestable(), findsOneWidget);
+      final title = tester.getRect(find.text('准备前往起点'));
+      expect(
+        title.center.dy,
+        closeTo(tester.getCenter(find.byType(BackButton)).dy, 1),
+      );
+      expect(title.top, greaterThan(24));
+      expect(tester.getTopLeft(find.byTooltip('复制运单号')).dy, greaterThan(80));
+      expect(find.textContaining('13800000000').hitTestable(), findsWidgets);
+      final cancel = find.text('取消接单，重新派单');
+      final cancelBounds = tester.getRect(cancel);
+      await tester.scrollUntilVisible(
+        find.text('订单聊天'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await Scrollable.ensureVisible(
+        tester.element(find.text('订单聊天')),
+        alignment: 0.5,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('订单聊天').hitTestable(), findsOneWidget);
+      expect(tester.getRect(cancel), cancelBounds);
+      expect(tester.getRect(arrival), bounds);
+      expect(tester.takeException(), isNull);
       await tap(tester, '我已到场');
       await tap(tester, '确认');
       expect(find.byType(DispatchPilotArrivalPage), findsOneWidget);

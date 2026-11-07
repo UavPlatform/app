@@ -91,7 +91,7 @@ void main() {
     'waiting round never presents old assignment stages as already completed',
     () {
       final steps = dispatchTrackingSteps(trackingOrder('a'));
-      expect(steps.map((step) => step.label), ['订单提交成功', '定金已模拟支付', '等待飞手接单']);
+      expect(steps.map((step) => step.label), ['订单提交成功', '定金已支付', '等待飞手接单']);
       expect(steps.where((step) => step.current).single.label, '等待飞手接单');
       expect(steps[1].time, isNull);
       expect(dispatchTrackingTime(steps[1].time), '时间未记录');

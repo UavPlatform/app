@@ -1,3 +1,4 @@
+import 'payment_display_text.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 
@@ -68,7 +69,7 @@ String businessFailureMessage({
 }) {
   // Specific validation/business messages are more useful than a code default.
   final detail = message?.trim();
-  if (detail != null && _isUseful(detail)) return detail;
+  if (detail != null && _isUseful(detail)) return paymentDisplayText(detail);
   final known = _businessMessages[errorCode];
   if (known != null) return known;
   if (errorCode == 'INTERNAL_ERROR') return '服务暂时异常，请稍后再试';
@@ -88,7 +89,7 @@ String businessFailureMessage({
 }
 
 String failureMessage(Object error, {required String fallback}) {
-  if (error is UserFacingFailure) return error.message;
+  if (error is UserFacingFailure) return paymentDisplayText(error.message);
   if (error is DioException) {
     final response = error.response;
     if (response != null) {

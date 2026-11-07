@@ -192,13 +192,6 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
             ),
           ),
         ),
-        actions: [
-          IconButton(
-            tooltip: '刷新消息',
-            icon: const Icon(Icons.refresh, size: 20, color: Color(0xFF333333)),
-            onPressed: () => _refreshMessages(),
-          ),
-        ],
       ),
       body: Column(
         children: [

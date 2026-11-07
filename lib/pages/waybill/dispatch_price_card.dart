@@ -12,12 +12,13 @@ class DispatchPriceCard extends ConsumerWidget {
     required this.quote,
     this.bill,
     this.expanded = false,
+    this.compact = false,
     this.orderId,
     this.pilot = false,
   });
   final ApiDispatchQuoteVO? quote;
   final ApiDispatchBillVO? bill;
-  final bool expanded, pilot;
+  final bool expanded, pilot, compact;
   final String? orderId;
   String money(num? value) =>
       value == null ? '待确认' : '¥${value.toStringAsFixed(2)}';
@@ -82,7 +83,7 @@ class DispatchPriceCard extends ConsumerWidget {
             ('飞手服务费', '${money(q?.pilotServiceFee)} / 单'),
             if (b?.finalAmount != null) ('结算总价', money(b!.finalAmount)),
             (
-              (b?.balanceAmount ?? 0) < 0 ? '应退差额（模拟退款）' : '抵扣定金后尾款',
+              (b?.balanceAmount ?? 0) < 0 ? '应退差额' : '抵扣定金后尾款',
               money(
                 (b?.balanceAmount ?? 0) < 0
                     ? -b!.balanceAmount!
@@ -90,16 +91,11 @@ class DispatchPriceCard extends ConsumerWidget {
               ),
             ),
             if (b?.settlementReference != null)
-              ('模拟结算流水', b!.settlementReference!),
+              ('结算流水', b!.settlementReference!),
           ],
         ),
         const Text(
           '按下单时确认的价格结算；天气、设备租赁和飞行时长暂不计费。',
-          style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          '当前为模拟收退款，不会真实扣款。',
           style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
         ),
       ],
@@ -110,6 +106,49 @@ class DispatchPriceCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final q = quote;
     if (expanded) return _details(q, bill);
+    if (compact) {
+      return InkWell(
+        onTap: q == null ? null : () => _showFeeDetailBottomSheet(context, ref),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  '按距离计价',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF333333)),
+                ),
+              ),
+              Flexible(
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 4,
+                  children: [
+                    Text(
+                      '总价 ${money(q?.totalAmount)}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1D6FE9),
+                      ),
+                    ),
+                    Text(
+                      '(定金 ${money(q?.depositAmount)})',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF888888),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (q != null) const Icon(Icons.chevron_right, size: 18),
+            ],
+          ),
+        ),
+      );
+    }
     return Card(
       clipBehavior: Clip.antiAlias,
       color: Colors.white,
@@ -138,23 +177,6 @@ class DispatchPriceCard extends ConsumerWidget {
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF333333),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF0E6),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        '模拟支付',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFFFF6B00),
                         ),
                       ),
                     ),
@@ -191,7 +213,7 @@ class DispatchPriceCard extends ConsumerWidget {
                   Text('结算总价：${money(bill!.finalAmount)}'),
                   Text(
                     (bill!.balanceAmount ?? 0) < 0
-                        ? '应退差额：${money(-bill!.balanceAmount!)}（模拟退款）'
+                        ? '应退差额：${money(-bill!.balanceAmount!)}'
                         : '抵扣定金后尾款：${money(bill!.balanceAmount)}',
                   ),
                 ],

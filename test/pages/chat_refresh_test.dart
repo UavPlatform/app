@@ -96,7 +96,7 @@ void main() {
     service.dispose();
   });
   testWidgets(
-    'Instant push, missed-push fallback, manual refresh and foreground resync',
+    'Instant push, missed-push fallback, pull-to-refresh and foreground resync',
     (tester) async {
       SharedPreferences.setMockInitialValues({
         'jwt_token': makeJwt(userId: 7),
@@ -179,10 +179,7 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, 300));
       await tester.pumpAndSettle();
       expect(find.text('下拉刷新回复'), findsOneWidget);
-      serverMessages = [envelope('手动刷新回复')];
-      await tester.tap(find.byTooltip('刷新消息'));
-      await tester.pumpAndSettle();
-      expect(find.text('手动刷新回复'), findsOneWidget);
+      expect(find.byTooltip('刷新消息'), findsNothing);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);

@@ -1,3 +1,4 @@
+import '../../providers/map_provider.dart';
 import '../../widgets/flow_ui.dart';
 import '../waybill/dispatch_order_information.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +11,7 @@ import '../../providers/dispatch_order_provider.dart';
 import '../../providers/waybill_draft_provider.dart';
 import '../../services/phone_dialer.dart';
 import '../../widgets/dispatch_contact_actions.dart';
-import '../waybill/dispatch_order_pages.dart' show DispatchStageProgress;
+import '../waybill/dispatch_order_app_bar.dart';
 
 class DispatchPilotOrderPage extends ConsumerWidget {
   const DispatchPilotOrderPage({super.key, required this.orderId});
@@ -84,97 +85,295 @@ class _PilotOrderShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final fields = order.data.fields ?? {};
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        actions: [
-          IconButton(
-            tooltip: '刷新派单',
-            onPressed: () =>
-                ref.invalidate(dispatchPilotOrderProvider(order.id)),
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: DispatchOrderAppBar(
+        title: title,
+        onRefresh: () => ref.invalidate(dispatchPilotOrderProvider(order.id)),
+        onReturn: () => context.go('/pilot/jobs'),
       ),
+      bottomNavigationBar: order.cancelled
+          ? null
+          : _PilotOrderActions(order: order),
       body: FlowList(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+        spacing: 12,
         children: [
-          if (step != null) DispatchStageProgress(current: step!),
-          FlowHeader(title: title, subtitle: '核对现场资料，按阶段继续执行。'),
-          DispatchOrderInformationLink(order: order, pilot: true),
-          DispatchPriceCard(quote: order.data.bill?.quote),
-          DispatchContactActions(order: order, pilot: true),
-          const Text('定金收退款使用模拟通道，环境评估为演示样例。请以实际现场核对结果为准。'),
-          if (order.cancelled) const Text('需求方已取消，请停止继续执行。定金已按当前模拟支付通道处理。'),
-          for (final side in ['start', 'end'])
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: 12,
+          DispatchOrderStatusStrip(order: order, step: step),
+          _workCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DispatchOrderGuide(
+                  order.cancelled
+                      ? '需求方已取消，请停止继续执行。'
+                      : '请联系现场人员核对货物与场地，连机飞行请在 DJI Fly 完成',
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '地面出行导航（不用于无人机航线规划）',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF999999)),
+                ),
+                const SizedBox(height: 10),
+                _siteRow(context, ref, fields, 'start'),
+                const Divider(height: 24, color: Color(0xFFF0F2F5)),
+                _siteRow(context, ref, fields, 'end'),
+              ],
+            ),
+          ),
+          _workCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 6,
+              children: [
+                const Row(
                   children: [
-                    Text(
-                      side == 'start' ? '起点' : '终点',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    Text(
-                      '${fields['$side.site'] ?? ''} · ${fields['$side.lat']}, ${fields['$side.lng']}',
-                    ),
-                    Text(
-                      fields['$side.landing'] == 'yes'
-                          ? '可降落'
-                          : '绞盘高度 ${fields['$side.winchMin']}–${fields['$side.winchMax']} m',
-                    ),
-                    Text(
-                      '联系人：${fields['$side.contact'] ?? ''} · ${fields['$side.phone'] ?? ''}',
-                    ),
-                    if ((fields['$side.notes'] ?? '').toString().isNotEmpty)
-                      Text(
-                        '备注：${fields['$side.notes']}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    Icon(Icons.inventory_2_outlined, size: 17, color: _ink),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '货物与吊点核对',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: _ink,
+                        ),
                       ),
-                    if (!order.cancelled)
-                      TextButton.icon(
-                        onPressed: () async {
-                          final ok = await ref
-                              .read(phoneDialerProvider)
-                              .dial(fields['$side.phone'].toString());
-                          if (!ok && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('无法打开拨号，请手动拨打上述电话')),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.phone),
-                        label: const Text('拨打联系人'),
-                      ),
+                    ),
                   ],
                 ),
+                const SizedBox(height: 4),
+                _cargoLine(
+                  '货物规格',
+                  '${fields['category']} · ${dispatchWeightLabel(fields)} · ${fields['count']} 件',
+                ),
+                _cargoLine(
+                  '外箱尺寸',
+                  '${fields['length']} × ${fields['width']} × ${fields['height']} cm',
+                ),
+                _cargoLine(
+                  '包装与吊点',
+                  '包装 ${fields['packaging']}  |  吊点：${fields['lifting']}',
+                ),
+              ],
+            ),
+          ),
+          _workCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                DispatchPriceCard(quote: order.data.bill?.quote, compact: true),
+                const Divider(height: 1, color: Color(0xFFF0F2F5)),
+                DispatchOrderInformationLink(
+                  order: order,
+                  pilot: true,
+                  compact: true,
+                ),
+              ],
+            ),
+          ),
+          const Text(
+            '环境评估为演示样例，请以现场核对为准',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+          ),
+          if (!order.cancelled)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: DispatchContactActions(
+                order: order,
+                pilot: true,
+                chatOnly: true,
+                compactChat: true,
               ),
             ),
-          Text(
-            '货物核对：${fields['category']} · ${dispatchWeightLabel(fields)} · ${fields['count']} 件',
-          ),
-          Text(
-            '尺寸：${fields['length']} × ${fields['width']} × ${fields['height']} cm',
-          ),
-          Text('包装：${fields['packaging']}\n吊点：${fields['lifting']}'),
-          if (!order.cancelled) ...[
-            const Text('执飞引导：联系现场人员，前往起点并核对货物、吊点及场地。实际连机与飞行操作继续在 djifly 完成。'),
-            if (order.arrived)
-              const Text('请核对货物和场地后确认开始运输。此按钮只记录业务状态，实际起飞由 djifly 操作。'),
-            _PilotOrderActions(order: order),
-          ],
-          OutlinedButton(
-            onPressed: () => context.go('/pilot/jobs'),
-            child: const Text('返回我的接单'),
-          ),
         ],
       ),
     );
   }
+
+  Widget _siteRow(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> fields,
+    String side,
+  ) {
+    final start = side == 'start';
+    final label = orderEndpointLabel(ref, fields, side);
+    final place = label?.name ?? '';
+    final address = label?.address ?? '';
+    final site = fields['$side.site']?.toString().trim() ?? '';
+    final location = place.isNotEmpty ? place : site;
+    final landing = fields['$side.landing'] == 'yes';
+    return Row(
+      spacing: 8,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: start ? _blue : const Color(0xFFFF6B00),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            start ? '起' : '终',
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 3,
+            children: [
+              Wrap(
+                spacing: 6,
+                runSpacing: 2,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    location.isEmpty ? (start ? '起点' : '终点') : location,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: _ink,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: landing
+                          ? const Color(0xFFE6F8F0)
+                          : const Color(0xFFF2F4F7),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      landing
+                          ? '可降落'
+                          : '绞盘高度 ${fields['$side.winchMin']}–${fields['$side.winchMax']} m',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: landing
+                            ? const Color(0xFF00B578)
+                            : const Color(0xFF4B5563),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (address.isNotEmpty && address != location)
+                Text(
+                  address,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF888888),
+                  ),
+                ),
+              Text(
+                '${fields['$side.contact'] ?? ''} · ${fields['$side.phone'] ?? ''}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF4B5563),
+                ),
+              ),
+              if ((fields['$side.notes'] ?? '').toString().isNotEmpty)
+                Text(
+                  '备注：${fields['$side.notes']}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF666666),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (!order.cancelled) ...[
+          IconButton(
+            tooltip: '拨打联系人',
+            onPressed: () async {
+              final ok = await ref
+                  .read(phoneDialerProvider)
+                  .dial(fields['$side.phone'].toString());
+              if (!ok && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('无法打开拨号，请手动拨打上述电话')),
+                );
+              }
+            },
+            style: IconButton.styleFrom(
+              fixedSize: const Size(38, 38),
+              minimumSize: const Size(38, 38),
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              backgroundColor: const Color(0xFFF2F4F7),
+            ),
+            icon: const Icon(
+              Icons.phone_in_talk_rounded,
+              size: 18,
+              color: _ink,
+            ),
+          ),
+          DispatchContactActions(
+            order: order,
+            pilot: true,
+            navigationSide: side,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _cargoLine(String label, String value) => Row(
+    spacing: 10,
+    children: [
+      SizedBox(
+        width: 74,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF888888)),
+            ),
+          ),
+        ),
+      ),
+      Expanded(
+        child: Text(
+          value,
+          style: const TextStyle(
+            fontSize: 13,
+            color: _ink,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    ],
+  );
 }
+
+const _blue = Color(0xFF1D6FE9);
+const _ink = Color(0xFF1F2329);
+
+Widget _workCard({
+  required Widget child,
+  EdgeInsets padding = const EdgeInsets.all(16),
+}) => Material(
+  color: Colors.white,
+  clipBehavior: Clip.antiAlias,
+  borderRadius: BorderRadius.circular(14),
+  child: Padding(padding: padding, child: child),
+);
 
 class _PilotOrderActions extends ConsumerStatefulWidget {
   const _PilotOrderActions({required this.order});
@@ -253,29 +452,68 @@ class _PilotOrderActionsState extends ConsumerState<_PilotOrderActions> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: 12,
-    children: [
-      if (_error != null)
-        Text(
-          _error!,
-          style: TextStyle(color: Theme.of(context).colorScheme.error),
-        ),
-      if (widget.order.preparing)
-        FilledButton(
-          onPressed: _busy ? null : () => _act(false),
-          child: const Text('我已到场'),
-        ),
-      if (widget.order.arrived)
-        FilledButton(
-          onPressed: _busy ? null : () => _act(false, start: true),
-          child: const Text('确认开始运输'),
-        ),
-      OutlinedButton(
-        onPressed: _busy ? null : () => _act(true),
-        child: Text(_busy ? '处理中…' : '取消接单，重新派单'),
+  Widget build(BuildContext context) {
+    final primaryStyle = FilledButton.styleFrom(
+      minimumSize: const Size(0, 46),
+      backgroundColor: _blue,
+      foregroundColor: Colors.white,
+      disabledBackgroundColor: const Color(0xFFE5E7EB),
+      disabledForegroundColor: const Color(0xFF9CA3AF),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+    );
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFEEEEEE), width: 0.8)),
       ),
-    ],
-  );
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_error != null)
+                Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              Row(
+                spacing: 12,
+                children: [
+                  Expanded(
+                    child: DispatchOrderOutlineAction(
+                      onPressed: _busy ? null : () => _act(true),
+                      label: _busy ? '处理中…' : '取消接单，重新派单',
+                    ),
+                  ),
+                  if (widget.order.preparing)
+                    Expanded(
+                      child: FilledButton(
+                        style: primaryStyle,
+                        onPressed: _busy ? null : () => _act(false),
+                        child: const Text('我已到场'),
+                      ),
+                    ),
+                  if (widget.order.arrived)
+                    Expanded(
+                      child: FilledButton(
+                        style: primaryStyle,
+                        onPressed: _busy
+                            ? null
+                            : () => _act(false, start: true),
+                        child: const Text('确认开始运输'),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

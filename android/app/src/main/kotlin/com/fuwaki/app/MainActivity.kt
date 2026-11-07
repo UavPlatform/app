@@ -24,8 +24,11 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PlaceSearchRequest.CHANNEL)
             .setMethodCallHandler { call, result ->
-                if (call.method == "search") placeSearch.search(call, result)
-                else result.notImplemented()
+                when (call.method) {
+                    "search" -> placeSearch.search(call, result)
+                    "reverse" -> placeSearch.reverse(call, result)
+                    else -> result.notImplemented()
+                }
             }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)

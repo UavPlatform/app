@@ -7,6 +7,10 @@ import com.amap.api.services.core.AMapException
 import com.amap.api.services.core.LatLonPoint
 import com.amap.api.services.core.PoiItem
 import com.amap.api.services.core.ServiceSettings
+import com.amap.api.services.geocoder.GeocodeResult
+import com.amap.api.services.geocoder.GeocodeSearch
+import com.amap.api.services.geocoder.RegeocodeQuery
+import com.amap.api.services.geocoder.RegeocodeResult
 import com.amap.api.services.poisearch.PoiResult
 import com.amap.api.services.poisearch.PoiSearch
 import io.flutter.plugin.common.MethodCall
@@ -60,6 +64,65 @@ class PlaceSearchRequest(private val activity: Activity) {
             start(call, keyword, current)
         } catch (error: Exception) {
             finish(current, null, "SEARCH_FAILED", "搜索失败，请稍后重试", null)
+        }
+    }
+
+    fun reverse(call: MethodCall, result: MethodChannel.Result) {
+        val key = call.argument<String>("key")?.trim().orEmpty()
+        val latitude = call.argument<Number>("latitude")?.toDouble()
+        val longitude = call.argument<Number>("longitude")?.toDouble()
+        if (key.isEmpty() || latitude == null || longitude == null ||
+            latitude !in -90.0..90.0 || longitude !in -180.0..180.0
+        ) {
+            result.error("REVERSE_UNAVAILABLE", "无法解析选点地址", null)
+            return
+        }
+
+        // A reverse lookup is independent of keyword search and other points.
+        var replied = false
+        val deadline = Runnable {
+            if (!replied) {
+                replied = true
+                result.error("REVERSE_TIMEOUT", "地址解析超时", null)
+            }
+        }
+        handler.postDelayed(deadline, TIMEOUT_MS)
+        fun finish(address: Map<String, Any?>?, code: Int? = null) {
+            handler.post {
+                if (replied) return@post
+                replied = true
+                handler.removeCallbacks(deadline)
+                if (address != null) result.success(address)
+                else result.error("REVERSE_FAILED", "无法解析选点地址", code)
+            }
+        }
+
+        try {
+            ServiceSettings.updatePrivacyShow(activity, true, true)
+            ServiceSettings.updatePrivacyAgree(activity, true)
+            ServiceSettings.getInstance().setApiKey(key)
+            val search = GeocodeSearch(activity)
+            search.setOnGeocodeSearchListener(object : GeocodeSearch.OnGeocodeSearchListener {
+                override fun onRegeocodeSearched(response: RegeocodeResult?, code: Int) {
+                    val address = response?.regeocodeAddress
+                    if (code != AMapException.CODE_AMAP_SUCCESS || address == null) {
+                        finish(null, code)
+                        return
+                    }
+                    finish(mapOf(
+                        "address" to address.formatAddress.orEmpty(),
+                        "pois" to address.pois.orEmpty().mapNotNull(::toMap),
+                    ))
+                }
+
+                override fun onGeocodeSearched(response: GeocodeResult?, code: Int) = Unit
+            })
+            val query = RegeocodeQuery(
+                LatLonPoint(latitude, longitude), 3000f, GeocodeSearch.AMAP,
+            ).apply { extensions = "all" }
+            search.getFromLocationAsyn(query)
+        } catch (_: Exception) {
+            finish(null)
         }
     }
 

@@ -1,3 +1,4 @@
+import '../../utils/payment_display_text.dart';
 import '../../widgets/flow_ui.dart';
 import '../../widgets/infinite_list.dart';
 import 'package:flutter/material.dart';
@@ -72,23 +73,7 @@ class _DispatchNotificationPageState
       groups.putIfAbsent(item.orderId!, () => []).add(item);
     }
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('消息通知'),
-        actions: [
-          IconButton(
-            tooltip: '刷新通知',
-            onPressed: state.loading
-                ? null
-                : () async {
-                    await ref
-                        .read(dispatchInboxProvider.notifier)
-                        .load(refresh: true);
-                    ref.invalidate(dispatchUnreadProvider);
-                  },
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('消息通知')),
       body: RefreshIndicator(
         onRefresh: () async {
           await ref.read(dispatchInboxProvider.notifier).load(refresh: true);
@@ -138,10 +123,10 @@ class _DispatchNotificationPageState
                             : Icons.mark_email_unread_outlined,
                       ),
                       title: Text(
-                        '${state.isRead(item) ? '' : '未读 · '}${item.title ?? '订单通知'}',
+                        '${state.isRead(item) ? '' : '未读 · '}${paymentDisplayText(item.title ?? '订单通知')}',
                       ),
                       subtitle: Text(
-                        '${item.body ?? ''}\n${item.createdAt}',
+                        '${paymentDisplayText(item.body ?? '')}\n${item.createdAt}',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
