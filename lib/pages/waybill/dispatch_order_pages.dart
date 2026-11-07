@@ -1,5 +1,5 @@
 import 'dispatch_detail_surface.dart';
-import 'dispatch_order_status_card.dart';
+import 'dispatch_order_app_bar.dart';
 import 'dispatch_map_home.dart';
 import '../../widgets/flow_ui.dart';
 import 'dispatch_order_information.dart';
@@ -67,10 +67,7 @@ class DispatchDepositPage extends StatelessWidget {
     order: order,
     title: '待付定金',
     step: 0,
-    content: [
-      const Text('支付定金后，开始为你匹配飞手。'),
-      DispatchOrderActions(order: order),
-    ],
+    content: [const DispatchOrderGuide('支付定金后，开始为你匹配飞手。')],
   );
 }
 
@@ -83,9 +80,8 @@ class DispatchWaitingPage extends StatelessWidget {
     title: '等待接单',
     step: 1,
     content: [
-      const Text('正在为你寻找飞手'),
+      const DispatchOrderGuide('正在为你寻找飞手'),
       DispatchNearbyStatus(order: order),
-      DispatchOrderActions(order: order),
     ],
   );
 }
@@ -99,9 +95,8 @@ class DispatchPreparingPage extends StatelessWidget {
     title: '飞手准备中',
     step: 2,
     content: [
+      const DispatchOrderGuide('飞手正在前往起点，请保持电话畅通。'),
       Text('接单飞手账号：${order.data.assignedPilotId}'),
-      const Text('飞手正在前往起点，请保持电话畅通。'),
-      DispatchOrderActions(order: order),
     ],
   );
 }
@@ -115,8 +110,8 @@ class DispatchArrivedPage extends StatelessWidget {
     title: '飞手已到场',
     step: 3,
     content: [
+      const DispatchOrderGuide('飞手已确认到场，请核对货物、包装、吊点和场地。'),
       Text('接单飞手账号：${order.data.assignedPilotId}'),
-      const Text('飞手已确认到场，请核对货物、包装、吊点和场地。'),
       Text(
         '货物：${order.data.fields?['category']} · ${order.data.fields?['count']} 件',
       ),
@@ -124,7 +119,6 @@ class DispatchArrivedPage extends StatelessWidget {
         '包装：${order.data.fields?['packaging']}\n吊点：${order.data.fields?['lifting']}',
       ),
       const Text('核对完成后，由飞手开始运输。'),
-      DispatchOrderActions(order: order),
     ],
   );
 }
@@ -137,10 +131,8 @@ class DispatchCancelledPage extends StatelessWidget {
     order: order,
     title: '运单已取消',
     content: [
-      Text(
-        order.data.fundsStatus == 'REFUNDED'
-            ? '定金已全额模拟退回，无真实资金变动。'
-            : '本单未付款，无需退款。',
+      DispatchOrderGuide(
+        order.data.fundsStatus == 'REFUNDED' ? '定金已全额退回。' : '本单未付款，无需退款。',
       ),
     ],
   );
@@ -161,34 +153,23 @@ class _OrderScaffold extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => Theme(
     data: dispatchDetailTheme(Theme.of(context)),
     child: Scaffold(
-      appBar: AppBar(
-        title: const Text('订单详情'),
-        actions: [
-          IconButton(
-            tooltip: '刷新订单',
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(dispatchOrderProvider(order.id)),
-          ),
-        ],
+      appBar: DispatchOrderAppBar(
+        title: title,
+        onRefresh: () => ref.invalidate(dispatchOrderProvider(order.id)),
+        onReturn: () => context.go('/dispatch/orders'),
       ),
-      bottomNavigationBar:
-          order.waiting || order.awaitingDeposit || order.cancelled
+      bottomNavigationBar: order.cancelled
           ? null
-          : SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: DispatchContactActions(order: order, chatOnly: true),
-              ),
-            ),
+          : DispatchOrderActions(order: order),
       body: FlowList(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
         spacing: 12,
         children: [
-          DispatchOrderStatusCard(order: order, title: title, step: step),
+          DispatchOrderStatusStrip(order: order, step: step),
           Card(
+            margin: EdgeInsets.zero,
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 spacing: 12,
@@ -204,11 +185,15 @@ class _OrderScaffold extends ConsumerWidget {
           ),
           if (!order.cancelled)
             DispatchMaterialPanel(orderId: order.id, purpose: 'CARGO'),
-          const SizedBox(height: 20),
-          OutlinedButton(
-            onPressed: () => context.go('/dispatch/orders'),
-            child: const Text('全部订单'),
-          ),
+          if (!order.waiting && !order.awaitingDeposit && !order.cancelled)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: DispatchContactActions(
+                order: order,
+                chatOnly: true,
+                compactChat: true,
+              ),
+            ),
         ],
       ),
     ),
@@ -232,11 +217,11 @@ class _DispatchOrderActionsState extends ConsumerState<DispatchOrderActions> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(pay ? '模拟支付定金' : '取消运单'),
+        title: Text(pay ? '支付定金' : '取消运单'),
         content: Text(
           pay
-              ? '仅模拟支付 ¥${widget.order.data.depositAmount!.toStringAsFixed(2)}，不会真实扣款。'
-              : '确认取消本单？已付定金将全额模拟退回，未付款则直接取消。',
+              ? '确认支付定金 ¥${widget.order.data.depositAmount!.toStringAsFixed(2)}？'
+              : '确认取消本单？已付定金将全额退回，未付款则直接取消。',
         ),
         actions: [
           TextButton(
@@ -279,28 +264,53 @@ class _DispatchOrderActionsState extends ConsumerState<DispatchOrderActions> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: 12,
-    children: [
-      if (_error != null)
-        Text(
-          _error!,
-          style: TextStyle(color: Theme.of(context).colorScheme.error),
-        ),
-      if (widget.order.awaitingDeposit)
-        FilledButton(
-          onPressed: _busy ? null : () => _act(true),
-          child: const Text('模拟支付定金'),
-        ),
-      Align(
-        alignment: Alignment.centerRight,
-        child: TextButton(
-          onPressed: _busy ? null : () => _act(false),
-          child: Text(_busy ? '处理中…' : '取消运单'),
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      border: Border(top: BorderSide(color: Color(0xFFEEEEEE), width: 0.8)),
+    ),
+    child: SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 6,
+          children: [
+            if (_error != null)
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            Row(
+              spacing: 12,
+              children: [
+                Expanded(
+                  child: DispatchOrderOutlineAction(
+                    onPressed: _busy ? null : () => _act(false),
+                    label: _busy ? '处理中…' : '取消运单',
+                  ),
+                ),
+                if (widget.order.awaitingDeposit)
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _busy ? null : () => _act(true),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 46),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('支付定金'),
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ),
       ),
-    ],
+    ),
   );
 }
 
@@ -346,10 +356,6 @@ class DispatchOrderListPage extends ConsumerWidget {
               ? const _DispatchOrdersEmpty()
               : FlowList(
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('最近50笔 · 模拟支付，无真实资金变动'),
-                    ),
                     const FlowHeader(
                       title: '我的吊运',
                       subtitle: '最近订单',

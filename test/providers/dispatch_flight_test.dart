@@ -107,8 +107,8 @@ void main() {
       tester.widget<Text>(find.byKey(const ValueKey('flight-altitude'))).data,
       '未知',
     );
-    expect(find.text('飞行状态：未知'), findsOneWidget);
-    expect(find.text('尚无本单实际位置，不绘制轨迹'), findsOneWidget);
+    expect(find.byTooltip('飞行状态：未知'), findsOneWidget);
+    expect(find.byTooltip('轨迹状态：暂无实际位置'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
   test('swap segments never join devices and late points sort by sequence', () {

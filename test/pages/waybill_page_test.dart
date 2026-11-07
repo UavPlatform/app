@@ -228,7 +228,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.widgetWithText(FilledButton, '确认运单，前往模拟支付').hitTestable(),
+        find.widgetWithText(FilledButton, '确认运单，前往支付').hitTestable(),
         findsOneWidget,
       );
       expect(

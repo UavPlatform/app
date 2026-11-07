@@ -154,13 +154,6 @@ class DispatchPilotJobsPage extends ConsumerWidget {
         onPressed: () =>
             context.canPop() ? context.pop() : context.go('/pilot/profile'),
       ),
-      actions: [
-        IconButton(
-          tooltip: '刷新我的接单',
-          onPressed: () => ref.invalidate(dispatchPilotOrdersProvider),
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
     ),
     body: ref
         .watch(dispatchPilotOrdersProvider)

@@ -44,17 +44,6 @@ class EquipmentBorrowPage extends ConsumerWidget {
             color: Color(0xFF111111),
           ),
         ),
-        actions: [
-          IconButton(
-            tooltip: '刷新',
-            onPressed: () {
-              ref.invalidate(equipmentCurrentProvider);
-              ref.invalidate(equipmentBorrowsProvider);
-              ref.invalidate(equipmentModelStockProvider);
-            },
-            icon: const Icon(Icons.refresh, size: 20, color: Color(0xFF333333)),
-          ),
-        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF1D6FE9),

@@ -148,19 +148,19 @@ void main() {
       expect(
         tester
             .widget<FilledButton>(
-              find.widgetWithText(FilledButton, '确认运单，前往模拟支付'),
+              find.widgetWithText(FilledButton, '确认运单，前往支付'),
             )
             .onPressed,
         isNull,
       );
       await tap(tester, '信息真实、无违禁品');
-      await tap(tester, '确认运单，前往模拟支付');
+      await tap(tester, '确认运单，前往支付');
       final key = result.container
           .read(waybillDraftProvider)
           .draft
           .value('submission.requestKey');
       expect(key, isNotEmpty);
-      await tap(tester, '确认运单，前往模拟支付');
+      await tap(tester, '确认运单，前往支付');
       expect(result.api.keys, [key, key]);
       expect(find.byType(DispatchDepositPage), findsOneWidget);
       expect(result.api.payments, 0);
@@ -174,21 +174,21 @@ void main() {
       await tap(tester, '检查并评估运单');
       expect(find.textContaining('模拟评估 ·'), findsOneWidget);
       var submit = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, '确认运单，前往模拟支付'),
+        find.widgetWithText(FilledButton, '确认运单，前往支付'),
       );
       expect(submit.onPressed, isNull);
       await tap(tester, '信息真实、无违禁品');
-      await tap(tester, '确认运单，前往模拟支付');
+      await tap(tester, '确认运单，前往支付');
       expect(find.byType(DispatchDepositPage), findsOneWidget);
       expect(result.api.payments, 0);
-      await tap(tester, '模拟支付定金');
+      await tap(tester, '支付定金');
       await tap(tester, '确认');
       expect(find.byType(DispatchWaitingPage), findsOneWidget);
       expect(find.text('正在为你寻找飞手'), findsOneWidget);
       await tap(tester, '取消运单');
       await tap(tester, '确认');
       expect(find.byType(DispatchCancelledPage), findsOneWidget);
-      expect(find.textContaining('定金已全额模拟退回'), findsOneWidget);
+      expect(find.textContaining('定金已全额退回'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -204,7 +204,7 @@ void main() {
       await tap(tester, '检查并评估运单');
       await tap(tester, '信息真实、无违禁品');
       final submit = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, '确认运单，前往模拟支付'),
+        find.widgetWithText(FilledButton, '确认运单，前往支付'),
       );
       expect(submit.onPressed, isNull);
       expect(result.api.keys, isEmpty);
@@ -216,14 +216,14 @@ void main() {
       final result = await setup(tester, loseResponse: true);
       await tap(tester, '检查并评估运单');
       await tap(tester, '信息真实、无违禁品');
-      await tap(tester, '确认运单，前往模拟支付');
+      await tap(tester, '确认运单，前往支付');
       expect(find.byType(DispatchDepositPage), findsNothing);
       final key = result.container
           .read(waybillDraftProvider)
           .draft
           .value('submission.requestKey');
       expect(key, isNotEmpty);
-      await tap(tester, '确认运单，前往模拟支付');
+      await tap(tester, '确认运单，前往支付');
       expect(result.api.keys, [key, key]);
       expect(find.byType(DispatchDepositPage), findsOneWidget);
     },
@@ -234,13 +234,13 @@ void main() {
     final result = await setup(tester);
     await tap(tester, '检查并评估运单');
     await tap(tester, '信息真实、无违禁品');
-    await tap(tester, '确认运单，前往模拟支付');
+    await tap(tester, '确认运单，前往支付');
     result.api.failPayment = true;
-    await tap(tester, '模拟支付定金');
+    await tap(tester, '支付定金');
     await tap(tester, '确认');
     expect(find.byType(DispatchDepositPage), findsOneWidget);
     expect(find.byType(DispatchWaitingPage), findsNothing);
-    expect(find.text('模拟付款未确认，请刷新订单'), findsOneWidget);
+    expect(find.text('付款未确认，请刷新订单'), findsOneWidget);
   });
   testWidgets('editing a reviewed waybill resets assessment and declaration', (
     tester,
@@ -256,9 +256,7 @@ void main() {
     );
     expect(
       tester
-          .widget<FilledButton>(
-            find.widgetWithText(FilledButton, '确认运单，前往模拟支付'),
-          )
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '确认运单，前往支付'))
           .onPressed,
       isNull,
     );

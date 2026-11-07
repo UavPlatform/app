@@ -21,19 +21,23 @@ class DispatchLivePanel extends ConsumerWidget {
     super.key,
     required this.orderId,
     this.useRealVideoView = true,
+    this.showFlightHeading = false,
   });
   final String orderId;
-  final bool useRealVideoView;
+  final bool useRealVideoView, showFlightHeading;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(waybillDraftScopeProvider);
-    if (scope == null) return const Text('登录后可观看本单直播');
+    if (scope == null) {
+      return const Text('登录后可观看本单直播');
+    }
     return _LivePanel(
       key: ValueKey('$scope:$orderId'),
       orderId: orderId,
       api: ref.watch(dispatchLiveApiProvider),
       factory: ref.watch(dispatchLiveEngineFactoryProvider),
       useRealVideoView: useRealVideoView,
+      showFlightHeading: showFlightHeading,
     );
   }
 }
@@ -45,11 +49,12 @@ class _LivePanel extends StatefulWidget {
     required this.api,
     required this.factory,
     required this.useRealVideoView,
+    required this.showFlightHeading,
   });
   final String orderId;
   final DispatchLiveApi api;
   final TrtcEngine Function() factory;
-  final bool useRealVideoView;
+  final bool useRealVideoView, showFlightHeading;
   @override
   State<_LivePanel> createState() => _LivePanelState();
 }
@@ -257,28 +262,76 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final player = _player;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(child: Text(_message)),
-                IconButton(
-                  tooltip: '刷新本单直播',
-                  onPressed: () {
-                    _failedId = null;
-                    unawaited(_poll());
-                  },
-                  icon: const Icon(Icons.refresh),
+    void refresh() {
+      _failedId = null;
+      unawaited(_poll());
+    }
+
+    final video = ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: ColoredBox(
+        color: const Color(0xFF1E222D),
+        child: player == null
+            ? SizedBox(
+                height: 130,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal:
+                              _failedId == null || widget.showFlightHeading
+                              ? 12
+                              : 46,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: 6,
+                          children: [
+                            const Icon(
+                              Icons.videocam_off_outlined,
+                              size: 28,
+                              color: Colors.white54,
+                            ),
+                            Text(
+                              _message,
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const Text(
+                              '仅观看本单图传，直播由飞手控制。',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.white54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_failedId != null && !widget.showFlightHeading)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: IconButton(
+                          tooltip: '重试连接直播',
+                          onPressed: refresh,
+                          icon: const Icon(Icons.replay, color: Colors.white70),
+                        ),
+                      ),
+                  ],
                 ),
-              ],
-            ),
-            if (player != null)
-              SizedBox(
-                height: 190,
+              )
+            : AspectRatio(
+                aspectRatio: 16 / 9,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -291,6 +344,29 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
                         ),
                       ),
                     Positioned(
+                      top: 8,
+                      left: 8,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          child: Text(
+                            _message,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
                       right: 4,
                       bottom: 4,
                       child: IconButton.filled(
@@ -302,10 +378,35 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
                   ],
                 ),
               ),
-            const Text('仅观看本单图传，直播由飞手控制。'),
+      ),
+    );
+    if (!widget.showFlightHeading) return video;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 6,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                '实际飞行数据',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1F2329),
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: '刷新本单直播',
+              visualDensity: VisualDensity.compact,
+              onPressed: refresh,
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+            ),
           ],
         ),
-      ),
+        video,
+      ],
     );
   }
 }

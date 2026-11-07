@@ -45,17 +45,6 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
             color: Color(0xFF111111),
           ),
         ),
-        actions: [
-          IconButton(
-            tooltip: '刷新消息',
-            icon: const Icon(
-              Icons.refresh_rounded,
-              size: 22,
-              color: Color(0xFF333333),
-            ),
-            onPressed: () => ref.read(sessionListProvider.notifier).load(),
-          ),
-        ],
       ),
       body: state.loading
           ? const Center(child: CircularProgressIndicator())

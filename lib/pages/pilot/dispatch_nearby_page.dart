@@ -299,7 +299,7 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
                   _refresh();
                   ref.invalidate(dispatchNearbyHallProvider);
                 },
-                child: const Text('重新定位并刷新'),
+                child: const Text('重新定位'),
               ),
           ],
         ),

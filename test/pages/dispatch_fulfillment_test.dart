@@ -18,6 +18,10 @@ void main() {
     testWidgets('delivery needs verified selected evidence for pilot=$pilot', (
       tester,
     ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 720);
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+      addTearDown(tester.view.reset);
       final data =
           orderJson(
               stage: pilot ? 'IN_TRANSIT' : 'DELIVERY_CONFIRMATION',
@@ -59,13 +63,28 @@ void main() {
         FilledButton,
         pilot ? '确认送达' : '确认收货并结单',
       );
+      expect(find.byTooltip('复制运单号').hitTestable(), findsOneWidget);
+      expect(find.text('进度 ${pilot ? 5 : 6} / 7'), findsOneWidget);
+      final bounds = tester.getRect(button);
+      expect(bounds.bottom, lessThanOrEqualTo(696));
+      if (!pilot) {
+        final cancel = find.widgetWithText(OutlinedButton, '取消运单');
+        expect(tester.getRect(cancel).width, closeTo(bounds.width, 1));
+        expect(tester.getRect(cancel).center.dy, closeTo(bounds.center.dy, 1));
+      }
+      expect(tester.widget<FilledButton>(button).onPressed, isNull);
       await tester.scrollUntilVisible(
-        button,
+        find.byType(Checkbox),
         200,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(tester.widget<FilledButton>(button).onPressed, isNull);
-      await tester.ensureVisible(find.byType(Checkbox));
+      expect(tester.getRect(button), bounds);
+      await Scrollable.ensureVisible(
+        tester.element(find.byType(Checkbox)),
+        alignment: 0.5,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(Checkbox).hitTestable(), findsOneWidget);
       await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
       expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
@@ -92,11 +111,11 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('模拟支付尾款'),
+      find.text('支付尾款'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('提交评价'), findsNothing);
-    expect(find.text('模拟支付尾款'), findsOneWidget);
+    expect(find.text('支付尾款'), findsOneWidget);
   });
 }

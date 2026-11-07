@@ -54,7 +54,8 @@ void main() {
     expect(api.lastModelId, 1);
 
     api.active = true;
-    await tester.tap(find.byTooltip('刷新'));
+    expect(find.byTooltip('刷新'), findsNothing);
+    await tester.drag(find.byType(RefreshIndicator), const Offset(0, 400));
     await tester.pumpAndSettle();
     expect(find.textContaining('TEST-SERIAL'), findsWidgets);
 

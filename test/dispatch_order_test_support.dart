@@ -76,7 +76,7 @@ class FakeDispatchOrderApi extends DispatchOrderApi {
   @override
   Future<DispatchOrder> pay(String id) async {
     payments++;
-    if (failPayment) throw const DispatchApiException('模拟付款未确认，请刷新订单');
+    if (failPayment) throw const DispatchApiException('付款未确认，请刷新订单');
     return order = DispatchOrder(
       ApiDispatchOrderVO.fromJson(
         orderJson(stage: 'WAITING_ACCEPTANCE', funds: 'PAID'),

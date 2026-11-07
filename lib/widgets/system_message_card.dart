@@ -1,3 +1,4 @@
+import '../utils/payment_display_text.dart';
 // 系统消息卡片（t33：任务状态通知渲染，Q9=A）。
 // 按 t23 载荷契约：msgType=1（NOTICE）/2（ORDER）、fromUserId=0、
 // payload.name 标识事件、payload.text 为人类文案兜底。
@@ -90,7 +91,7 @@ class SystemMessageCard extends StatelessWidget {
                   if (message.content.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
-                      message.content,
+                      paymentDisplayText(message.content),
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.onSurface,

@@ -1,3 +1,4 @@
+import '../../providers/map_provider.dart';
 import '../../theme/dispatch_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,9 +14,10 @@ class DispatchOrderInformationLink extends ConsumerWidget {
     super.key,
     required this.order,
     this.pilot = false,
+    this.compact = false,
   });
   final DispatchOrder order;
-  final bool pilot;
+  final bool pilot, compact;
   void _showWaybillInfoBottomSheet(BuildContext context, WidgetRef ref) =>
       showDispatchDetailSheet(
         context,
@@ -28,41 +30,69 @@ class DispatchOrderInformationLink extends ConsumerWidget {
         ),
       );
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Card(
-    child: ListTile(
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: const Color(0xFFE8F3FF),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(
-          Icons.description_outlined,
-          color: Color(0xFF1D6FE9),
-          size: 20,
-        ),
-      ),
-      title: const Text(
-        '运单资料与账单',
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF1F2329),
-        ),
-      ),
-      subtitle: const Text(
-        '联系人 · 场地 · 支付记录',
-        style: TextStyle(fontSize: 13, color: Color(0xFF888888)),
-      ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: Color(0xFFCCCCCC),
-        size: 18,
-      ),
-      onTap: () => _showWaybillInfoBottomSheet(context, ref),
-    ),
-  );
+  Widget build(BuildContext context, WidgetRef ref) => compact
+      ? InkWell(
+          onTap: () => _showWaybillInfoBottomSheet(context, ref),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '运单资料与账单',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1F2329),
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: Text(
+                    '联系人 · 场地 · 支付记录',
+                    textAlign: TextAlign.end,
+                    style: TextStyle(fontSize: 13, color: Color(0xFF888888)),
+                  ),
+                ),
+                Icon(Icons.chevron_right, size: 18, color: Color(0xFF888888)),
+              ],
+            ),
+          ),
+        )
+      : Card(
+          child: ListTile(
+            leading: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F3FF),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.description_outlined,
+                color: Color(0xFF1D6FE9),
+                size: 20,
+              ),
+            ),
+            title: const Text(
+              '运单资料与账单',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1F2329),
+              ),
+            ),
+            subtitle: const Text(
+              '联系人 · 场地 · 支付记录',
+              style: TextStyle(fontSize: 13, color: Color(0xFF888888)),
+            ),
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: Color(0xFFCCCCCC),
+              size: 18,
+            ),
+            onTap: () => _showWaybillInfoBottomSheet(context, ref),
+          ),
+        );
 }
 
 class DispatchOrderInformationPage extends ConsumerWidget {
@@ -106,6 +136,18 @@ class DispatchOrderInformationPage extends ConsumerWidget {
       data: (order) {
         final fields = order.data.fields ?? {};
         String value(String key) => (fields[key] ?? '').toString();
+        String endpoint(String side) {
+          final label = orderEndpointLabel(ref, fields, side);
+          if (label == null) {
+            final site = value('$side.site');
+            return site.isEmpty ? '暂无地址描述' : site;
+          }
+          return {
+            label.name,
+            label.address,
+          }.where((part) => part.isNotEmpty).join(' · ');
+        }
+
         return SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
           child: Column(
@@ -117,10 +159,7 @@ class DispatchOrderInformationPage extends ConsumerWidget {
                   ('完整运单号', order.id),
                   for (final side in ['start', 'end']) ...[
                     (side == 'start' ? '起点场地' : '终点场地', value('$side.site')),
-                    (
-                      side == 'start' ? '起点坐标' : '终点坐标',
-                      '${value('$side.lat')}, ${value('$side.lng')}',
-                    ),
+                    (side == 'start' ? '起点地址' : '终点地址', endpoint(side)),
                     (
                       side == 'start' ? '起点作业条件' : '终点作业条件',
                       value('$side.landing') == 'yes'
@@ -179,9 +218,9 @@ class DispatchOrderInformationPage extends ConsumerWidget {
                   ('资金状态', order.data.fundsStatus ?? '未知'),
                   ('定金', '¥${order.data.depositAmount!.toStringAsFixed(2)}'),
                   if (order.data.paymentReference != null)
-                    ('模拟支付流水', order.data.paymentReference!),
+                    ('支付流水', order.data.paymentReference!),
                   if (order.data.refundReference != null)
-                    ('模拟退款流水', order.data.refundReference!),
+                    ('退款流水', order.data.refundReference!),
                   ('更新于', order.data.updatedAt ?? '未知'),
                 ],
               ),
@@ -189,10 +228,6 @@ class DispatchOrderInformationPage extends ConsumerWidget {
                 quote: order.data.bill?.quote,
                 bill: order.data.bill,
                 expanded: true,
-              ),
-              const Text(
-                '支付与退款为模拟通道，无真实资金变动。',
-                style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
               ),
             ],
           ),
