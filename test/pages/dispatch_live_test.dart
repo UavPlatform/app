@@ -13,7 +13,6 @@ class LiveApiFake extends Fake implements DispatchLiveApi {
     configured: true,
     state: 'RUNNING',
     liveId: 'live',
-    connectionId: 'connection',
     leaseExpiresAt: 100,
   );
   Completer<ApiDispatchLiveCredentialsVO>? pending;
@@ -35,7 +34,6 @@ class LiveApiFake extends Fake implements DispatchLiveApi {
         Future.value(
           const ApiDispatchLiveCredentialsVO(
             liveId: 'live',
-            connectionId: 'connection',
             sdkAppId: 1,
             roomId: 'room',
             userId: 'viewer',
@@ -186,12 +184,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.watches, 1);
       await tester.pumpWidget(const SizedBox());
-      api.pending!.complete(
-        const ApiDispatchLiveCredentialsVO(
-          liveId: 'live',
-          connectionId: 'connection',
-        ),
-      );
+      api.pending!.complete(const ApiDispatchLiveCredentialsVO(liveId: 'live'));
       await tester.pumpAndSettle();
       expect(engine.sessions, isEmpty);
       await engine.stream.close();

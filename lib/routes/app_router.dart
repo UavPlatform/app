@@ -17,7 +17,6 @@ import '../pages/home/map_picker_page.dart';
 import '../pages/pilot/dispatch_pilot_pages.dart';
 import '../pages/pilot/pilot_home_page.dart';
 import '../pages/pilot/pilot_profile_page.dart';
-import '../pages/pilot/drone_manage_page.dart';
 import '../pages/pilot/equipment_borrow_page.dart';
 import '../pages/pilot/pilot_info_page.dart';
 import '../pages/auth/rider_register_page.dart';
@@ -168,7 +167,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/pilot/drones',
-        builder: (context, state) => const DroneManagePage(),
+        redirect: (_, _) => '/pilot/equipment',
       ),
       GoRoute(
         path: '/rider/register',

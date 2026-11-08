@@ -5,7 +5,7 @@ import '../models/result_model.dart';
 
 /// 平台机型目录（GET /api/aircraft-models，仅启用机型）。
 ///
-/// 绑定无人机（POST /rider/drone/bind）与吊运应征（POST /rider/apply）都必须
+/// 吊运应征（POST /rider/apply）必须
 /// 从该目录选择 `aircraftModelId`——客户端不接受自填机型或金额。
 class AircraftApi {
   final HttpClient _client;
