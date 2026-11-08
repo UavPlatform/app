@@ -17,53 +17,72 @@ class NoLive extends Fake implements DispatchLiveApi {
 }
 
 class FlightApi extends Fake implements DispatchFlightApi {
-  Completer<ApiFlightViewVO>? waiting;
+  Completer<ApiFlightProjectionVO>? waiting;
   bool fail = false;
   @override
-  Future<ApiFlightViewVO> current(String id) async {
+  Future<ApiFlightProjectionVO> current(String id) async {
     if (waiting != null) return waiting!.future;
     if (fail) throw StateError('offline');
-    return const ApiFlightViewVO(
+    return const ApiFlightProjectionVO(
       stale: false,
-      latest: ApiFlightSampleVO(battery: 0, speed: 0),
+      aircraft: [
+        ApiAircraft(
+          latest: {
+            'BATTERY': {
+              'payload': {'chargePermille': 0},
+            },
+            'VELOCITY': {
+              'payload': {'speedMmps': 0},
+            },
+          },
+        ),
+      ],
     );
   }
 
   @override
-  Future<ApiFlightTrackVO> track(String id, int after) async =>
-      const ApiFlightTrackVO(items: [], nextAfter: 0, hasNext: false);
+  Future<ApiFlightEventPageVO> track(String id, int after) async =>
+      const ApiFlightEventPageVO(items: [], nextAfter: 0, hasNext: false);
 }
 
 void main() {
   test(
-    'ETA uses fresh actual position/speed and never estimates a stopped or disconnected aircraft',
+    'ETA requires fresh flight state and speed from the positioned aircraft',
     () {
-      const point = ApiFlightSampleVO(
-        sampleId: 1,
-        connectionId: 'c',
-        latitude: 28.2,
-        longitude: 113,
-        speed: 20,
-        flying: true,
+      const point = ApiFlightEventVO(
+        serialNumber: 'a',
+        serialSource: 'FC',
+        capturedAt: 10000,
+        payload: {'latitudeDegE7': 282000000, 'longitudeDegE7': 1130000000},
       );
-      const valid = ApiFlightViewVO(
+      const aircraft = ApiAircraft(
+        serialNumber: 'a',
+        serialSource: 'FC',
         stale: false,
-        connection: ApiFlightConnectionVO(connectionId: 'c'),
-        latest: point,
+        latest: {
+          'ACTUAL_FLYING_STATE': {
+            'payload': {'flying': true},
+          },
+          'VELOCITY': {
+            'capturedAt': 10000,
+            'payload': {'speedMmps': 20000},
+          },
+        },
+      );
+      const valid = ApiFlightProjectionVO(
+        stale: false,
+        aircraft: [aircraft],
         lastPosition: point,
       );
       expect(flightEtaSeconds(valid, 1200), 60);
       expect(flightEtaSeconds(valid, 1200, requestFailed: true), isNull);
-      expect(
-        flightEtaSeconds(const ApiFlightViewVO(stale: true), 1200),
-        isNull,
-      );
       expect(flightEtaSeconds(valid, null), isNull);
       expect(
         flightEtaSeconds(
-          const ApiFlightViewVO(
-            stale: false,
-            latest: ApiFlightSampleVO(speed: 0, flying: false),
+          const ApiFlightProjectionVO(
+            stale: true,
+            aircraft: [aircraft],
+            lastPosition: point,
           ),
           1200,
         ),
@@ -71,10 +90,9 @@ void main() {
       );
       expect(
         flightEtaSeconds(
-          const ApiFlightViewVO(
+          const ApiFlightProjectionVO(
             stale: false,
-            connection: ApiFlightConnectionVO(connectionId: 'new'),
-            latest: point,
+            aircraft: [ApiAircraft(serialNumber: 'b')],
             lastPosition: point,
           ),
           1200,
@@ -111,31 +129,23 @@ void main() {
     expect(find.byTooltip('轨迹状态：暂无实际位置'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
-  test('swap segments never join devices and late points sort by sequence', () {
-    final segments = flightSegments(const [
-      ApiFlightSampleVO(
-        connectionId: 'a',
-        sequence: 2,
-        latitude: 28.2,
-        longitude: 113,
-      ),
-      ApiFlightSampleVO(
-        connectionId: 'b',
-        sequence: 0,
-        latitude: 29,
-        longitude: 114,
-      ),
-      ApiFlightSampleVO(
-        connectionId: 'a',
-        sequence: 1,
-        latitude: 28.1,
-        longitude: 113,
-      ),
-      ApiFlightSampleVO(connectionId: 'a', sequence: 3),
+  test('track sorts late points by capture time and splits aircraft swaps', () {
+    ApiFlightEventVO point(String serial, int time, int latitude) =>
+        ApiFlightEventVO(
+          type: 'POSITION',
+          serialNumber: serial,
+          serialSource: 'FC',
+          capturedAt: time,
+          payload: {'latitudeDegE7': latitude, 'longitudeDegE7': 1130000000},
+        );
+    final segments = flightSegments([
+      point('a', 2, 282000000),
+      point('b', 3, 290000000),
+      point('a', 1, 281000000),
     ]);
     expect(segments, hasLength(2));
     expect(segments.first.map((p) => p.latitude), [28.1, 28.2]);
-    expect(segments.last, hasLength(1));
+    expect(segments.last.single.latitude, 29);
   });
   test(
     'real zero survives and failed refresh marks retained values stale',
@@ -143,23 +153,47 @@ void main() {
       final api = FlightApi();
       final n = DispatchFlightNotifier(api, 'order');
       await n.refresh();
-      expect(n.state.current!.latest!.battery, 0);
-      expect(n.state.current!.latest!.speed, 0);
+      expect(
+        n
+            .state
+            .current!
+            .aircraft!
+            .single
+            .latest!['BATTERY']['payload']['chargePermille'],
+        0,
+      );
+      expect(
+        n
+            .state
+            .current!
+            .aircraft!
+            .single
+            .latest!['VELOCITY']['payload']['speedMmps'],
+        0,
+      );
       api.fail = true;
       await n.refresh();
       expect(n.state.error, isNotNull);
-      expect(n.state.current!.latest!.battery, 0);
+      expect(
+        n
+            .state
+            .current!
+            .aircraft!
+            .single
+            .latest!['BATTERY']['payload']['chargePermille'],
+        0,
+      );
       n.dispose();
     },
   );
   test(
     'late request after account provider disposal cannot update state',
     () async {
-      final api = FlightApi()..waiting = Completer<ApiFlightViewVO>();
+      final api = FlightApi()..waiting = Completer<ApiFlightProjectionVO>();
       final n = DispatchFlightNotifier(api, 'order');
       final request = n.refresh();
       n.dispose();
-      api.waiting!.complete(const ApiFlightViewVO(stale: false));
+      api.waiting!.complete(const ApiFlightProjectionVO(stale: false));
       await request;
     },
   );

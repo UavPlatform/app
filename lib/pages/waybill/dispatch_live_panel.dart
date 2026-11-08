@@ -137,7 +137,7 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
           status.liveId!,
         );
         if (!mounted || !_foreground) return;
-        if (credential.connectionId != status.connectionId) {
+        if (credential.liveId != status.liveId) {
           throw StateError('connection changed');
         }
         final player = LivePlayerController(engine: widget.factory());

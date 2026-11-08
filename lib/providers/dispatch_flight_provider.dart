@@ -16,8 +16,8 @@ class DispatchFlightState {
     this.samples = const [],
     this.error,
   });
-  final ApiFlightViewVO? current;
-  final List<ApiFlightSampleVO> samples;
+  final ApiFlightProjectionVO? current;
+  final List<ApiFlightEventVO> samples;
   final String? error;
 }
 
@@ -36,13 +36,13 @@ class DispatchFlightNotifier extends StateNotifier<DispatchFlightState> {
     try {
       final current = await api.current(id);
       if (!mounted) return;
-      final points = {for (final p in state.samples) p.sampleId!: p};
+      final points = {for (final p in state.samples) p.eventId!: p};
       var cursor = _after;
       while (mounted) {
         final page = await api.track(id, cursor);
         if (!mounted) return;
         for (final p in page.items!) {
-          points[p.sampleId!] = p;
+          points[p.eventId!] = p;
         }
         cursor = page.nextAfter!;
         if (!page.hasNext!) break;

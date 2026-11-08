@@ -15,9 +15,7 @@ class DispatchLiveApi {
     if (s.configured == null ||
         !{'UNAVAILABLE', 'STARTING', 'RUNNING'}.contains(s.state) ||
         (s.state != 'UNAVAILABLE' &&
-            ((s.liveId ?? '').isEmpty ||
-                (s.connectionId ?? '').isEmpty ||
-                (s.leaseExpiresAt ?? 0) <= 0))) {
+            ((s.liveId ?? '').isEmpty || (s.leaseExpiresAt ?? 0) <= 0))) {
       throw const DispatchApiException('直播状态未确认');
     }
     return s;
@@ -42,7 +40,6 @@ class DispatchLiveApi {
         c.userId == c.publisherUserId ||
         (c.userSig ?? '').isEmpty ||
         (c.privateMapKey ?? '').isEmpty ||
-        (c.connectionId ?? '').isEmpty ||
         (c.expiresAt ?? 0) <= 0) {
       throw const DispatchApiException('本单观看凭证未确认');
     }

@@ -8,26 +8,25 @@ import 'http_client.dart';
 class DispatchFlightApi {
   DispatchFlightApi(this.client);
   final HttpClient client;
-  Future<ApiFlightViewVO> current(String id) async {
+  Future<ApiFlightProjectionVO> current(String id) async {
     final raw = await dispatchRequest(
       () => client.dio.get(ApiPaths.dispatchOrdersFlightPath(id)),
     );
-    final v = ApiFlightViewVO.fromJson(raw as Map<String, dynamic>);
-    if (v.stale == null ||
-        (v.connection != null && v.connection!.orderId != id)) {
+    final v = ApiFlightProjectionVO.fromJson(raw as Map<String, dynamic>);
+    if (v.stale == null || v.projectionRevision == null) {
       throw const DispatchApiException('飞行状态未确认，请重试');
     }
     return v;
   }
 
-  Future<ApiFlightTrackVO> track(String id, int after) async {
+  Future<ApiFlightEventPageVO> track(String id, int after) async {
     final raw = await dispatchRequest(
       () => client.dio.get(
         ApiPaths.dispatchOrdersFlightTrackPath(id),
         queryParameters: ApiPaths.dispatchOrdersFlightTrackQuery(after: after),
       ),
     );
-    final v = ApiFlightTrackVO.fromJson(raw as Map<String, dynamic>);
+    final v = ApiFlightEventPageVO.fromJson(raw as Map<String, dynamic>);
     if (v.items == null ||
         v.hasNext == null ||
         v.nextAfter == null ||
@@ -35,10 +34,9 @@ class DispatchFlightApi {
         (v.hasNext! && v.nextAfter == after) ||
         v.items!.any(
           (s) =>
-              s.sampleId == null ||
-              s.sampleId! <= after ||
-              s.connectionId == null ||
-              s.sequence == null,
+              s.changeSequence == null ||
+              s.changeSequence! <= after ||
+              (s.eventId ?? '').isEmpty,
         )) {
       throw const DispatchApiException('轨迹数据未确认，请重试');
     }

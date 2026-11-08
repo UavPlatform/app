@@ -8,47 +8,98 @@ import '../../providers/dispatch_flight_provider.dart';
 import '../../widgets/mission_map.dart';
 import 'dispatch_live_panel.dart';
 
-/// Actual samples are grouped by connection; never draw a line across an aircraft swap.
-List<List<LatLng>> flightSegments(List<ApiFlightSampleVO> samples) {
-  final groups = <String, List<ApiFlightSampleVO>>{};
-  for (final s in samples) {
-    if (s.connectionId != null &&
-        s.sequence != null &&
-        s.latitude != null &&
-        s.longitude != null) {
-      (groups[s.connectionId!] ??= []).add(s);
-    }
-  }
-  return groups.values.map((items) {
-    items.sort((a, b) => a.sequence!.compareTo(b.sequence!));
-    return items.map((s) => LatLng(s.latitude!, s.longitude!)).toList();
-  }).toList();
+LatLng? _position(ApiFlightEventVO? event) {
+  final lat = event?.payload?['latitudeDegE7'];
+  final lng = event?.payload?['longitudeDegE7'];
+  if (lat is! num || lng is! num) return null;
+  return LatLng(lat / 10000000, lng / 10000000);
 }
 
-/// Straight-line estimate from current real measurements; never used for price or business transitions.
+ApiFlightEventVO? _event(ApiAircraft? aircraft, String type) {
+  final raw = aircraft?.latest?[type];
+  return raw is Map<String, dynamic> ? ApiFlightEventVO.fromJson(raw) : null;
+}
+
+ApiAircraft? _aircraft(ApiFlightProjectionVO? view) {
+  final point = view?.lastPosition;
+  final aircraft = view?.aircraft;
+  if (point == null) return aircraft?.length == 1 ? aircraft!.first : null;
+  return aircraft
+      ?.where(
+        (item) =>
+            item.serialNumber == point.serialNumber &&
+            item.serialSource == point.serialSource,
+      )
+      .firstOrNull;
+}
+
+num? _reading(ApiFlightEventVO? event, String field, int scale) {
+  final value = event?.payload?[field];
+  if (value is! num || !value.isFinite) return null;
+  return value % scale == 0 ? value ~/ scale : value / scale;
+}
+
+bool? _flying(ApiAircraft? aircraft) {
+  final value = _event(aircraft, 'ACTUAL_FLYING_STATE')?.payload?['flying'];
+  return value is bool ? value : null;
+}
+
+/// Sort by capture time, then split at aircraft changes.
+List<List<LatLng>> flightSegments(List<ApiFlightEventVO> samples) {
+  final positions =
+      samples
+          .where(
+            (event) =>
+                event.type == 'POSITION' &&
+                event.capturedAt != null &&
+                event.serialNumber != null &&
+                event.serialSource != null &&
+                _position(event) != null,
+          )
+          .toList()
+        ..sort((a, b) {
+          final time = a.capturedAt!.compareTo(b.capturedAt!);
+          return time == 0
+              ? (a.eventId ?? '').compareTo(b.eventId ?? '')
+              : time;
+        });
+  final segments = <List<LatLng>>[];
+  (String?, String?)? previous;
+  for (final event in positions) {
+    final aircraft = (event.serialNumber, event.serialSource);
+    if (aircraft != previous) segments.add([]);
+    segments.last.add(_position(event)!);
+    previous = aircraft;
+  }
+  return segments;
+}
+
 int? flightEtaSeconds(
-  ApiFlightViewVO? view,
+  ApiFlightProjectionVO? view,
   double? distance, {
   bool requestFailed = false,
 }) {
-  final sample = view?.latest;
-  final point = view?.lastPosition;
+  final aircraft = _aircraft(view);
+  final velocity = _event(aircraft, 'VELOCITY');
+  final speed = _reading(velocity, 'speedMmps', 1000);
+  final positionTime = view?.lastPosition?.capturedAt;
+  final velocityTime = velocity?.capturedAt;
   if (requestFailed ||
       view?.stale != false ||
-      sample?.flying != true ||
-      sample?.latitude == null ||
-      sample?.longitude == null ||
-      sample?.connectionId != view?.connection?.connectionId ||
-      sample?.sampleId != point?.sampleId ||
+      aircraft?.stale != false ||
+      _flying(aircraft) != true ||
+      _position(view?.lastPosition) == null ||
+      positionTime == null ||
+      velocityTime == null ||
+      (positionTime - velocityTime).abs() > 10000 ||
       distance == null ||
       !distance.isFinite ||
       distance < 0 ||
-      sample?.speed == null ||
-      !sample!.speed!.isFinite ||
-      sample.speed! <= 0) {
+      speed == null ||
+      speed <= 0) {
     return null;
   }
-  final seconds = distance / sample.speed!;
+  final seconds = distance / speed;
   return seconds.isFinite ? seconds.ceil() : null;
 }
 
@@ -113,12 +164,16 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
   Widget build(BuildContext context) {
     final state = ref.watch(dispatchFlightProvider(widget.orderId));
     final view = state.current;
-    final sample = view?.latest;
     final point = view?.lastPosition;
-    final position = point?.latitude == null || point?.longitude == null
-        ? null
-        : LatLng(point!.latitude!, point.longitude!);
-    final stale = state.error != null || view?.stale != false;
+    final position = _position(point);
+    final aircraft = _aircraft(view);
+    final flying = _flying(aircraft);
+    final altitude = _reading(_event(aircraft, 'ALTITUDE'), 'altitudeMm', 1000);
+    final speed = _reading(_event(aircraft, 'VELOCITY'), 'speedMmps', 1000);
+    final battery = _reading(_event(aircraft, 'BATTERY'), 'chargePermille', 10);
+    final stale =
+        state.error != null ||
+        (position == null ? aircraft?.stale : view?.stale) != false;
     final eta = flightEtaSeconds(
       view,
       position == null ? null : _remaining,
@@ -162,9 +217,9 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          view?.connection == null
-                              ? '尚未收到本单设备连接'
-                              : '${view!.connection!.modelName} · ${shortReference(view.connection!.serialNumber ?? '')}',
+                          aircraft == null
+                              ? '尚未收到本单设备数据'
+                              : '${aircraft.modelCode ?? '未识别机型'} · ${shortReference(aircraft.serialNumber ?? '')}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF666666),
@@ -172,7 +227,7 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
                           ),
                         ),
                         Text(
-                          stale ? '连接已结束或数据待更新；以下为最后收到的数值' : '正在接收设备数据',
+                          stale ? '数据待更新，显示最后收到的数值' : '正在接收设备数据',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF666666),
@@ -185,18 +240,13 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
                 ],
               ),
             ),
-            if (view?.connection?.overweight == true)
-              const Text('货物重量上限超过目录载重，请飞手现场核对。'),
-            if (view?.connection != null &&
-                view?.connection?.maxPayloadKg == null)
-              const Text('机型未匹配目录，载重提示不可用'),
             Row(
               children: [
-                _metric('altitude', '相对高度(m)', sample?.altitude),
+                _metric('altitude', '相对高度(m)', altitude),
                 const SizedBox(width: 8),
-                _metric('speed', '水平速度(m/s)', sample?.speed),
+                _metric('speed', '水平速度(m/s)', speed),
                 const SizedBox(width: 8),
-                _metric('battery', '设备电量(%)', sample?.battery),
+                _metric('battery', '设备电量(%)', battery),
               ],
             ),
             Container(
@@ -213,9 +263,9 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
                     children: [
                       _flightValue(
                         '飞行状态',
-                        sample?.flying == null
+                        flying == null
                             ? '未知'
-                            : sample!.flying!
+                            : flying
                             ? '飞行中'
                             : '未飞行',
                       ),
@@ -235,7 +285,7 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
                         position == null ? '暂无实际位置' : '已收到实际位置',
                         tooltip: position == null
                             ? null
-                            : '最后位置接收时间：${point?.receivedAt ?? '未知'}',
+                            : '最后位置接收时间：${point?.receivedAt == null ? '未知' : DateTime.fromMillisecondsSinceEpoch(point!.receivedAt!).toLocal()}',
                       ),
                       _flightValue(
                         '预计到达',
@@ -264,52 +314,26 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
                   zoom: 15,
                 ),
               ),
-            if (view?.connectionHistory?.isNotEmpty == true)
+            if (view?.flightPeriods?.isNotEmpty == true)
               FlowDetailsLink(
-                title: '本单设备与连接记录',
-                summary:
-                    '${view!.connectionHistory!.length} 次连接 · 查看完整机身号与连接时间',
+                title: '本单飞行记录',
+                summary: '${view!.flightPeriods!.length} 段飞行',
                 icon: Icons.sensors_rounded,
                 builder: (_) => FlowDetailPage(
-                  title: '设备连接记录',
+                  title: '飞行记录',
                   scope: ref.read(waybillDraftScopeProvider),
-                  builder: (_) => Consumer(
-                    builder: (context, ref, _) {
-                      final live = ref.watch(
-                        dispatchFlightProvider(widget.orderId),
-                      );
-                      if (live.error != null) {
-                        return const Center(child: Text('连接资料暂不可用，请返回重试'));
-                      }
-                      return FlowList(
-                        children: [
-                          for (final c in live.current?.connectionHistory ?? [])
-                            Card(
-                              child: Padding(
-                                padding: const EdgeInsets.all(18),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  spacing: 12,
-                                  children: [
-                                    Text(
-                                      c.modelName ?? '未识别机型',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium,
-                                    ),
-                                    FlowValue('机身号', c.serialNumber ?? '未知'),
-                                    FlowValue('连接开始', c.openedAt ?? '未知'),
-                                    FlowValue('连接结束', c.endedAt ?? '连接未结束'),
-                                    if (c.endReason != null)
-                                      FlowValue('结束原因', c.endReason!),
-                                  ],
-                                ),
-                              ),
+                  builder: (_) => FlowList(
+                    children: [
+                      for (final period in view.flightPeriods!)
+                        Card(
+                          child: ListTile(
+                            title: Text(period.serialNumber ?? '未知机身号'),
+                            subtitle: Text(
+                              '${_eventTime(period.takeoffAt)} → ${_eventTime(period.landedAt)}',
                             ),
-                        ],
-                      );
-                    },
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -327,6 +351,10 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
     );
   }
 }
+
+String _eventTime(int? value) => value == null
+    ? '暂无记录'
+    : DateTime.fromMillisecondsSinceEpoch(value).toLocal().toString();
 
 Widget _flightValue(String label, String value, {String? tooltip}) => Expanded(
   child: Tooltip(
