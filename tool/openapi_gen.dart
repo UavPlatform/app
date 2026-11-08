@@ -119,6 +119,12 @@ const List<List<String>> endpoints = <List<String>>[
 
 void main(List<String> args) {
   final bool check = args.contains('--check');
+  // `--report <file>`：把「本端调用点已从契约中消失」的清单写成 Markdown，供同步 PR 正文引用。
+  final int reportIndex = args.indexOf('--report');
+  final String? reportPath =
+      reportIndex >= 0 && reportIndex + 1 < args.length
+      ? args[reportIndex + 1]
+      : null;
   final File specFile = File(specPath);
   if (!specFile.existsSync()) {
     stderr.writeln('[openapi] 缺少 vendored 规格 ' + specPath);
@@ -145,6 +151,42 @@ void main(List<String> args) {
     outputs[pathsPath] = generator.buildPaths();
   } on StateError catch (error) {
     stderr.writeln('[openapi] FAIL：' + error.message);
+    exit(1);
+  }
+
+  final List<List<String>> missing = generator.missing;
+
+  if (reportPath != null) {
+    final StringBuffer report = StringBuffer();
+    report.writeln('### 本端登记但新契约中已不存在');
+    report.writeln();
+    if (missing.isEmpty) {
+      report.writeln('无。');
+    } else {
+      report.writeln(
+        '以下调用点已在 `endpoints`（`tool/openapi_gen.dart`）登记，但新契约里没有对应路径/方法。',
+      );
+      report.writeln(
+        '生成物已跳过它们；业务代码适配完成后请从登记表删除或改为新路径。',
+      );
+      report.writeln();
+      for (final List<String> entry in missing) {
+        report.writeln('- `' + entry[0].toUpperCase() + ' ' + entry[1] + '`');
+      }
+    }
+    report.writeln();
+    File(reportPath).writeAsStringSync(report.toString());
+  }
+
+  if (check && missing.isNotEmpty) {
+    stderr.writeln(
+      '[openapi] FAIL：' +
+          missing.length.toString() +
+          ' 个登记调用点在新契约中不存在（登记表已过期）：',
+    );
+    for (final List<String> entry in missing) {
+      stderr.writeln('  - ' + entry[0].toUpperCase() + ' ' + entry[1]);
+    }
     exit(1);
   }
 
@@ -185,11 +227,21 @@ void main(List<String> args) {
     );
     return;
   }
+  if (missing.isNotEmpty) {
+    stdout.writeln(
+      '[openapi] WARN：' +
+          missing.length.toString() +
+          ' 个登记调用点在新契约中不存在，已跳过生成：',
+    );
+    for (final List<String> entry in missing) {
+      stdout.writeln('  - ' + entry[0].toUpperCase() + ' ' + entry[1]);
+    }
+  }
   stdout.writeln(
     '[openapi] sha256=' +
         sha +
         ' 端点=' +
-        endpoints.length.toString() +
+        (endpoints.length - missing.length).toString() +
         ' 变更文件=' +
         drift.toString(),
   );
@@ -211,16 +263,24 @@ class Generator {
 
   final Set<String> needed = <String>{};
 
+  /// 已登记但新契约里不再存在的调用点（method + path）。
+  ///
+  /// 契约删除接口时同步 PR 仍须产出（PR 是「工单」：先带进新契约，业务适配随后在 PR 里做），
+  /// 所以生成阶段跳过并在报告/`--check` 中暴露，不在这里中断生成。
+  final List<List<String>> missing = <List<String>>[];
+
   bool isEnvelope(String name) => name.startsWith('Result');
 
-  Map<String, dynamic> operation(String path, String method) {
+  Map<String, dynamic>? operation(String path, String method) {
     final dynamic item = paths[path];
-    if (item is! Map) {
-      throw StateError('契约里没有路径 ' + path + '（本端调用点与契约不一致）');
-    }
-    final dynamic op = item[method];
+    final dynamic op = item is Map ? item[method] : null;
     if (op is! Map) {
-      throw StateError('契约里 ' + path + ' 没有 ' + method + ' 方法（本端调用点与契约不一致）');
+      if (!missing.any(
+        (List<String> m) => m[0] == method && m[1] == path,
+      )) {
+        missing.add(<String>[method, path]);
+      }
+      return null;
     }
     return op as Map<String, dynamic>;
   }
@@ -283,7 +343,10 @@ class Generator {
 
   void collect() {
     for (final List<String> endpoint in endpoints) {
-      final Map<String, dynamic> op = operation(endpoint[1], endpoint[0]);
+      final Map<String, dynamic>? op = operation(endpoint[1], endpoint[0]);
+      if (op == null) {
+        continue;
+      }
       final dynamic params = op['parameters'];
       if (params is List) {
         for (final dynamic param in params) {
@@ -612,7 +675,10 @@ class Generator {
     for (final List<String> endpoint in endpoints) {
       final String method = endpoint[0];
       final String path = endpoint[1];
-      final Map<String, dynamic> op = operation(path, method);
+      final Map<String, dynamic>? op = operation(path, method);
+      if (op == null) {
+        continue;
+      }
       final String base = nameOf(path);
       String name = base;
       if (!used.add(name)) {
