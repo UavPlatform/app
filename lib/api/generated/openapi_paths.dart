@@ -1,14 +1,14 @@
 // GENERATED — DO NOT EDIT.
 // 契约路径表：调用点只允许通过本表拼 URL。
 // 生成命令：dart run tool/openapi_gen.dart
-// 事实源：openapi/drone-backend.openapi.json (sha256: cbc74454037169ac9cb026ed32b18807e0d107cfb3f1946401b3de62780aa112)
+// 事实源：openapi/drone-backend.openapi.json (sha256: 7ec87cd38ffd367a84174f871d1f48d9bbc694f59397e96e012650f4d397bf82)
 // ignore_for_file: type=lint, unused_element, unused_field, prefer_final_fields
 
 /// 后端端点路径与查询参数的契约映射：路径写错、必填查询参数漏传都会在编译期暴露。
 class ApiPaths {
   ApiPaths._();
 
-  static const String generatedFromSha256 = 'cbc74454037169ac9cb026ed32b18807e0d107cfb3f1946401b3de62780aa112';
+  static const String generatedFromSha256 = '7ec87cd38ffd367a84174f871d1f48d9bbc694f59397e96e012650f4d397bf82';
 
   /// GET /dispatch/events
   static const String dispatchEvents = '/dispatch/events';
@@ -52,8 +52,8 @@ class ApiPaths {
   /// GET /dispatch/orders/{orderId}/flight/track
   static const String dispatchOrdersFlightTrack = '/dispatch/orders/{orderId}/flight/track';
   static String dispatchOrdersFlightTrackPath(String orderId) => '/dispatch/orders/' + Uri.encodeComponent(orderId) + '/flight/track';
-  static Map<String, dynamic> dispatchOrdersFlightTrackQuery({int? after}) =>
-      <String, dynamic>{'after': after};
+  static Map<String, dynamic> dispatchOrdersFlightTrackQuery({int? after, int? limit}) =>
+      <String, dynamic>{'after': after, 'limit': limit};
 
   /// GET /equipment/pilot/drones
   static const String equipmentPilotDrones = '/equipment/pilot/drones';
@@ -280,19 +280,6 @@ class ApiPaths {
 
   /// GET /rider/stats
   static const String riderStats = '/rider/stats';
-
-  /// GET /rider/drone/list
-  static const String riderDroneList = '/rider/drone/list';
-
-  /// POST /rider/drone/bind
-  static const String riderDroneBind = '/rider/drone/bind';
-  static Map<String, dynamic> riderDroneBindQuery({required int aircraftModelId, required String djiId}) =>
-      <String, dynamic>{'aircraftModelId': aircraftModelId, 'djiId': djiId};
-
-  /// DELETE /rider/drone/unbind
-  static const String riderDroneUnbind = '/rider/drone/unbind';
-  static Map<String, dynamic> riderDroneUnbindQuery({int? aircraftModelId, required String djiId}) =>
-      <String, dynamic>{'aircraftModelId': aircraftModelId, 'djiId': djiId};
 
   /// GET /api/aircraft-models
   static const String apiAircraftModels = '/api/aircraft-models';
