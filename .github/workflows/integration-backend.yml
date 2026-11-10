@@ -1,0 +1,87 @@
+# App ↔ 真实 backend（profile=it）集成测试。
+# 不在普通 PR CI 中运行；仅 workflow_dispatch 与每晚定时。
+#
+# 流程：checkout app + backend main → 起 MySQL/LocalStack → 起 backend(it) →
+# flutter test integration_test（SKIP_TRTC）→ 拆除。
+name: Integration (backend it)
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_ref:
+        description: 'backend git ref（默认 main；联调未合入的 IT 种子分支时可改）'
+        required: false
+        default: main
+  schedule:
+    - cron: '30 17 * * *' # 01:30 Asia/Shanghai
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-it-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: app-backend-it
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          path: app
+          persist-credentials: false
+
+      - name: Checkout backend (main)
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          repository: UavPlatform/backend
+          ref: ${{ github.event.inputs.backend_ref || 'main' }}
+          path: backend
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521cba # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Flutter 3.47.7
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Start IT stack (MySQL + S3 + backend profile=it)
+        working-directory: backend
+        env:
+          APP_PORT: '8082'
+          MYSQL_PORT: '13307'
+          S3_PORT: '4567'
+        run: |
+          set -euo pipefail
+          bash tools/it/up.sh
+
+      - name: Resolve app dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Run integration tests against IT backend
+        working-directory: app
+        env:
+          IT_BASE_URL: http://127.0.0.1:8082
+        run: |
+          set -euo pipefail
+          flutter test integration_test/app_backend_it_test.dart \
+            --reporter expanded \
+            --dart-define=IT_BASE_URL=http://127.0.0.1:8082 \
+            --dart-define=SKIP_TRTC=true
+
+      - name: Tear down IT stack
+        if: always()
+        working-directory: backend
+        run: bash tools/it/down.sh
