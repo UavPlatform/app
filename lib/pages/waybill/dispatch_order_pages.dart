@@ -1,3 +1,4 @@
+import '../../utils/failure_message.dart';
 import 'dispatch_detail_surface.dart';
 import 'dispatch_order_app_bar.dart';
 import 'dispatch_map_home.dart';
@@ -10,11 +11,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/dispatch_order.dart';
+import 'dispatch_flight_panel.dart';
 import 'dispatch_fulfillment_pages.dart';
 import 'dispatch_price_card.dart';
 import 'dispatch_material_panel.dart';
 import '../../providers/dispatch_order_provider.dart';
 import '../../providers/waybill_draft_provider.dart';
+
+String _orderFailure(Object error) =>
+    failureMessage(error, fallback: '暂时无法获取最新运单状态，请刷新后重试');
 
 class DispatchOrderPage extends ConsumerWidget {
   const DispatchOrderPage({super.key, required this.orderId});
@@ -31,11 +36,11 @@ class DispatchOrderPage extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(error.toString()),
+                Text(_orderFailure(error), textAlign: TextAlign.center),
                 TextButton(
                   onPressed: () =>
                       ref.invalidate(dispatchOrderProvider(orderId)),
-                  child: const Text('重新查询订单'),
+                  child: const Text('刷新重试'),
                 ),
               ],
             ),
@@ -67,7 +72,14 @@ class DispatchDepositPage extends StatelessWidget {
     order: order,
     title: '待付定金',
     step: 0,
-    content: [const DispatchOrderGuide('支付定金后，开始为你匹配飞手。')],
+    content: [
+      const Text('应付定金'),
+      Text(
+        '¥${order.data.depositAmount!.toStringAsFixed(2)}',
+        style: Theme.of(context).textTheme.headlineMedium,
+      ),
+      const DispatchOrderGuide('支付后开始匹配飞手'),
+    ],
   );
 }
 
@@ -80,7 +92,8 @@ class DispatchWaitingPage extends StatelessWidget {
     title: '等待接单',
     step: 1,
     content: [
-      const DispatchOrderGuide('正在为你寻找飞手'),
+      const DispatchOrderGuide('正在匹配飞手'),
+      const Text('接单时间视附近飞手响应而定，接单后会通知你。'),
       DispatchNearbyStatus(order: order),
     ],
   );
@@ -94,10 +107,7 @@ class DispatchPreparingPage extends StatelessWidget {
     order: order,
     title: '飞手准备中',
     step: 2,
-    content: [
-      const DispatchOrderGuide('飞手正在前往起点，请保持电话畅通。'),
-      Text('接单飞手账号：${order.data.assignedPilotId}'),
-    ],
+    content: [const DispatchOrderGuide('飞手正在前往起点，请保持电话畅通。')],
   );
 }
 
@@ -111,7 +121,7 @@ class DispatchArrivedPage extends StatelessWidget {
     step: 3,
     content: [
       const DispatchOrderGuide('飞手已确认到场，请核对货物、包装、吊点和场地。'),
-      Text('接单飞手账号：${order.data.assignedPilotId}'),
+      DispatchFlightPanel(key: ValueKey(order.id), orderId: order.id),
       Text(
         '货物：${order.data.fields?['category']} · ${order.data.fields?['count']} 件',
       ),
@@ -131,11 +141,21 @@ class DispatchCancelledPage extends StatelessWidget {
     order: order,
     title: '运单已取消',
     content: [
-      DispatchOrderGuide(
-        order.data.fundsStatus == 'REFUNDED' ? '定金已全额退回。' : '本单未付款，无需退款。',
-      ),
+      const DispatchOrderGuide('货主已取消运单'),
+      Text(switch (order.data.fundsStatus) {
+        'REFUNDED' => '退款进度：定金已退还（模拟支付）',
+        'UNPAID' => '退款进度：未支付，无需退款',
+        _ => '退款进度：待确认，请刷新查看',
+      }),
     ],
   );
+}
+
+String _pilotLabel(DispatchOrder order) {
+  final id = order.data.assignedPilotId?.toString();
+  return id != null && id.length > 4
+      ? '接单飞手 · 尾号 ${id.substring(id.length - 4)}'
+      : '接单飞手';
 }
 
 class _OrderScaffold extends ConsumerWidget {
@@ -165,7 +185,6 @@ class _OrderScaffold extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
         spacing: 12,
         children: [
-          DispatchOrderStatusStrip(order: order, step: step),
           Card(
             margin: EdgeInsets.zero,
             child: Padding(
@@ -173,26 +192,43 @@ class _OrderScaffold extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 spacing: 12,
-                children: content,
+                children: [
+                  if (order.preparing || order.arrived)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _pilotLabel(order),
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                        ),
+                        Flexible(
+                          child: DispatchContactActions(
+                            order: order,
+                            chatOnly: true,
+                            compactChat: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ...content,
+                ],
               ),
             ),
           ),
+          DispatchOrderStatusStrip(order: order, step: step),
           DispatchOrderInformationLink(order: order),
           DispatchPriceCard(
             quote: order.data.bill?.quote,
             bill: order.data.bill,
             orderId: order.id,
+            order: order,
           ),
           if (!order.cancelled)
-            DispatchMaterialPanel(orderId: order.id, purpose: 'CARGO'),
-          if (!order.waiting && !order.awaitingDeposit && !order.cancelled)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: DispatchContactActions(
-                order: order,
-                chatOnly: true,
-                compactChat: true,
-              ),
+            DispatchMaterialPanel(
+              orderId: order.id,
+              purpose: 'CARGO',
+              stage: order.data.stage,
             ),
         ],
       ),
@@ -256,7 +292,7 @@ class _DispatchOrderActionsState extends ConsumerState<DispatchOrderActions> {
       ref.invalidate(dispatchOrdersProvider);
     } catch (error) {
       if (mounted && scope == ref.read(waybillDraftScopeProvider)) {
-        setState(() => _error = error.toString());
+        setState(() => _error = _orderFailure(error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -344,7 +380,7 @@ class DispatchOrderListPage extends ConsumerWidget {
           error: (error, stack) => Center(
             child: TextButton(
               onPressed: () => ref.invalidate(dispatchOrdersProvider),
-              child: Text('$error\n重新查询'),
+              child: Text('${_orderFailure(error)}\n刷新重试'),
             ),
           ),
           data: (orders) => tabRoot
@@ -405,13 +441,6 @@ class _DispatchOrdersEmpty extends StatelessWidget {
               height: 1.6,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-          ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            key: const ValueKey('create-first-dispatch'),
-            onPressed: () => context.push('/waybill/new'),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('创建第一单'),
           ),
         ],
       ),

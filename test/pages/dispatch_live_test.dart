@@ -120,7 +120,8 @@ void main() {
       );
       await tester.pump();
       expect(engine.exits, 1);
-      expect(find.text('飞手尚未开启本单直播，暂无画面'), findsOneWidget);
+      expect(find.text('本单直播已结束'), findsOneWidget);
+      expect(find.byType(AspectRatio), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await engine.stream.close();
     },

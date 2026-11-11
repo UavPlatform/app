@@ -120,25 +120,20 @@ void main() {
       expect(title.top, greaterThan(24));
       expect(tester.getTopLeft(find.byTooltip('复制运单号')).dy, greaterThan(80));
       expect(find.textContaining('13800000000').hitTestable(), findsWidgets);
-      final cancel = find.text('取消接单，重新派单');
-      final cancelBounds = tester.getRect(cancel);
-      await tester.scrollUntilVisible(
-        find.text('订单聊天'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await Scrollable.ensureVisible(
-        tester.element(find.text('订单聊天')),
-        alignment: 0.5,
-      );
-      await tester.pumpAndSettle();
       expect(find.text('订单聊天').hitTestable(), findsOneWidget);
-      expect(tester.getRect(cancel), cancelBounds);
+      expect(find.text('取消接单，重新派单').hitTestable(), findsNothing);
       expect(tester.getRect(arrival), bounds);
       expect(tester.takeException(), isNull);
       await tap(tester, '我已到场');
       await tap(tester, '确认');
       expect(find.byType(DispatchPilotArrivalPage), findsOneWidget);
+      expect(find.text('开始运输').hitTestable(), findsOneWidget);
+      expect(find.text('货物与吊点核对').hitTestable(), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('取消接单，重新派单'),
+        180,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tap(tester, '取消接单，重新派单');
       await tap(tester, '确认');
       expect(find.byType(DispatchPilotJobsPage), findsOneWidget);

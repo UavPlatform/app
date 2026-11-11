@@ -126,9 +126,7 @@ class _DispatchPilotHallPageState extends ConsumerState<DispatchPilotHallPage> {
                     itemCount: hall.items.length,
                     padding: const EdgeInsets.only(bottom: 16),
                     separatorHeight: 0,
-                    empty: DispatchHallEmptyState(
-                      onNearby: () => context.push('/pilot/dispatch/nearby'),
-                    ),
+                    empty: DispatchHallEmptyState(onRefresh: _refresh),
                     itemBuilder: (context, index) {
                       final offer = hall.items[index];
                       return DispatchHallOfferCard(
@@ -149,7 +147,7 @@ class DispatchPilotJobsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
     appBar: AppBar(
-      title: const Text('我的订单'),
+      title: const Text('接单记录'),
       leading: BackButton(
         onPressed: () =>
             context.canPop() ? context.pop() : context.go('/pilot/profile'),
@@ -165,24 +163,34 @@ class DispatchPilotJobsPage extends ConsumerWidget {
               child: Text('$error\n重新查询'),
             ),
           ),
-          data: (orders) => orders.isEmpty
-              ? ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  children: const [
-                    FlowEmptyState(
-                      title: '暂无当前指派订单',
-                      icon: Icons.assignment_outlined,
+          data: (orders) {
+            final pending = orders.where(
+              (order) => !order.completed && !order.cancelled,
+            );
+            final ended = orders.where(
+              (order) => order.completed || order.cancelled,
+            );
+            return FlowList(
+              children: [
+                if (orders.isEmpty) ...[
+                  const FlowEmptyState(
+                    title: '暂无当前指派订单',
+                    icon: Icons.assignment_outlined,
+                  ),
+                  Center(
+                    child: FilledButton(
+                      onPressed: () => context.go('/pilot/home'),
+                      child: const Text('返回接单大厅'),
                     ),
-                  ],
-                )
-              : FlowList(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('当前指派和需求方取消的最近50笔；主动退出后订单回到大厅。'),
-                    ),
-                    for (final order in orders)
+                  ),
+                ] else
+                  for (final (label, items) in [
+                    ('待执行', pending),
+                    ('已结束／已取消', ended),
+                  ]) ...[
+                    Text(label, style: Theme.of(context).textTheme.titleSmall),
+                    if (items.isEmpty) const Text('暂无记录'),
+                    for (final order in items)
                       DispatchOrderCard(
                         order: order,
                         onTap: () => context.push(
@@ -190,7 +198,9 @@ class DispatchPilotJobsPage extends ConsumerWidget {
                         ),
                       ),
                   ],
-                ),
+              ],
+            );
+          },
         ),
   );
 }

@@ -1,3 +1,4 @@
+import '../../providers/waybill_draft_provider.dart';
 import '../../widgets/profile_account_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,9 @@ class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final drafts = ref.watch(
+      waybillDraftProvider.select((state) => state.entries.length),
+    );
     final name = ref.watch(authProvider).user?.userName;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final text = dark ? const Color(0xFFF0F4FA) : const Color(0xFF111111);
@@ -109,7 +113,7 @@ class ProfilePage extends ConsumerWidget {
                       tint: const Color(0xFFFFF0E6),
                       color: const Color(0xFFFF6B00),
                       title: '草稿箱',
-                      subtitle: '管理多份运单草稿，继续填写',
+                      subtitle: drafts == 0 ? '暂无草稿' : '$drafts 份草稿 · 继续填写',
                       onTap: () => context.push('/drafts'),
                     ),
                     divider,

@@ -1,3 +1,4 @@
+import '../../providers/rider_info_provider.dart';
 import '../../widgets/profile_account_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,15 @@ class PilotProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
     final name = user?.userName ?? '飞手';
+    final qualifications = user == null ? null : ref.watch(riderInfoProvider);
+    final qualificationStatus = qualifications?.when(
+      data: (info) {
+        final count = info.qualifications?.length ?? 0;
+        return count == 0 ? '未登记' : '已登记 $count 项';
+      },
+      loading: () => '加载中',
+      error: (_, _) => '状态不可用',
+    );
     final dark = Theme.of(context).brightness == Brightness.dark;
     final surface = dark ? const Color(0xFF1B2735) : Colors.white;
     final text = dark ? const Color(0xFFF0F4FA) : const Color(0xFF111111);
@@ -76,6 +86,7 @@ class PilotProfilePage extends ConsumerWidget {
                       context,
                       icon: Icons.badge_outlined,
                       title: '飞手资料与驾驶资质',
+                      status: qualificationStatus,
                       onTap: () => context.push('/pilot/info'),
                     ),
                     const Divider(
@@ -155,12 +166,11 @@ class PilotProfilePage extends ConsumerWidget {
 
   Widget _buildQuickGrid(BuildContext context) {
     final items = [
-      (_Icons.shield, '飞手资料', () => context.push('/pilot/info')),
-      (_Icons.drone, '无人机租借', () => context.go('/pilot/equipment')),
-      (_Icons.jobs, '我的订单', () => context.push('/pilot/jobs')),
+      (_Icons.drone, '设备借用', () => context.go('/pilot/equipment')),
+      (_Icons.jobs, '接单记录', () => context.push('/pilot/jobs')),
     ];
-    const tints = [Color(0xFFE8F3FF), Color(0xFFE6F8F0), Color(0xFFFFF0E6)];
-    const accents = [Color(0xFF1D6FE9), Color(0xFF00B578), Color(0xFFFF6B00)];
+    const tints = [Color(0xFFE8F3FF), Color(0xFFE6F8F0)];
+    const accents = [Color(0xFF1D6FE9), Color(0xFF00B578)];
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -226,6 +236,7 @@ class PilotProfilePage extends ConsumerWidget {
     BuildContext context, {
     required IconData icon,
     required String title,
+    String? status,
     VoidCallback? onTap,
   }) => InkWell(
     onTap: onTap,
@@ -255,6 +266,8 @@ class PilotProfilePage extends ConsumerWidget {
               ),
             ),
           ),
+          if (status != null)
+            Text(status, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(width: 8),
           const Icon(
             Icons.chevron_right_rounded,
@@ -269,7 +282,6 @@ class PilotProfilePage extends ConsumerWidget {
 
 class _Icons {
   _Icons._();
-  static const shield = Icons.verified_outlined;
   static const drone = Icons.flight;
   static const jobs = Icons.assignment_outlined;
 }

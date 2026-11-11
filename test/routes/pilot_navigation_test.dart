@@ -33,7 +33,7 @@ void main() {
       );
       expect(find.byType(DispatchPilotHallPage), findsOneWidget);
       expect(find.text('选择下一步'), findsNothing);
-      expect(find.text('我的订单'), findsNothing);
+      expect(find.text('接单记录'), findsNothing);
       final router = container.read(goRouterProvider);
       router.go('/pilot/tasks');
       await tester.pumpAndSettle();
@@ -46,7 +46,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(PilotProfilePage), findsOneWidget);
-      await tester.tap(find.text('我的订单'));
+      await tester.tap(find.text('接单记录'));
       await tester.pumpAndSettle();
       expect(find.byType(DispatchPilotJobsPage), findsOneWidget);
       expect(router.canPop(), isTrue);

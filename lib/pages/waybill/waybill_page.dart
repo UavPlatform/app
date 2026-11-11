@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../models/waybill_draft.dart';
 import '../../providers/waybill_draft_provider.dart';
 import 'waybill_review.dart';
 import 'waybill_summary.dart';
@@ -62,7 +63,11 @@ class _WaybillPageState extends ConsumerState<WaybillPage> {
       setState(() => _errors = {});
       return;
     }
-    final saved = await editWaybillGroup(context, group);
+    final saved = await editWaybillGroup(
+      context,
+      group,
+      initialErrors: _errors,
+    );
     if (mounted && saved == true) setState(() => _errors = {});
   }
 
@@ -72,28 +77,50 @@ class _WaybillPageState extends ConsumerState<WaybillPage> {
     if (_scroll.hasClients) _scroll.jumpTo(0);
   }
 
+  WaybillDraft _sharedContact(WaybillDraft draft) {
+    // A submitted draft must retain its original payload for idempotent retries.
+    return draft.value('submission.requestKey').isEmpty
+        ? WaybillEditGroup.withSharedContact(draft)
+        : draft;
+  }
+
   void _next() {
-    final draft = ref.read(waybillDraftProvider).draft;
+    final draft = _sharedContact(ref.read(waybillDraftProvider).draft);
     final errors = <String, String>{};
     for (var i = 0; i < 4; i++) {
       final sectionErrors = draft.errorsFor(i);
       errors.addAll(sectionErrors);
     }
-    errors.addAll(WaybillEditGroup.contact.errors(draft));
     if (errors.isNotEmpty) {
       setState(() => _errors = errors);
-      _edit(
-        WaybillEditGroup.all.firstWhere(
-          (group) => group.keys.any(errors.containsKey),
-        ),
-      );
+      final first = WaybillEditGroup.all
+          .where((group) => group.keys.any(errors.containsKey))
+          .firstOrNull;
+      if (first != null) {
+        if (first.id.endsWith('.location')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(first.errors(draft).values.first)),
+          );
+        }
+        _edit(first);
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errors.values.first)));
+      }
       return;
     }
-    _move(4);
+    ref.read(waybillDraftProvider.notifier).replace(draft.atStep(4));
+    setState(() => _errors = {});
+    if (_scroll.hasClients) _scroll.jumpTo(0);
   }
 
   Future<void> _save() async {
-    final ok = await ref.read(waybillDraftProvider.notifier).save();
+    final notifier = ref.read(waybillDraftProvider.notifier);
+    final current = ref.read(waybillDraftProvider).draft;
+    final draft = _sharedContact(current);
+    if (!identical(draft, current)) notifier.replace(draft);
+    final ok = await notifier.save();
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
@@ -109,7 +136,7 @@ class _WaybillPageState extends ConsumerState<WaybillPage> {
       if (previous != next && _errors.isNotEmpty) setState(() => _errors = {});
     });
     final state = ref.watch(waybillDraftProvider);
-    final draft = state.draft;
+    final draft = _sharedContact(state.draft);
     final step = draft.step == 4 ? 4 : 0;
     final scope = ref.watch(waybillDraftScopeProvider);
     return Theme(
@@ -163,35 +190,37 @@ class _WaybillPageState extends ConsumerState<WaybillPage> {
                 ),
               ),
             Expanded(
-              child: SingleChildScrollView(
-                controller: _scroll,
-                padding: step == 4
-                    ? const EdgeInsets.fromLTRB(16, 8, 16, 12)
-                    : const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  children: [
-                    KeyedSubtree(
-                      key: ValueKey('$scope/$step/${state.formRevision}'),
-                      child: step == 4
-                          ? WaybillReview(draft: draft)
-                          : WaybillSummary(
+              child: step == 4
+                  ? DispatchCheckoutCard(
+                      key: ValueKey(
+                        '$scope/${state.activeId}/${state.formRevision}',
+                      ),
+                      draft: draft,
+                      compact: true,
+                      review: WaybillReview(draft: draft),
+                      scrollController: _scroll,
+                    )
+                  : SingleChildScrollView(
+                      controller: _scroll,
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        children: [
+                          KeyedSubtree(
+                            key: ValueKey('$scope/$step/${state.formRevision}'),
+                            child: WaybillSummary(
                               draft: draft,
                               errors: _errors,
                               onEdit: _edit,
                             ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-              ),
             ),
           ],
         ),
         bottomNavigationBar: step == 4
-            ? DispatchCheckoutCard(
-                key: ValueKey('$scope/${state.activeId}/${state.formRevision}'),
-                draft: draft,
-                compact: true,
-              )
+            ? null
             : DecoratedBox(
                 decoration: const BoxDecoration(
                   color: Colors.white,

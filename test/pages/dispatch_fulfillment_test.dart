@@ -59,26 +59,22 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final button = find.widgetWithText(
+      final upload = find.widgetWithText(
         FilledButton,
-        pilot ? '确认送达' : '确认收货并结单',
+        pilot ? '上传送达凭证' : '上传收货凭证',
       );
       expect(find.byTooltip('复制运单号').hitTestable(), findsOneWidget);
       expect(find.text('进度 ${pilot ? 5 : 6} / 7'), findsOneWidget);
-      final bounds = tester.getRect(button);
-      expect(bounds.bottom, lessThanOrEqualTo(696));
-      if (!pilot) {
-        final cancel = find.widgetWithText(OutlinedButton, '取消运单');
-        expect(tester.getRect(cancel).width, closeTo(bounds.width, 1));
-        expect(tester.getRect(cancel).center.dy, closeTo(bounds.center.dy, 1));
-      }
-      expect(tester.widget<FilledButton>(button).onPressed, isNull);
-      await tester.scrollUntilVisible(
-        find.byType(Checkbox),
-        200,
-        scrollable: find.byType(Scrollable).first,
+      final bottom = tester.getRect(upload).bottom;
+      expect(bottom, lessThanOrEqualTo(696));
+      expect(tester.widget<FilledButton>(upload).onPressed, isNotNull);
+      expect(
+        find.text(pilot ? '需上传并核验凭证后确认送达' : '需上传并核验凭证后结单'),
+        findsOneWidget,
       );
-      expect(tester.getRect(button), bounds);
+      await tester.tap(upload);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(upload).bottom, bottom);
       await Scrollable.ensureVisible(
         tester.element(find.byType(Checkbox)),
         alignment: 0.5,
@@ -87,7 +83,11 @@ void main() {
       expect(find.byType(Checkbox).hitTestable(), findsOneWidget);
       await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
-      expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
+      final confirm = find.widgetWithText(
+        FilledButton,
+        '${pilot ? '确认送达' : '确认收货并结单'}（已核验 1 项）',
+      );
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
       expect(tester.takeException(), isNull);
     });
   }

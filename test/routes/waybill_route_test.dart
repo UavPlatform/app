@@ -66,12 +66,12 @@ void main() {
       router.push('/waybill/new');
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
-        find.text('检查并评估运单'),
+        find.text('检查运单'),
         160,
         scrollable: find.byType(Scrollable).last,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('检查并评估运单'));
+      await tester.tap(find.text('检查运单'));
       await tester.pumpAndSettle();
       expect(find.text(blocker), findsOneWidget);
       await tester.tap(find.byTooltip('更多订单操作'));
@@ -110,7 +110,15 @@ void main() {
       );
       expect(nav.items.map((item) => item.label), ['首页', '创建订单', '我的']);
       expect(nav.currentIndex, 0);
-      await tester.tap(find.text('创建第一单'));
+      expect(find.text('创建第一单'), findsNothing);
+      await tester.ensureVisible(find.text('查看全部运单'));
+      await tester.tap(find.text('查看全部运单'));
+      await tester.pumpAndSettle();
+      expect(find.text('我的派单运单'), findsOneWidget);
+      expect(find.byType(BottomNavigationBar), findsNothing);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('创建订单'));
       await tester.pumpAndSettle();
       expect(find.byType(WaybillPage), findsOneWidget);
       expect(find.byType(BottomNavigationBar), findsNothing);
