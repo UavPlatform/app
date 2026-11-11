@@ -76,9 +76,39 @@ class _DispatchFulfillmentShellState
   List<String> _materials = [];
   int _score = 5;
   final _comment = TextEditingController();
+  final _scroll = ScrollController();
+  final _materialAnchor = GlobalKey();
+
+  void _showMaterials() {
+    final target = _materialAnchor.currentContext;
+    if (target != null) {
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 250),
+      );
+    } else if (_scroll.hasClients) {
+      _scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant DispatchFulfillmentShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.order.id != widget.order.id ||
+        oldWidget.pilot != widget.pilot ||
+        oldWidget.order.data.stage != widget.order.data.stage) {
+      _materials = [];
+    }
+  }
+
   @override
   void dispose() {
     _comment.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -226,6 +256,34 @@ class _DispatchFulfillmentShellState
         : !widget.pilot && order.confirming
         ? 'SHIPPER_RECEIPT'
         : null;
+    final balanceDue =
+        !widget.pilot &&
+        order.completed &&
+        order.data.fundsStatus == 'BALANCE_DUE';
+    final balance = bill?.balanceAmount;
+    final paymentLabel = balance == null
+        ? '支付尾款'
+        : '支付尾款 ¥${balance.toStringAsFixed(2)}';
+    final missingProof = purpose != null && _materials.isEmpty;
+    final confirmation = widget.pilot ? '确认送达' : '确认收货并结单';
+    final actionLabel = balanceDue
+        ? paymentLabel
+        : missingProof
+        ? (widget.pilot ? '上传送达凭证' : '上传收货凭证')
+        : '$confirmation（已核验 ${_materials.length} 项）';
+    final materials = KeyedSubtree(
+      key: _materialAnchor,
+      child: DispatchMaterialPanel(
+        key: ValueKey('${order.id}:$purpose'),
+        orderId: order.id,
+        purpose: purpose,
+        stage: order.data.stage,
+        initialSelected: _materials,
+        onSelected: purpose == null
+            ? null
+            : (ids) => setState(() => _materials = ids),
+      ),
+    );
     return Theme(
       data: dispatchDetailTheme(Theme.of(context)),
       child: Scaffold(
@@ -239,18 +297,10 @@ class _DispatchFulfillmentShellState
               context.go(widget.pilot ? '/pilot/jobs' : '/dispatch/orders'),
         ),
         bottomNavigationBar:
-            purpose == null &&
-                (widget.pilot || order.completed) &&
-                !_busy &&
-                _error == null
+            purpose == null && !balanceDue && !_busy && _error == null
             ? null
-            : DecoratedBox(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                    top: BorderSide(color: Color(0xFFEEEEEE), width: 0.8),
-                  ),
-                ),
+            : Material(
+                color: Colors.white,
                 child: SafeArea(
                   top: false,
                   child: Padding(
@@ -271,60 +321,42 @@ class _DispatchFulfillmentShellState
                               color: Theme.of(context).colorScheme.error,
                             ),
                           ),
-                        Row(
-                          spacing: 12,
-                          children: [
-                            if (!widget.pilot && !order.completed)
-                              Expanded(
-                                child: DispatchOrderOutlineAction(
-                                  onPressed: _busy ? null : () => _act('取消运单'),
-                                  label: '取消运单',
-                                ),
-                              ),
-                            if (purpose != null)
-                              Expanded(
-                                child: FilledButton(
-                                  onPressed: _busy || _materials.isEmpty
-                                      ? null
-                                      : () => _act(
-                                          widget.pilot ? '确认送达' : '确认收货并结单',
-                                        ),
-                                  style: FilledButton.styleFrom(
-                                    minimumSize: const Size(0, 46),
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    backgroundColor: const Color(0xFF1D6FE9),
-                                    foregroundColor: Colors.white,
-                                    disabledBackgroundColor: const Color(
-                                      0xFFE5E7EB,
-                                    ),
-                                    disabledForegroundColor: const Color(
-                                      0xFF9CA3AF,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    textStyle: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                        if (missingProof)
+                          Text(
+                            widget.pilot ? '需上传并核验凭证后确认送达' : '需上传并核验凭证后结单',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        if (purpose != null || balanceDue)
+                          FilledButton(
+                            onPressed: _busy
+                                ? null
+                                : missingProof
+                                ? _showMaterials
+                                : () => _act(
+                                    balanceDue ? '模拟支付尾款' : confirmation,
                                   ),
-                                  child: Text(
-                                    widget.pilot ? '确认送达' : '确认收货并结单',
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                            child: Text(
+                              actionLabel,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                       ],
                     ),
                   ),
                 ),
               ),
         body: FlowList(
+          controller: _scroll,
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
           spacing: 6,
           children: [
+            if (balanceDue)
+              DispatchPriceCard(
+                quote: bill?.quote,
+                bill: bill,
+                orderId: order.id,
+                order: order,
+              ),
             DispatchOrderStatusStrip(
               order: order,
               step: order.transporting
@@ -333,6 +365,7 @@ class _DispatchFulfillmentShellState
                   ? 5
                   : 6,
             ),
+            if (purpose != null) materials,
             if (order.transporting) ...[
               DispatchFlightPanel(
                 key: ValueKey(order.id),
@@ -379,12 +412,14 @@ class _DispatchFulfillmentShellState
                   ],
                 ),
               ),
-              DispatchPriceCard(
-                quote: bill?.quote,
-                bill: bill,
-                orderId: order.id,
-                pilot: widget.pilot,
-              ),
+              if (!balanceDue)
+                DispatchPriceCard(
+                  quote: bill?.quote,
+                  bill: bill,
+                  orderId: order.id,
+                  order: order,
+                  pilot: widget.pilot,
+                ),
             ] else
               Card(
                 margin: EdgeInsets.zero,
@@ -396,6 +431,7 @@ class _DispatchFulfillmentShellState
                       quote: bill?.quote,
                       bill: bill,
                       orderId: order.id,
+                      order: order,
                       pilot: widget.pilot,
                       compact: true,
                     ),
@@ -415,14 +451,7 @@ class _DispatchFulfillmentShellState
                 hideChat: true,
                 compactNavigation: true,
               ),
-            DispatchMaterialPanel(
-              key: ValueKey('${order.id}:$purpose'),
-              orderId: order.id,
-              purpose: purpose,
-              onSelected: purpose == null
-                  ? null
-                  : (ids) => setState(() => _materials = ids),
-            ),
+            if (purpose == null) materials,
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: DispatchContactActions(
@@ -432,12 +461,15 @@ class _DispatchFulfillmentShellState
                 compactChat: true,
               ),
             ),
-            if (order.completed) ...[
-              if (!widget.pilot && order.data.fundsStatus == 'BALANCE_DUE')
-                FilledButton(
-                  onPressed: _busy ? null : () => _act('模拟支付尾款'),
-                  child: const Text('支付尾款'),
+            if (!widget.pilot && !order.completed)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _busy ? null : () => _act('取消运单'),
+                  child: const Text('取消运单'),
                 ),
+              ),
+            if (order.completed) ...[
               if (bill?.reviewScore != null)
                 Text('评价：${bill!.reviewScore} 分\n${bill.reviewComment ?? ''}')
               else if (!widget.pilot &&

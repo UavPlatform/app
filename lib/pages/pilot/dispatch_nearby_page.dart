@@ -1,4 +1,5 @@
 import '../../widgets/flow_ui.dart';
+import 'dispatch_hall_ui.dart';
 import '../../widgets/infinite_list.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -31,6 +32,7 @@ class _NearbyBody extends ConsumerStatefulWidget {
 class _NearbyBodyState extends ConsumerState<_NearbyBody>
     with WidgetsBindingObserver {
   bool _enabled = false, _claiming = false, _stopping = false;
+  bool _locationFailed = false, _stopUnconfirmed = false;
   bool _foreground = true, _routeActive = false;
   int _epoch = 0;
   String? _error;
@@ -127,12 +129,16 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
       if (!current()) return;
       setState(() {
         _position = result;
+        _locationFailed = false;
         _error = null;
       });
       ref.invalidate(dispatchNearbyHallProvider);
     } catch (_) {
       if (current()) {
-        setState(() => _error = '位置更新失败，请检查定位权限、定位开关和网络后重试。过期位置不会用于附近匹配。');
+        setState(() {
+          _locationFailed = true;
+          _error = '位置更新失败，请检查定位权限和网络';
+        });
       }
     } finally {
       if (current()) _timer = Timer(const Duration(seconds: 60), _refresh);
@@ -143,6 +149,7 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
     if (_stopping) return;
     setState(() {
       _enabled = true;
+      _locationFailed = false;
       _error = null;
     });
     await _refresh();
@@ -165,11 +172,17 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
       if (!mounted || scope != ref.read(waybillDraftScopeProvider)) return;
       await ref.read(dispatchNearbyApiProvider).clear(key);
       if (mounted && scope == ref.read(waybillDraftScopeProvider)) {
-        setState(() => _error = null);
+        setState(() {
+          _stopUnconfirmed = false;
+          _error = null;
+        });
       }
     } catch (_) {
       if (mounted && scope == ref.read(waybillDraftScopeProvider)) {
-        setState(() => _error = '停止结果未确认，请重试停止；此前有效期内的位置仍可能参与站内匹配。');
+        setState(() {
+          _stopUnconfirmed = true;
+          _error = '暂停结果未确认，请重试';
+        });
       }
     } finally {
       if (mounted) setState(() => _stopping = false);
@@ -213,11 +226,6 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
         ),
       );
     }
-    if (hall.locationState != null && hall.locationState != 'READY') {
-      return Center(
-        child: TextButton(onPressed: _refresh, child: const Text('位置已失效，重新定位')),
-      );
-    }
     return Column(
       children: [
         Padding(
@@ -246,23 +254,11 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
             ),
             itemBuilder: (context, index) {
               final item = hall.items[index];
-              return Card(
-                child: ListTile(
-                  selected: item.offer!.orderId == widget.orderId,
-                  title: Text(
-                    '${item.offer!.fields!['category']} · 距起点约 ${item.distanceMeters!.toStringAsFixed(0)} 米',
-                  ),
-                  subtitle: Text(
-                    '${item.offer!.fields!['start.site']} → ${item.offer!.fields!['end.site']}\n${dispatchWeightLabel(item.offer!.fields!)} · 飞手服务费 ¥${item.offer!.pilotServiceFee}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  isThreeLine: true,
-                  trailing: TextButton(
-                    onPressed: _claiming ? null : () => _claim(item),
-                    child: const Text('接单'),
-                  ),
-                ),
+              return DispatchHallOfferCard(
+                offer: DispatchOffer(item.offer!),
+                distanceMeters: item.distanceMeters,
+                highlighted: item.offer!.orderId == widget.orderId,
+                onClaim: _claiming ? null : () => _claim(item),
               );
             },
           ),
@@ -272,45 +268,69 @@ class _NearbyBodyState extends ConsumerState<_NearbyBody>
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('附近订单')),
-    body: Column(
-      children: [
-        const Padding(
-          padding: EdgeInsets.all(12),
-          child: Text(
-            '开启后，仅在本页前台定期更新位置，用于附近订单和站内新单通知。离开后停止更新，位置在有效期结束后失效。可随时停止并清除最新位置。手机系统推送尚未接入。',
-          ),
-        ),
-        Wrap(
-          spacing: 12,
-          children: [
-            FilledButton(
-              onPressed: _enabled || _stopping ? null : _start,
-              child: const Text('开启附近接单'),
+  Widget build(BuildContext context) {
+    final locationState = _enabled && _position != null
+        ? ref.watch(dispatchNearbyHallProvider).locationState
+        : null;
+    final expiresAt = _position?.expiresAt;
+    final needsLocation =
+        _enabled &&
+        (_locationFailed ||
+            (expiresAt != null &&
+                expiresAt <= DateTime.now().millisecondsSinceEpoch) ||
+            (locationState != null && locationState != 'READY'));
+    final action = _stopping
+        ? '正在暂停…'
+        : _stopUnconfirmed
+        ? '重试暂停'
+        : needsLocation
+        ? '重新定位'
+        : _enabled
+        ? '暂停听单'
+        : '开始听单';
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('附近订单'),
+        actions: [
+          if (needsLocation)
+            PopupMenuButton<void>(
+              tooltip: '听单选项',
+              itemBuilder: (_) => [
+                PopupMenuItem(onTap: _stop, child: const Text('暂停听单')),
+              ],
             ),
-            TextButton(
-              onPressed: _stopping ? null : _stop,
-              child: Text(_stopping ? '正在停止…' : '停止并清除位置'),
-            ),
-            if (_enabled)
-              TextButton(
-                onPressed: () {
-                  _refresh();
-                  ref.invalidate(dispatchNearbyHallProvider);
-                },
-                child: const Text('重新定位'),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _stopping
+                    ? null
+                    : _stopUnconfirmed
+                    ? _stop
+                    : needsLocation
+                    ? _refresh
+                    : _enabled
+                    ? _stop
+                    : _start,
+                child: Text(action),
               ),
-          ],
-        ),
-        if (_enabled && _position == null)
-          const Text('正在定位；定位失败时不会使用默认坐标或显示全部订单。'),
-        if (_error != null)
-          Padding(padding: const EdgeInsets.all(8), child: Text(_error!)),
-        if (widget.orderId != null)
-          const Text('来自历史派单通知。通知中的订单若未列出，可能已被接走、取消或离开附近范围。'),
-        if (_enabled && _position != null) Expanded(child: _buildHall()),
-      ],
-    ),
-  );
+            ),
+          ),
+          if (_error != null)
+            Padding(padding: const EdgeInsets.all(8), child: Text(_error!))
+          else if (needsLocation)
+            const Text('位置已失效')
+          else if (_enabled && _position == null)
+            const Text('正在定位…'),
+          if (_enabled && _position != null && !needsLocation)
+            Expanded(child: _buildHall()),
+        ],
+      ),
+    );
+  }
 }

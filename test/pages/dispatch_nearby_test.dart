@@ -96,14 +96,14 @@ void main() {
           ),
         );
         expect(location.pending, isEmpty);
-        await tester.tap(find.text('开启附近接单'));
+        await tester.tap(find.text('开始听单'));
         await tester.pumpAndSettle();
         expect(location.pending.length, 1);
         if (changeAccount) {
           container.read(scope.notifier).state = 'b';
           await tester.pump();
         } else {
-          await tester.tap(find.text('停止并清除位置'));
+          await tester.tap(find.text('暂停听单'));
           await tester.pump();
         }
         location.pending.single.complete(
@@ -138,7 +138,7 @@ void main() {
           child: const MaterialApp(home: DispatchNearbyPage()),
         ),
       );
-      await tester.tap(find.text('开启附近接单'));
+      await tester.tap(find.text('开始听单'));
       await tester.pumpAndSettle();
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       location.pending.first.complete(DispatchLocationFix.fromMap(validFix()));

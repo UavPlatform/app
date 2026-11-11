@@ -48,23 +48,27 @@ void main() {
 
       expect(find.text('支付成功'), findsOneWidget);
       expect(find.text('您的任务已支付成功，等待飞手接单'), findsOneWidget);
-      expect(find.text('9-12 09:48'), findsOneWidget, reason: "展示时间戳");
+      expect(find.text('09-12 09:48'), findsOneWidget, reason: "展示时间戳");
       expect(find.byIcon(Icons.payments_outlined), findsOneWidget);
     });
 
-    testWidgets('TASK_ACCEPTED / TASK_CANCELLED / TASK_COMPLETED 事件标签',
-        (tester) async {
+    testWidgets('TASK_ACCEPTED / TASK_CANCELLED / TASK_COMPLETED 事件标签', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: ListView(
               children: [
                 SystemMessageCard(
-                    message: systemMessage(name: 'TASK_ACCEPTED')),
+                  message: systemMessage(name: 'TASK_ACCEPTED'),
+                ),
                 SystemMessageCard(
-                    message: systemMessage(name: 'TASK_CANCELLED')),
+                  message: systemMessage(name: 'TASK_CANCELLED'),
+                ),
                 SystemMessageCard(
-                    message: systemMessage(name: 'TASK_COMPLETED')),
+                  message: systemMessage(name: 'TASK_COMPLETED'),
+                ),
               ],
             ),
           ),
@@ -76,17 +80,18 @@ void main() {
       expect(find.text('任务已完成'), findsOneWidget);
     });
 
-    testWidgets('ORDER_WAITING_CONFIRM / ORDER_CONFIRMED 事件标签',
-        (tester) async {
+    testWidgets('ORDER_WAITING_CONFIRM / ORDER_CONFIRMED 事件标签', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: ListView(
               children: [
                 SystemMessageCard(
-                    message: systemMessage(name: 'ORDER_WAITING_CONFIRM')),
+                  message: systemMessage(name: 'ORDER_WAITING_CONFIRM'),
+                ),
                 SystemMessageCard(
-                    message: systemMessage(name: 'ORDER_CONFIRMED')),
+                  message: systemMessage(name: 'ORDER_CONFIRMED'),
+                ),
               ],
             ),
           ),
@@ -125,7 +130,13 @@ void main() {
                 'sessionId': 99,
                 'msgType': 1,
                 'fromUserId': 0,
-                'timestamp': DateTime(2026, 9, 12, 9, 48).millisecondsSinceEpoch,
+                'timestamp': DateTime(
+                  2026,
+                  9,
+                  12,
+                  9,
+                  48,
+                ).millisecondsSinceEpoch,
                 'payload': {'type': 'NOTICE', 'name': 'ORDER_PAID'},
               }),
             ),

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/dispatch_order.dart';
 import '../waybill/dispatch_fulfillment_pages.dart';
 import '../waybill/dispatch_price_card.dart';
+import '../waybill/dispatch_material_panel.dart';
 import '../../providers/dispatch_order_provider.dart';
 import '../../providers/waybill_draft_provider.dart';
 import '../../services/phone_dialer.dart';
@@ -84,85 +85,104 @@ class _PilotOrderShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fields = order.data.fields ?? {};
-    return Scaffold(
+    String siteCondition(String side) => fields['$side.landing'] == 'yes'
+        ? '可降落'
+        : fields['$side.winchMin'] != null && fields['$side.winchMax'] != null
+        ? '绞盘 ${fields['$side.winchMin']}–${fields['$side.winchMax']} m'
+        : '待核对';
+    final cargo = _workCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 6,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.inventory_2_outlined, size: 17, color: _ink),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '货物与吊点核对',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: _ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          _cargoLine(
+            '货物规格',
+            '${fields['category']} · ${dispatchWeightLabel(fields)} · ${fields['count']} 件',
+          ),
+          _cargoLine(
+            '外箱尺寸',
+            '${fields['length']} × ${fields['width']} × ${fields['height']} cm',
+          ),
+          _cargoLine(
+            '包装与吊点',
+            '包装 ${fields['packaging']}  |  吊点：${fields['lifting']}',
+          ),
+          if (order.arrived)
+            _cargoLine(
+              '场地条件',
+              '起点${siteCondition('start')} · 终点${siteCondition('end')}',
+            ),
+        ],
+      ),
+    );
+    Widget site(String side) => _workCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 8,
+        children: [
+          _siteRow(context, ref, fields, side),
+          const Text(
+            '地面导航，仅供前往现场参考',
+            style: TextStyle(fontSize: 11, color: Color(0xFF888888)),
+          ),
+        ],
+      ),
+    );
+    Widget page(Widget? bottom, Widget? release) => Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: DispatchOrderAppBar(
         title: title,
         onRefresh: () => ref.invalidate(dispatchPilotOrderProvider(order.id)),
         onReturn: () => context.go('/pilot/jobs'),
       ),
-      bottomNavigationBar: order.cancelled
-          ? null
-          : _PilotOrderActions(order: order),
+      bottomNavigationBar: bottom,
       body: FlowList(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
         spacing: 12,
         children: [
+          if (order.arrived) cargo else site('start'),
+          if (order.arrived)
+            DispatchMaterialPanel(orderId: order.id, stage: order.data.stage),
           DispatchOrderStatusStrip(order: order, step: step),
-          _workCard(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DispatchOrderGuide(
-                  order.cancelled
-                      ? '需求方已取消，请停止继续执行。'
-                      : '请联系现场人员核对货物与场地，连机飞行请在 DJI Fly 完成',
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '地面出行导航（不用于无人机航线规划）',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF999999)),
-                ),
-                const SizedBox(height: 10),
-                _siteRow(context, ref, fields, 'start'),
-                const Divider(height: 24, color: Color(0xFFF0F2F5)),
-                _siteRow(context, ref, fields, 'end'),
-              ],
-            ),
+          Text(
+            order.cancelled
+                ? '需求方已取消，请停止执行'
+                : order.arrived
+                ? '开始运输后可上传送达凭证'
+                : '到达起点后确认到场',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
-          _workCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 6,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.inventory_2_outlined, size: 17, color: _ink),
-                    SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '货物与吊点核对',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: _ink,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                _cargoLine(
-                  '货物规格',
-                  '${fields['category']} · ${dispatchWeightLabel(fields)} · ${fields['count']} 件',
-                ),
-                _cargoLine(
-                  '外箱尺寸',
-                  '${fields['length']} × ${fields['width']} × ${fields['height']} cm',
-                ),
-                _cargoLine(
-                  '包装与吊点',
-                  '包装 ${fields['packaging']}  |  吊点：${fields['lifting']}',
-                ),
-              ],
-            ),
-          ),
+          if (order.arrived) site('start'),
+          site('end'),
+          if (!order.arrived) cargo,
           _workCard(
             padding: EdgeInsets.zero,
             child: Column(
               children: [
-                DispatchPriceCard(quote: order.data.bill?.quote, compact: true),
+                DispatchPriceCard(
+                  quote: order.data.bill?.quote,
+                  orderId: order.id,
+                  order: order,
+                  pilot: true,
+                  compact: true,
+                ),
                 const Divider(height: 1, color: Color(0xFFF0F2F5)),
                 DispatchOrderInformationLink(
                   order: order,
@@ -177,19 +197,14 @@ class _PilotOrderShell extends ConsumerWidget {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
           ),
-          if (!order.cancelled)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: DispatchContactActions(
-                order: order,
-                pilot: true,
-                chatOnly: true,
-                compactChat: true,
-              ),
-            ),
+          if (release != null)
+            Align(alignment: Alignment.centerRight, child: release),
         ],
       ),
     );
+    return order.cancelled
+        ? page(null, null)
+        : _PilotOrderActions(order: order, builder: page);
   }
 
   Widget _siteRow(
@@ -376,8 +391,9 @@ Widget _workCard({
 );
 
 class _PilotOrderActions extends ConsumerStatefulWidget {
-  const _PilotOrderActions({required this.order});
+  const _PilotOrderActions({required this.order, required this.builder});
   final DispatchOrder order;
+  final Widget Function(Widget bottom, Widget release) builder;
   @override
   ConsumerState<_PilotOrderActions> createState() => _PilotOrderActionsState();
 }
@@ -463,7 +479,7 @@ class _PilotOrderActionsState extends ConsumerState<_PilotOrderActions> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
     );
-    return DecoratedBox(
+    final bottom = DecoratedBox(
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Color(0xFFEEEEEE), width: 0.8)),
@@ -485,9 +501,11 @@ class _PilotOrderActionsState extends ConsumerState<_PilotOrderActions> {
                 spacing: 12,
                 children: [
                   Expanded(
-                    child: DispatchOrderOutlineAction(
-                      onPressed: _busy ? null : () => _act(true),
-                      label: _busy ? '处理中…' : '取消接单，重新派单',
+                    child: DispatchContactActions(
+                      order: widget.order,
+                      pilot: true,
+                      chatOnly: true,
+                      compactChat: true,
                     ),
                   ),
                   if (widget.order.preparing)
@@ -505,7 +523,7 @@ class _PilotOrderActionsState extends ConsumerState<_PilotOrderActions> {
                         onPressed: _busy
                             ? null
                             : () => _act(false, start: true),
-                        child: const Text('确认开始运输'),
+                        child: const Text('开始运输'),
                       ),
                     ),
                 ],
@@ -513,6 +531,13 @@ class _PilotOrderActionsState extends ConsumerState<_PilotOrderActions> {
             ],
           ),
         ),
+      ),
+    );
+    return widget.builder(
+      bottom,
+      TextButton(
+        onPressed: _busy ? null : () => _act(true),
+        child: const Text('取消接单，重新派单'),
       ),
     );
   }

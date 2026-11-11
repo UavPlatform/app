@@ -274,7 +274,7 @@ class _DispatchMapHomeState extends State<DispatchMapHome> {
                               style: TextButton.styleFrom(
                                 foregroundColor: hudTeal,
                               ),
-                              child: const Text('全部订单'),
+                              child: const Text('清除筛选'),
                             ),
                           if (_stop == null)
                             const Icon(
@@ -285,6 +285,14 @@ class _DispatchMapHomeState extends State<DispatchMapHome> {
                         ],
                       ),
                       const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () =>
+                              context.push('/dispatch/orders?view=list'),
+                          child: const Text('查看全部运单'),
+                        ),
+                      ),
                       if (widget.orders.isEmpty) ...[
                         const Icon(Icons.inventory_2_outlined, size: 34),
                         const SizedBox(height: 12),
@@ -303,17 +311,6 @@ class _DispatchMapHomeState extends State<DispatchMapHome> {
                             '发起吊运，进度随时可查',
                             textAlign: TextAlign.center,
                           ),
-                        ),
-                        const SizedBox(height: 18),
-                        FilledButton.icon(
-                          key: const ValueKey('create-first-dispatch'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: hudAmber,
-                            foregroundColor: Colors.white,
-                          ),
-                          onPressed: () => context.push('/waybill/new'),
-                          icon: const Icon(Icons.add),
-                          label: const Text('创建第一单'),
                         ),
                       ],
                       if (missing > 0)

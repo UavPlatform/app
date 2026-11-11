@@ -45,6 +45,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authProvider);
       final isLoggedIn = authState.status == AuthStatus.authenticated;
       final location = state.matchedLocation;
+      if (location == '/splash') {
+        return switch (authState.status) {
+          AuthStatus.unknown => null,
+          AuthStatus.authenticated =>
+            authState.user?.isPilot == true ? '/pilot/home' : '/home',
+          AuthStatus.unauthenticated =>
+            authState.sessionExpired ? '/login' : '/onboarding',
+        };
+      }
       if (location == '/waybill/new' || location.startsWith('/dispatch/')) {
         if (authState.user?.isPilot == true) return '/pilot/home';
       }
@@ -81,7 +90,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         }
       }
       // New dispatch has one canonical order home; retain old incoming links.
-      if (location == '/orders' || location == '/dispatch/orders') {
+      if (location == '/orders' ||
+          (location == '/dispatch/orders' &&
+              state.uri.queryParameters['view'] != 'list')) {
         return '/home';
       }
 
@@ -159,6 +170,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const OrderHistoryPage(),
       ),
       GoRoute(path: '/drafts', builder: (_, _) => const DraftBoxPage()),
+      // 兼容已发布版本的旧链接，归档入口统一到历史订单与草稿箱。
       GoRoute(path: '/reviews', redirect: (_, _) => '/orders/history'),
       GoRoute(path: '/addresses', redirect: (_, _) => '/drafts'),
       GoRoute(
@@ -173,6 +185,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/rider/register',
         builder: (context, state) => const RiderRegisterPage(),
       ),
+      // 旧地址编辑入口由草稿内的选点流程接替。
       GoRoute(path: '/address/edit', redirect: (_, _) => '/drafts'),
 
       // ========== 用户端底部导航 ==========

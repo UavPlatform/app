@@ -1,4 +1,3 @@
-import '../../widgets/flow_ui.dart';
 // 飞手资料（「我的」→ 飞手资料）：查看并编辑实名信息、所在地/自我介绍与驾驶资质。
 // 数据走 GET/PATCH /rider/info；身份证号只展示脱敏值，修改时才需重新填写完整号码。
 
@@ -70,9 +69,17 @@ class PilotInfoPage extends ConsumerWidget {
               const SizedBox(height: 12),
               _section('驾驶资质', [
                 if ((vo.qualifications ?? const []).isEmpty)
-                  const FlowEmptyState(
-                    title: '还没有登记资质，点右上角「编辑」添加机型与执照等级',
-                    icon: Icons.verified_user_outlined,
+                  Center(
+                    child: Column(
+                      children: [
+                        const Text('未登记资质'),
+                        TextButton.icon(
+                          onPressed: () => _openEdit(context, ref, vo),
+                          icon: const Icon(Icons.add),
+                          label: const Text('添加资质'),
+                        ),
+                      ],
+                    ),
                   ),
                 ...(vo.qualifications ?? const []).map(
                   (q) => ListTile(
@@ -81,10 +88,16 @@ class PilotInfoPage extends ConsumerWidget {
                       Icons.verified_outlined,
                       color: AppColors.success,
                     ),
-                    title: Text(
-                      q.modelName ?? q.modelCode ?? '机型 ${q.aircraftModelId}',
-                    ),
-                    subtitle: q.modelCode != null ? Text(q.modelCode!) : null,
+                    title: Text(q.modelName ?? '未命名机型'),
+                    subtitle: q.modelCode == null
+                        ? null
+                        : Text(
+                            q.modelCode!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
                     trailing: _Tag(
                       q.licenseGradeLabel ??
                           kLicenseGradeLabels[q.licenseGrade] ??
@@ -234,10 +247,11 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    final models = ref.watch(aircraftModelsProvider).models;
+    final directory = ref.watch(aircraftModelsProvider);
+    final models = directory.models;
     String modelName(int id) {
       for (final m in models) {
-        if (m.id == id) return m.displayName ?? m.modelCode ?? '机型 $id';
+        if (m.id == id) return m.displayName ?? '未命名机型';
       }
       for (final q
           in widget.initial.qualifications ??
@@ -246,6 +260,13 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
       }
       return '机型 $id';
     }
+
+    String? modelCode(int id) =>
+        models.where((m) => m.id == id).firstOrNull?.modelCode ??
+        widget.initial.qualifications
+            ?.where((q) => q.aircraftModelId == id)
+            .firstOrNull
+            ?.modelCode;
 
     return Scaffold(
       appBar: AppBar(title: const Text('编辑飞手资料')),
@@ -314,19 +335,46 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: models.isEmpty
-                      ? null
-                      : () => _addQualification(models),
-                  icon: const Icon(Icons.add),
-                  label: const Text('添加'),
-                ),
+                if (_quals.isNotEmpty && models.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: models.isEmpty
+                        ? null
+                        : () => _addQualification(models),
+                    icon: const Icon(Icons.add),
+                    label: const Text('添加'),
+                  ),
               ],
             ),
+            if (directory.loading)
+              const LinearProgressIndicator()
+            else if (directory.error != null)
+              ListTile(
+                title: const Text('机型目录加载失败'),
+                trailing: TextButton(
+                  onPressed: () => ref
+                      .read(aircraftModelsProvider.notifier)
+                      .load(force: true),
+                  child: const Text('重试'),
+                ),
+              )
+            else if (models.isEmpty)
+              const Text('暂无可选机型'),
             if (_quals.isEmpty)
-              const FlowEmptyState(
-                title: '暂无资质',
-                icon: Icons.verified_user_outlined,
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      const Text('未登记资质'),
+                      if (models.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () => _addQualification(models),
+                          icon: const Icon(Icons.add),
+                          label: const Text('添加资质'),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ..._quals.asMap().entries.map((e) {
               final q = e.value;
@@ -334,26 +382,39 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
                 key: ValueKey('qual-${q.aircraftModelId}'),
                 contentPadding: EdgeInsets.zero,
                 title: Text(modelName(q.aircraftModelId)),
-                subtitle: DropdownButton<String>(
-                  value: q.licenseGrade,
-                  isDense: true,
-                  items: kLicenseGradeLabels.entries
-                      .map(
-                        (g) => DropdownMenuItem(
-                          value: g.key,
-                          child: Text(g.value),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (modelCode(q.aircraftModelId) case final code?)
+                      Text(
+                        code,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.onSurfaceVariant,
                         ),
-                      )
-                      .toList(),
-                  onChanged: (v) {
-                    if (v == null) return;
-                    setState(
-                      () => _quals[e.key] = ApiRiderQualificationDto(
-                        aircraftModelId: q.aircraftModelId,
-                        licenseGrade: v,
                       ),
-                    );
-                  },
+                    DropdownButton<String>(
+                      value: q.licenseGrade,
+                      isDense: true,
+                      items: kLicenseGradeLabels.entries
+                          .map(
+                            (g) => DropdownMenuItem(
+                              value: g.key,
+                              child: Text(g.value),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(
+                          () => _quals[e.key] = ApiRiderQualificationDto(
+                            aircraftModelId: q.aircraftModelId,
+                            licenseGrade: v,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
                 trailing: IconButton(
                   tooltip: '移除',
@@ -411,8 +472,16 @@ class _PilotInfoEditPageState extends ConsumerState<PilotInfoEditPage> {
           children: candidates
               .map(
                 (m) => ListTile(
-                  title: Text(m.displayName ?? m.modelCode ?? ''),
-                  subtitle: m.modelCode != null ? Text(m.modelCode!) : null,
+                  title: Text(m.displayName ?? '未命名机型'),
+                  subtitle: m.modelCode == null
+                      ? null
+                      : Text(
+                          m.modelCode!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
                   onTap: () => Navigator.of(ctx).pop(m),
                 ),
               )

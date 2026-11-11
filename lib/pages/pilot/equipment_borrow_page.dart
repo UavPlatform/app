@@ -30,6 +30,9 @@ class EquipmentBorrowPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(waybillDraftScopeProvider);
     final borrows = ref.watch(equipmentBorrowsProvider);
+    final hasCurrent =
+        ref.watch(equipmentCurrentProvider).asData?.value.items?.isNotEmpty ==
+        true;
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
@@ -37,7 +40,7 @@ class EquipmentBorrowPage extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         title: const Text(
-          '无人机',
+          '设备借用',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
@@ -45,15 +48,19 @@ class EquipmentBorrowPage extends ConsumerWidget {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF1D6FE9),
-        foregroundColor: Colors.white,
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        onPressed: () => showEquipmentApplySheet(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('发起申请'),
-      ),
+      floatingActionButton: !hasCurrent
+          ? null
+          : FloatingActionButton.extended(
+              backgroundColor: const Color(0xFF1D6FE9),
+              foregroundColor: Colors.white,
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              onPressed: () => showEquipmentApplySheet(context, ref),
+              icon: const Icon(Icons.add),
+              label: const Text('发起申请'),
+            ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(equipmentCurrentProvider);
@@ -71,12 +78,12 @@ class EquipmentBorrowPage extends ConsumerWidget {
           onLoadMore: () => ref.read(equipmentBorrowsProvider.notifier).load(),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 96),
+            padding: EdgeInsets.only(bottom: hasCurrent ? 96 : 24),
             children: [
               const Padding(
                 padding: EdgeInsets.fromLTRB(18, 16, 18, 0),
                 child: Text(
-                  '当前执飞设备',
+                  '当前借用设备',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -353,86 +360,128 @@ class _LoanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final drone = loan.drone;
     final status = loan.status;
+    final returned = status == 'RETURNED';
+    final borrowed = status == 'APPROVED';
+    final timeLabel = returned
+        ? '归还'
+        : borrowed
+        ? '借出'
+        : '申请';
+    final rawTime = returned
+        ? loan.returnedAt
+        : borrowed
+        ? loan.borrowedAt
+        : loan.appliedAt;
+    final time = DateTime.tryParse(rawTime ?? '')?.toLocal();
     return DefaultTextStyle.merge(
       style: const TextStyle(
         fontSize: 13,
         height: 1.5,
         color: Color(0xFF666666),
       ),
-      child: Container(
-        margin: current
+      child: Padding(
+        padding: current
             ? const EdgeInsets.only(bottom: 6)
             : const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
+        child: Material(
           color: Colors.white,
           borderRadius: BorderRadius.circular(current ? 16 : 12),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      loan.modelName ?? '未知机型',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1F2329),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        loan.modelName ?? '未知机型',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1F2329),
+                        ),
                       ),
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: status == 'APPROVED'
-                          ? const Color(0xFFE6F8F0)
-                          : const Color(0xFFF2F4F7),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      equipmentStatusLabel(status),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
                         color: status == 'APPROVED'
-                            ? const Color(0xFF00B578)
-                            : const Color(0xFF666666),
+                            ? const Color(0xFFE6F8F0)
+                            : const Color(0xFFF2F4F7),
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      child: Text(
+                        equipmentStatusLabel(status),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: status == 'APPROVED'
+                              ? const Color(0xFF00B578)
+                              : const Color(0xFF666666),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (time != null)
+                  Text(
+                    '$timeLabel · ${_cnDateTime(time)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                if (drone?.airportName != null)
+                  Text(
+                    '机场：${drone!.airportName}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                if (current || status == 'APPROVED') ...[
+                  const SizedBox(height: 8),
+                  EquipmentReturnAction(
+                    borrowId: loan.borrowId!,
+                    label: '归还设备',
+                  ),
+                ],
+                if (drone?.serialNumber != null ||
+                    loan.orderId?.isNotEmpty == true)
+                  ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    dense: true,
+                    title: const Text('借用详情'),
+                    children: [
+                      if (drone?.serialNumber != null)
+                        ListTile(
+                          dense: true,
+                          title: Text('机身号：${drone!.serialNumber}'),
+                        ),
+                      if (loan.orderId?.isNotEmpty == true)
+                        ListTile(
+                          dense: true,
+                          title: Text('关联订单：${loan.orderId}'),
+                        ),
+                    ],
+                  ),
+                if (status == 'REJECTED') ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '驳回原因：${(loan.rejectReason ?? '').isEmpty ? '未填写' : loan.rejectReason}',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
                     ),
                   ),
                 ],
-              ),
-              if (drone != null) ...[
-                const SizedBox(height: 4),
-                Text('机身号：${drone.serialNumber}'),
-                Text('机场：${drone.airportName ?? '未知'}'),
               ],
-              if (loan.orderId != null && loan.orderId!.isNotEmpty)
-                Text('关联订单：${loan.orderId}'),
-              if (loan.appliedAt != null) Text('申请时间：${loan.appliedAt}'),
-              if (loan.borrowedAt != null) Text('借出时间：${loan.borrowedAt}'),
-              if (loan.returnedAt != null) Text('归还时间：${loan.returnedAt}'),
-              if (status == 'REJECTED') ...[
-                const SizedBox(height: 8),
-                Text(
-                  '驳回原因：${(loan.rejectReason ?? '').isEmpty ? '未填写' : loan.rejectReason}',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ],
-              if (current || status == 'APPROVED') ...[
-                const SizedBox(height: 8),
-                EquipmentReturnAction(borrowId: loan.borrowId!),
-              ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+String _cnDateTime(DateTime time) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${time.year}年${time.month}月${time.day}日 ${two(time.hour)}:${two(time.minute)}';
 }

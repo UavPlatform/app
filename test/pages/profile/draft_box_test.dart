@@ -50,7 +50,7 @@ void main() {
       expect(notifier.state.draft.value('start.site'), '第一份');
       router.pop();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('新建草稿'));
+      await tester.tap(find.text('新建运单'));
       await tester.pumpAndSettle();
       expect(notifier.state.entries.length, 3);
       expect(notifier.state.draft.fields, isEmpty);

@@ -19,7 +19,8 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(sessionListProvider);
-    final uid = int.tryParse(ref.watch(authProvider).user?.userId ?? '') ?? 0;
+    final user = ref.watch(authProvider).user;
+    final uid = int.tryParse(user?.userId ?? '') ?? 0;
     if (!_connectedRealtime && uid > 0) {
       _connectedRealtime = true;
       Future.microtask(
@@ -45,8 +46,14 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
             color: Color(0xFF111111),
           ),
         ),
+        bottom: state.loading && state.sessions.isNotEmpty
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(2),
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            : null,
       ),
-      body: state.loading
+      body: state.loading && state.sessions.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: () => ref.read(sessionListProvider.notifier).load(),
@@ -54,6 +61,15 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(bottom: 24),
                 children: [
+                  if (state.error != null)
+                    ListTile(
+                      title: const Text('消息更新失败'),
+                      trailing: TextButton(
+                        onPressed: () =>
+                            ref.read(sessionListProvider.notifier).load(),
+                        child: const Text('重试'),
+                      ),
+                    ),
                   _buildSystemNotice(context, systemSession),
                   const Padding(
                     padding: EdgeInsets.fromLTRB(20, 6, 20, 6),
@@ -73,22 +89,30 @@ class _MessageListPageState extends ConsumerState<MessageListPage> {
                       borderRadius: BorderRadius.circular(14),
                       clipBehavior: Clip.antiAlias,
                       child: chatSessions.isEmpty
-                          ? const Padding(
+                          ? Padding(
                               padding: EdgeInsets.symmetric(vertical: 48),
                               child: Column(
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.chat_bubble_outline_rounded,
                                     size: 36,
                                     color: Color(0xFFD1D5DB),
                                   ),
-                                  SizedBox(height: 12),
-                                  Text(
+                                  const SizedBox(height: 12),
+                                  const Text(
                                     '暂无订单沟通记录',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: Color(0xFF9CA3AF),
                                     ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => context.push(
+                                      user?.isPilot == true
+                                          ? '/pilot/jobs'
+                                          : '/dispatch/orders',
+                                    ),
+                                    child: const Text('查看我的订单'),
                                   ),
                                 ],
                               ),

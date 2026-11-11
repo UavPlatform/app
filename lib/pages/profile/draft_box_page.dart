@@ -80,6 +80,25 @@ class _DraftBoxPageState extends ConsumerState<DraftBoxPage> {
     return '${date.year}-${two(date.month)}-${two(date.day)} ${two(date.hour)}:${two(date.minute)}';
   }
 
+  String _route(WaybillDraftEntry entry) {
+    String endpoint(String prefix, String fallback) {
+      final place = entry.draft.value('$prefix.place').trim();
+      if (place.isNotEmpty) return place;
+      final site = entry.draft.value('$prefix.site').trim();
+      return site.isEmpty ? fallback : site;
+    }
+
+    return "${endpoint('start', '待选起点')} → ${endpoint('end', '待选终点')}";
+  }
+
+  List<String> _missingSections(WaybillDraftEntry entry) {
+    final sections = ['货物信息', '起点信息', '终点信息', '出发时间'];
+    return [
+      for (var i = 0; i < sections.length; i++)
+        if (entry.draft.errorsFor(i).isNotEmpty) sections[i],
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(waybillDraftScopeProvider, (previous, next) {
@@ -94,7 +113,7 @@ class _DraftBoxPageState extends ConsumerState<DraftBoxPage> {
         actions: [
           TextButton(
             onPressed: _busy ? null : () => _open(),
-            child: const Text('新建草稿'),
+            child: const Text('新建运单'),
           ),
         ],
       ),
@@ -139,6 +158,7 @@ class _DraftBoxPageState extends ConsumerState<DraftBoxPage> {
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (_, index) {
                       final entry = state.entries[index];
+                      final missing = _missingSections(entry);
                       return Material(
                         key: ValueKey('draft-${entry.id}'),
                         color: Colors.white,
@@ -154,17 +174,29 @@ class _DraftBoxPageState extends ConsumerState<DraftBoxPage> {
                             Icons.description_outlined,
                             color: Color(0xFF1D6FE9),
                           ),
-                          title: Text(
-                            entry.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          title: Row(
+                            spacing: 8,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _route(entry),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                missing.isEmpty
+                                    ? '已填齐'
+                                    : '待补充 ${missing.length} 组',
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
+                            ],
                           ),
                           subtitle: Text(
-                            '${index == 0 ? '最近编辑 · ' : ''}${_time(entry.updatedAt)}',
+                            [...missing, _time(entry.updatedAt)].join(' · '),
                           ),
                           onTap: _busy ? null : () => _open(entry),
                           trailing: IconButton(

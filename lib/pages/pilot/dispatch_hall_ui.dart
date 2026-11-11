@@ -7,118 +7,26 @@ class DispatchHallWorkbench extends StatelessWidget {
   const DispatchHallWorkbench({super.key});
 
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(16),
-      gradient: const LinearGradient(colors: [_blue, Color(0xFF2563EB)]),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.fromLTRB(16, 10, 16, 4),
+    child: Row(
+      spacing: 6,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.16),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.explore_outlined,
-                size: 26,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '选择你的下一单',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 6,
-                          height: 6,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Color(0xFF6EE7B7),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 5),
-                        Text(
-                          '实时听单中',
-                          style: TextStyle(fontSize: 11, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        // Whole labels wrap together on narrow screens instead of splitting words.
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final rule in const ['⚡ 先接者得', '🔒 接单解锁联系', '📦 按阶段交付'])
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  rule,
-                  maxLines: 1,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-          ],
-        ),
+        Icon(Icons.radar_rounded, color: _blue, size: 18),
+        Text('可接订单', style: TextStyle(fontWeight: FontWeight.w600)),
       ],
     ),
   );
 }
 
 class DispatchHallEmptyState extends StatelessWidget {
-  const DispatchHallEmptyState({super.key, required this.onNearby});
-  final VoidCallback onNearby;
+  const DispatchHallEmptyState({super.key, required this.onRefresh});
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.symmetric(horizontal: 16),
-    padding: const EdgeInsets.symmetric(vertical: 56, horizontal: 24),
+    padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
@@ -145,13 +53,13 @@ class DispatchHallEmptyState extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         const Text(
-          '系统正在实时监听周边需求，您也可以查看附近订单',
+          '有新订单时会显示在这里',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF888888)),
         ),
         const SizedBox(height: 24),
         TextButton(
-          onPressed: onNearby,
+          onPressed: onRefresh,
           style: TextButton.styleFrom(
             backgroundColor: const Color(0xFFF2F4F7),
             foregroundColor: _blue,
@@ -164,7 +72,7 @@ class DispatchHallEmptyState extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          child: const Text('查看附近订单'),
+          child: const Text('刷新大厅'),
         ),
       ],
     ),
@@ -176,142 +84,122 @@ class DispatchHallOfferCard extends StatelessWidget {
     super.key,
     required this.offer,
     required this.onClaim,
+    this.distanceMeters,
+    this.highlighted = false,
   });
   final DispatchOffer offer;
   final VoidCallback? onClaim;
+  final double? distanceMeters;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
     final fields = offer.data.fields ?? const <String, String>{};
     final fee = offer.data.pilotServiceFee;
+    final distance = distanceMeters;
+    final scheduled = DateTime.tryParse(fields['scheduledAt'] ?? '')?.toLocal();
+    final localizations = MaterialLocalizations.of(context);
+    final time = fields['timeMode'] != 'scheduled'
+        ? '立即出发'
+        : scheduled == null
+        ? '预约时间待确认'
+        : '${localizations.formatCompactDate(scheduled)} ${TimeOfDay.fromDateTime(scheduled).format(context)}';
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: highlighted ? const Color(0xFFEFF6FF) : Colors.white,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 8,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 6,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      fields['category'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1F2329),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      fields['timeMode'] == 'scheduled'
-                          ? '预约：${fields['scheduledAt']}'
-                          : '立即出发',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF888888),
-                      ),
-                    ),
-                  ],
-                ),
+              _decision(
+                '预计报酬',
+                fee == null ? '待确认' : '¥${fee.toStringAsFixed(2)}',
+                color: const Color(0xFFD95700),
               ),
-              if (fee != null) ...[
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '¥${fee.toStringAsFixed(2)}/单',
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFFF6B00),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        '飞手服务费',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF888888),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              _decision(
+                '距起点',
+                distance == null
+                    ? '未定位'
+                    : distance < 1000
+                    ? '${distance.toStringAsFixed(0)} m'
+                    : '${(distance / 1000).toStringAsFixed(1)} km',
+              ),
+              _decision('货重', dispatchWeightLabel(fields)),
+              _decision('时间', time),
             ],
           ),
-          const SizedBox(height: 18),
+          const Divider(height: 1),
           _RouteSite(
             label: '起',
-            site: fields['start.site'] ?? '',
+            site: fields['start.site'] ?? '起点待确认',
             background: const Color(0xFFE8F3FF),
             foreground: _blue,
           ),
-          const SizedBox(height: 12),
           _RouteSite(
             label: '终',
-            site: fields['end.site'] ?? '',
+            site: fields['end.site'] ?? '终点待确认',
             background: const Color(0xFFFFF0E6),
-            foreground: const Color(0xFFFF6B00),
+            foreground: const Color(0xFFD95700),
           ),
-          const SizedBox(height: 18),
           Row(
+            spacing: 8,
             children: [
               Expanded(
                 child: Text(
-                  '${dispatchWeightLabel(fields)} · ${fields['count'] ?? ''} 件',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF888888),
-                  ),
+                  [
+                        fields['category'],
+                        if (fields['count']?.isNotEmpty == true)
+                          '${fields['count']} 件',
+                      ]
+                      .whereType<String>()
+                      .where((text) => text.isNotEmpty)
+                      .join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-              const SizedBox(width: 12),
-              FilledButton(
-                onPressed: onClaim,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 11,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                child: const Text('立即接单'),
-              ),
+              FilledButton(onPressed: onClaim, child: const Text('立即接单')),
             ],
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            '接单后查看联系人与场地 · 净收入及建议机型暂未提供',
-            style: TextStyle(
-              fontSize: 11,
-              height: 1.4,
-              color: Color(0xFF999999),
-            ),
           ),
         ],
       ),
     );
   }
+
+  Widget _decision(String label, String value, {Color? color}) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 2,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+        ),
+        Tooltip(
+          message: value,
+          child: Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _RouteSite extends StatelessWidget {

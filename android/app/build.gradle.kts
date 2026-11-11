@@ -30,6 +30,7 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            proguardFiles("proguard-rules.pro")
         }
     }
 }
@@ -43,6 +44,7 @@ kotlin {
 dependencies {
     // Map, location and search are packaged together; do not also add location.
     implementation("com.amap.api:3dmap-location-search:11.3.100_loc11.3.000_sea9.8.1")
+    implementation("net.jafama:jafama:2.3.2")
 }
 
 flutter {

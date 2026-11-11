@@ -58,19 +58,26 @@ class WaybillEditGroup {
     ];
   }
 
-  static const contact = WaybillEditGroup('contact', '联系人', 1, 2, {
+  static const contact = WaybillEditGroup('start.contact', '运单联系人', 1, 2, {
     'start.contact',
     'start.phone',
-    'end.contact',
-    'end.phone',
   }, prefix: 'start');
 
-  static bool contactsDiffer(WaybillDraft draft) => ['contact', 'phone'].any(
-    (field) =>
-        draft.value('start.$field').trim().isNotEmpty &&
-        draft.value('end.$field').trim().isNotEmpty &&
-        draft.value('start.$field').trim() != draft.value('end.$field').trim(),
-  );
+  static WaybillDraft withSharedContact(WaybillDraft draft) {
+    final prefix =
+        draft.value('start.contact').trim().isEmpty &&
+            draft.value('start.phone').trim().isEmpty
+        ? 'end'
+        : 'start';
+    for (final field in ['contact', 'phone']) {
+      final value = draft.value('$prefix.$field');
+      for (final endpoint in ['start', 'end']) {
+        final key = '$endpoint.$field';
+        if (draft.value(key) != value) draft = draft.change(key, value);
+      }
+    }
+    return draft;
+  }
 
   static const time = WaybillEditGroup('time', '出发时间', 3, 0, {
     'timeMode',
@@ -86,14 +93,6 @@ class WaybillEditGroup {
   ];
 
   Map<String, String> errors(WaybillDraft draft) {
-    if (id == 'contact') {
-      final errors = <String, String>{
-        ...draft.errorsFor(1),
-        ...draft.errorsFor(2),
-      }..removeWhere((key, _) => !keys.contains(key));
-      if (contactsDiffer(draft)) errors['start.contact'] = '请确认统一联系人';
-      return errors;
-    }
     return Map.fromEntries(
       draft.errorsFor(stage).entries.where((e) => keys.contains(e.key)),
     );
@@ -104,10 +103,6 @@ class WaybillEditGroup {
         values.where((v) => v.trim().isNotEmpty).join(' · ');
     String value(String key, [String unit = '']) =>
         draft.value(key).isEmpty ? '' : '${draft.value(key)}$unit';
-    if (id == 'contact') {
-      if (contactsDiffer(draft)) return '请确认统一联系人';
-      return join([value('start.contact'), value('start.phone')]);
-    }
     if (photos != null) {
       final count = draft.fields.entries
           .where(
