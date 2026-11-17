@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../api/dispatch_api.dart';
 import '../../api/dispatch_chat_api.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/dispatch_order_provider.dart';
@@ -37,13 +39,14 @@ class DispatchChatPage extends ConsumerWidget {
     return order.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (error, _) => _unavailable(ref, '$error'),
+      error: (error, _) => _unavailable(context, ref, error: error),
       data: (order) {
         if (order.data.assignmentVersion != version ||
             order.waiting ||
             order.cancelled ||
+            order.completed ||
             order.awaitingDeposit) {
-          return _unavailable(ref, '本次接单已结束，请返回订单查看最新状态');
+          return _unavailable(context, ref, ended: true);
         }
         return ref
             .watch(dispatchChatSessionProvider((orderId, version)))
@@ -51,40 +54,67 @@ class DispatchChatPage extends ConsumerWidget {
               loading: () => const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
               ),
-              error: (error, _) => _unavailable(ref, '$error'),
+              error: (error, _) => _unavailable(context, ref, error: error),
               data: (id) => ChatDetailPage(
                 key: ValueKey('${ref.watch(waybillDraftScopeProvider)}/$id'),
                 sessionId: id,
                 sessionName: '订单聊天',
                 orderId: orderId,
                 orderStatus: order.stageLabel,
-                readOnly: order.completed,
+                counterpartyRole: pilot ? '货主' : '飞手',
+                pilot: pilot,
               ),
             );
       },
     );
   }
 
-  Widget _unavailable(WidgetRef ref, String text) => Scaffold(
-    appBar: AppBar(title: const Text('订单聊天')),
-    body: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(text),
-          TextButton(
-            onPressed: () {
-              ref.invalidate(dispatchChatSessionProvider((orderId, version)));
-              ref.invalidate(
-                pilot
-                    ? dispatchPilotOrderProvider(orderId)
-                    : dispatchOrderProvider(orderId),
-              );
-            },
-            child: const Text('重新查询'),
+  Widget _unavailable(
+    BuildContext context,
+    WidgetRef ref, {
+    bool ended = false,
+    Object? error,
+  }) {
+    final closed =
+        ended ||
+        (error is DispatchApiException &&
+            error.code == 'DISPATCH_ASSIGNMENT_CHANGED');
+    return Scaffold(
+      appBar: AppBar(title: const Text('订单聊天')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                closed ? '本次订单会话已结束' : '暂时无法加载订单聊天',
+                textAlign: TextAlign.center,
+              ),
+              FilledButton(
+                onPressed: () {
+                  if (closed) {
+                    final prefix = pilot ? '/pilot' : '';
+                    context.replace(
+                      '$prefix/dispatch/orders/${Uri.encodeComponent(orderId)}',
+                    );
+                    return;
+                  }
+                  ref.invalidate(
+                    dispatchChatSessionProvider((orderId, version)),
+                  );
+                  ref.invalidate(
+                    pilot
+                        ? dispatchPilotOrderProvider(orderId)
+                        : dispatchOrderProvider(orderId),
+                  );
+                },
+                child: Text(closed ? '查看最新订单' : '重试'),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

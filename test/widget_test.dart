@@ -1,16 +1,3 @@
-// App 启动冒烟测试（替换 counter 模板测试，修复 QA-A1）。
-//
-// 覆盖真实启动链路与核心 widget：
-//   1. 未登录启动：启动页渲染品牌信息 → 2 秒后自动进入引导页；
-//   2. 引导页跳过 → 登录页，核心控件（输入框/登录按钮/注册入口）完整；
-//   3. 引导页「下一步」翻页至末页「立即开始」→ 登录页；
-//   4. 登录表单校验：空用户名/空密码提交的拦截提示；
-//   5. 密码明文/密文切换；
-//   6. 服务器设置预填生效地址（新装回落内置默认环境，P1-5）。
-//
-// 说明：启动链路（未登录）不触发网络请求，仅依赖本地 SharedPreferences，
-// 测试中通过 setMockInitialValues 注入空配置，保证结果确定性。
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,8 +29,6 @@ Future<Widget> buildLoginPage() async {
 }
 
 Future<ElevatedButton> _pumpToLoginPage(WidgetTester tester) async {
-  // 越过启动页 2 秒延时，自动进入引导页
-  await tester.pump(const Duration(seconds: 2));
   await tester.pumpAndSettle();
 
   // 跳过引导页 → 登录页
@@ -56,18 +41,10 @@ Future<ElevatedButton> _pumpToLoginPage(WidgetTester tester) async {
 
 void main() {
   group('App 启动冒烟（未登录链路）', () {
-    testWidgets('启动页渲染品牌信息并自动进入引导页', (tester) async {
+    testWidgets('未登录启动直接进入引导页', (tester) async {
       await tester.pumpWidget(await buildUnauthenticatedApp());
-
-      // 启动页关键内容
-      expect(find.text('飞翼通'), findsOneWidget);
-      expect(find.text('无人机服务平台'), findsOneWidget);
-      expect(find.byIcon(Icons.flight), findsOneWidget);
-
-      // 2 秒后自动进入引导页（首页文案「一键发布任务」+ 跳过按钮）
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pumpAndSettle();
-      expect(find.text('一键发布任务'), findsOneWidget);
+      await tester.pump();
+      expect(find.text('开始使用飞翼通'), findsOneWidget);
       expect(find.text('跳过'), findsOneWidget);
     });
 
@@ -84,24 +61,34 @@ void main() {
       expect(find.text('飞手注册'), findsOneWidget);
     });
 
-    testWidgets('引导页逐页翻至末页，点击「立即开始」进入登录页', (tester) async {
+    testWidgets('注册必填与密码不一致提示显示在字段下方', (tester) async {
       await tester.pumpWidget(await buildUnauthenticatedApp());
-      await tester.pump(const Duration(seconds: 2));
+      await _pumpToLoginPage(tester);
+      await tester.ensureVisible(find.text('用户注册'));
+      await tester.tap(find.text('用户注册'));
       await tester.pumpAndSettle();
 
-      // 第一页 → 第二页
-      await tester.tap(find.text('下一步'));
+      final submit = find.widgetWithText(ElevatedButton, '注 册');
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
       await tester.pumpAndSettle();
-      expect(find.text('专业团队服务'), findsOneWidget);
+      expect(find.text('密码至少 6 位'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
 
-      // 第二页 → 第三页（末页，按钮文案变为「立即开始」）
-      await tester.tap(find.text('下一步'));
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'test-user');
+      await tester.enterText(fields.at(1), 'password1');
+      await tester.enterText(fields.at(2), 'password2');
       await tester.pumpAndSettle();
-      expect(find.text('实时跟踪进度'), findsOneWidget);
-      expect(find.text('立即开始'), findsOneWidget);
-      expect(find.text('下一步'), findsNothing);
+      expect(find.text('两次密码不一致'), findsOneWidget);
+      expect(find.text('密码至少 6 位'), findsNothing);
+    });
 
-      // 立即开始 → 登录页
+    testWidgets('单页引导点击立即开始进入登录页', (tester) async {
+      await tester.pumpWidget(await buildUnauthenticatedApp());
+      await tester.pumpAndSettle();
+      expect(find.text('填写起终点与货物信息'), findsOneWidget);
+      expect(find.text('查看运单进度'), findsOneWidget);
       await tester.tap(find.text('立即开始'));
       await tester.pumpAndSettle();
       expect(find.text('欢迎使用飞翼通'), findsOneWidget);
@@ -176,11 +163,9 @@ void main() {
     testWidgets('服务器设置预填生效地址（新装回落内置默认环境）', (tester) async {
       await tester.pumpWidget(await buildLoginPage());
 
-      // 展开「服务器设置」：点折叠图标，避免 CI 上文字区域 hit-test 不稳定
-      await tester.ensureVisible(find.text('服务器设置'));
-      await tester.tap(find.byIcon(Icons.expand_more));
-      await tester.pump();
-      expect(find.byIcon(Icons.expand_less), findsOneWidget);
+      expect(find.byKey(const Key('login_server_url')), findsNothing);
+      await tester.tap(find.byTooltip('网络环境调试'));
+      await tester.pumpAndSettle();
 
       final serverField = find.byKey(const Key('login_server_url'));
       expect(serverField, findsOneWidget);

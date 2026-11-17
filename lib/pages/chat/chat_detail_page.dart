@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../widgets/system_message_card.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -11,6 +12,8 @@ class ChatDetailPage extends ConsumerStatefulWidget {
   final bool readOnly;
   final String? orderId;
   final String? orderStatus;
+  final String? counterpartyRole;
+  final bool pilot;
   const ChatDetailPage({
     super.key,
     required this.sessionId,
@@ -18,6 +21,8 @@ class ChatDetailPage extends ConsumerStatefulWidget {
     this.readOnly = false,
     this.orderId,
     this.orderStatus,
+    this.counterpartyRole,
+    this.pilot = false,
   });
 
   @override
@@ -171,6 +176,17 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
+        actions: [
+          if (state.error != null && !state.sending)
+            IconButton(
+              tooltip: '重试加载消息',
+              onPressed: _refreshMessages,
+              icon: Icon(
+                Icons.refresh,
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+        ],
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -196,27 +212,6 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
       body: Column(
         children: [
           _buildOrderContext(),
-          if (state.error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      state.error!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => _refreshMessages(),
-                    child: const Text('重试'),
-                  ),
-                ],
-              ),
-            ),
           Expanded(
             child: state.loading && state.messages.isEmpty
                 ? const Center(child: CircularProgressIndicator())
@@ -421,59 +416,35 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage>
 
   Widget _buildOrderContext() {
     final id = widget.orderId;
-    final reference = id == null || id.isEmpty
-        ? '当前会话沟通'
-        : '运单 ${id.length > 16 ? '${id.substring(0, 6)}…${id.substring(id.length - 4)}' : id}';
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-      ),
+    if (id == null || id.isEmpty) return const SizedBox.shrink();
+    final reference = id.length > 16
+        ? '${id.substring(0, 6)}…${id.substring(id.length - 4)}'
+        : id;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F3FF),
-              borderRadius: BorderRadius.circular(7),
-            ),
-            child: const Icon(
-              Icons.local_shipping_outlined,
-              size: 16,
-              color: Color(0xFF1D6FE9),
-            ),
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              reference,
+              [widget.counterpartyRole ?? '订单沟通', '运单 $reference'].join(' · '),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF333333),
-              ),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE6F8F0),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                widget.readOnly ? '仅供查看' : widget.orderStatus ?? '订单沟通',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF00B578)),
-              ),
-            ),
+          if (widget.readOnly)
+            const Text('仅供查看')
+          else if (widget.counterpartyRole == null &&
+              widget.orderStatus != null)
+            Text(widget.orderStatus!),
+          TextButton(
+            onPressed: () {
+              final prefix = widget.pilot ? '/pilot' : '';
+              context.replace(
+                '$prefix/dispatch/orders/${Uri.encodeComponent(id)}',
+              );
+            },
+            child: const Text('查看订单'),
           ),
         ],
       ),

@@ -15,11 +15,13 @@ class DispatchPriceCard extends ConsumerWidget {
     this.compact = false,
     this.orderId,
     this.pilot = false,
+    this.order,
   });
   final ApiDispatchQuoteVO? quote;
   final ApiDispatchBillVO? bill;
   final bool expanded, pilot, compact;
   final String? orderId;
+  final DispatchOrder? order;
   String money(num? value) =>
       value == null ? '待确认' : '¥${value.toStringAsFixed(2)}';
   void _showFeeDetailBottomSheet(
@@ -31,7 +33,7 @@ class DispatchPriceCard extends ConsumerWidget {
     scope: ref.read(waybillDraftScopeProvider),
     builder: (_) => Consumer(
       builder: (context, ref, _) {
-        if (orderId == null) return _details(quote, bill);
+        if (orderId == null) return _details(quote, bill, order: order);
         final live = pilot
             ? ref.watch(dispatchPilotOrderProvider(orderId!))
             : ref.watch(dispatchOrderProvider(orderId!));
@@ -90,6 +92,10 @@ class DispatchPriceCard extends ConsumerWidget {
                     : b?.balanceAmount,
               ),
             ),
+            if (order?.data.paymentReference != null)
+              ('支付流水', order!.data.paymentReference!),
+            if (order?.data.refundReference != null)
+              ('退款流水', order!.data.refundReference!),
             if (b?.settlementReference != null)
               ('结算流水', b!.settlementReference!),
           ],
@@ -105,146 +111,82 @@ class DispatchPriceCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final q = quote;
-    if (expanded) return _details(q, bill);
-    if (compact) {
-      return InkWell(
-        onTap: q == null ? null : () => _showFeeDetailBottomSheet(context, ref),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  '按距离计价',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF333333)),
-                ),
-              ),
-              Flexible(
-                child: Wrap(
-                  alignment: WrapAlignment.end,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 4,
-                  children: [
-                    Text(
-                      '总价 ${money(q?.totalAmount)}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1D6FE9),
-                      ),
-                    ),
-                    Text(
-                      '(定金 ${money(q?.depositAmount)})',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF888888),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (q != null) const Icon(Icons.chevron_right, size: 18),
-            ],
-          ),
-        ),
-      );
-    }
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      color: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    if (expanded) return _details(q, bill, order: order);
+    final funds = order?.data.fundsStatus;
+    final paid = switch (funds) {
+      'UNPAID' => 0,
+      'PAID' ||
+      'BALANCE_DUE' ||
+      'SETTLED' ||
+      'REFUNDED' => order?.data.depositAmount ?? q?.depositAmount,
+      _ => null,
+    };
+    final balance = bill?.balanceAmount;
+    final remaining = switch (funds) {
+      'SETTLED' || 'REFUNDED' => 0,
+      'BALANCE_DUE' => balance,
+      _ => null,
+    };
+    final summary = InkWell(
+      onTap: q == null && orderId == null && bill == null
+          ? null
+          : () => _showFeeDetailBottomSheet(context, ref),
+      child: Padding(
+        padding: EdgeInsets.all(compact ? 12 : 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 8,
+          children: [
+            Row(
+              spacing: 8,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.calculate_outlined,
-                      size: 18,
-                      color: Color(0xFF1D6FE9),
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        '按距离计价',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF333333),
-                        ),
-                      ),
-                    ),
-                  ],
+                _amount(
+                  context,
+                  '应付总额',
+                  bill?.finalAmount ?? q?.totalAmount,
+                  primary: true,
                 ),
-                const SizedBox(height: 14),
-                if (q == null)
-                  const Text('此订单没有计价快照，请联系平台处理。')
-                else ...[
-                  const Text(
-                    '运单总价',
-                    style: TextStyle(fontSize: 14, color: Color(0xFF555555)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    money(q.totalAmount),
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1D6FE9),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '定金：${money(q.depositAmount)}，结算时抵扣',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF888888),
-                    ),
-                  ),
-                ],
-                if (bill?.finalAmount != null) ...[
-                  const SizedBox(height: 8),
-                  Text('结算总价：${money(bill!.finalAmount)}'),
-                  Text(
-                    (bill!.balanceAmount ?? 0) < 0
-                        ? '应退差额：${money(-bill!.balanceAmount!)}'
-                        : '抵扣定金后尾款：${money(bill!.balanceAmount)}',
-                  ),
-                ],
+                _amount(context, '已付定金', paid),
+                _amount(context, '待付尾款', remaining),
               ],
             ),
-          ),
-          if (q != null) ...[
-            const Divider(height: 1, color: Color(0xFFF0F0F0)),
-            InkWell(
-              onTap: () => _showFeeDetailBottomSheet(context, ref),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '查看费用明细',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF1D6FE9)),
-                    ),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 18,
-                      color: Color(0xFF1D6FE9),
-                    ),
-                  ],
+            if (q != null || orderId != null || bill != null)
+              Text(
+                '查看费用明细',
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
-            ),
           ],
-        ],
+        ),
       ),
     );
+    return compact
+        ? summary
+        : Card(clipBehavior: Clip.antiAlias, child: summary);
   }
+
+  Widget _amount(
+    BuildContext context,
+    String label,
+    num? amount, {
+    bool primary = false,
+  }) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 4,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelSmall),
+        Text(
+          money(amount),
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: primary ? Theme.of(context).colorScheme.primary : null,
+          ),
+        ),
+      ],
+    ),
+  );
 }

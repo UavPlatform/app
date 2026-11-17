@@ -132,7 +132,7 @@ void main() {
       expect(find.byKey(const ValueKey('place-selected-name')), findsOneWidget);
       expect(find.textContaining('27.961000'), findsNothing);
 
-      await tester.tap(find.text('确认'));
+      await tester.tap(find.text('设为终点'));
       await tester.pumpAndSettle();
       expect(picked(), '27.961000,112.905000;湘潭北站;雨湖区 九华经济开发区');
     },
@@ -182,7 +182,11 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
-    expect(find.text('没有找到相关地点，换个关键词试试'), findsOneWidget);
+    expect(find.text('未找到匹配地点'), findsOneWidget);
+    expect(find.text('换个关键词'), findsOneWidget);
+    await tester.tap(find.text('直接在地图选点'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('place-search-results')), findsNothing);
 
     await tester.pumpWidget(const SizedBox());
     final failing = _FakePlaceSearch(
@@ -196,6 +200,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
     expect(find.text('地图 Key 无效'), findsOneWidget);
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+    expect(failing.calls, ['仓库', '仓库']);
   });
 
   testWidgets('clearing the field hides results and resets the query', (

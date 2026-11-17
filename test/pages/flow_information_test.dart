@@ -136,7 +136,7 @@ void main() {
     },
   );
   testWidgets(
-    'all-materials page selects evidence beyond the compact preview',
+    'expanded delivery group selects evidence beyond the initial viewport',
     (tester) async {
       List<String> selected = [];
       await tester.pumpWidget(
@@ -176,14 +176,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('材料5.jpg'), findsNothing);
-      await tester.scrollUntilVisible(
-        find.text('查看全部材料'),
-        150,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('查看全部材料'));
-      await tester.pumpAndSettle();
+      expect(find.text('货物照片'), findsOneWidget);
+      expect(find.text('场地条件'), findsOneWidget);
+      expect(find.text('交付凭证'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('材料5.jpg'),
         150,
@@ -193,13 +188,15 @@ void main() {
         of: find.text('材料5.jpg'),
         matching: find.byType(ListTile),
       );
-      await tester.tap(
-        find.descendant(of: row, matching: find.byType(Checkbox)),
+      final checkbox = find.descendant(
+        of: row,
+        matching: find.byType(Checkbox),
       );
+      await Scrollable.ensureVisible(tester.element(checkbox), alignment: .5);
+      await tester.pumpAndSettle();
+      await tester.tap(checkbox);
       await tester.pumpAndSettle();
       expect(selected, ['proof5']);
-      await tester.tap(find.byType(BackButton));
-      await tester.pumpAndSettle();
       expect(find.textContaining('已选择 1 份'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

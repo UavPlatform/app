@@ -18,9 +18,13 @@ class DispatchCheckoutCard extends ConsumerStatefulWidget {
     super.key,
     required this.draft,
     this.compact = false,
+    this.review,
+    this.scrollController,
   });
   final WaybillDraft draft;
   final bool compact;
+  final Widget? review;
+  final ScrollController? scrollController;
   @override
   ConsumerState<DispatchCheckoutCard> createState() =>
       _DispatchCheckoutCardState();
@@ -222,169 +226,153 @@ class _DispatchCheckoutCardState extends ConsumerState<DispatchCheckoutCard> {
     final assessment = _assessment;
     final evaluation = assessment?.data.evaluation;
     const note = TextStyle(fontSize: 12, color: Color(0xFF888888), height: 1.4);
-    return Material(
-      color: Colors.white,
-      child: SafeArea(
-        top: false,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * 0.45,
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text('定金在结算时抵扣。', style: note),
-                if (widget.draft.fields.entries.any(
-                  (e) => e.key.contains('.photo.') && e.value.isNotEmpty,
-                ))
-                  const Text('照片将在建单后上传，失败可重试或在已有订单中补充。', style: note),
-                if (assessment != null)
-                  ExpansionTile(
-                    tilePadding: EdgeInsets.zero,
-                    dense: true,
-                    title: Text(
-                      assessment.allowed ? '查看评估与报价' : '评估未通过，查看原因',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    children: [
-                      DispatchPriceCard(quote: assessment.data.quote),
-                      if (evaluation != null) ...[
-                        if (evaluation.source == 'SIMULATED_DEMO')
-                          const Text('模拟评估 · 以下为演示样例，不代表真实可飞'),
-                        Text(
-                          '环境评估预计飞行：${evaluation.flightMinutes} 分钟（计价距离以上方价格为准）',
-                        ),
-                        Text(
-                          '高差：${evaluation.altitudeDifferenceMeters} m · 地形：${evaluation.terrain}',
-                        ),
-                        Text(
-                          '空域：${evaluation.airspace == 'PROHIBITED'
-                              ? '禁飞，不能下单'
-                              : evaluation.airspace == 'CAUTION'
-                              ? '需注意'
-                              : '可飞'}',
-                        ),
-                        Text(
-                          '数据来源：${evaluation.source} · 有效至 ${assessment.data.expiresAt}',
-                        ),
-                        for (final warning in evaluation.warnings ?? <String>[])
-                          Text(warning),
-                      ],
-                    ],
-                  ),
-                if (_message != null)
-                  Text(
-                    _message!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 12,
-                    ),
-                  ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        visualDensity: VisualDensity.compact,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        title: const Text(
-                          '信息真实、无违禁品',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                        value: _accepted,
-                        onChanged: _busy
-                            ? null
-                            : (value) =>
-                                  setState(() => _accepted = value ?? false),
-                      ),
-                    ),
-                    PopupMenuButton<String>(
-                      tooltip: '更多订单操作',
-                      enabled: !_busy,
-                      onSelected: (action) {
-                        if (action == 'orders') context.go('/dispatch/orders');
-                        if (action == 'previous') {
-                          context.push(
-                            '/dispatch/orders/${Uri.encodeComponent(previousOrder)}',
-                          );
-                        }
-                        if (action == 'new') _newAttempt();
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'orders',
-                          child: Text('查看我的派单运单'),
-                        ),
-                        if (previousOrder.isNotEmpty) ...[
-                          const PopupMenuItem(
-                            value: 'previous',
-                            child: Text('查看这份运单已创建的订单'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'new',
-                            child: Text('使用相同信息另建一单'),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
+    final allowed = assessment?.allowed == true;
+    final amount = assessment?.data.quote?.depositAmount;
+    final blocker = _busy
+        ? null
+        : _message?.split('\n').first ??
+              (assessment != null && !allowed
+                  ? '评估未通过，请查看评估详情'
+                  : allowed && !_accepted
+                  ? '请先勾选上方安全声明'
+                  : null);
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.review != null) widget.review!,
+        if (assessment != null)
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: Text(allowed ? '查看评估与报价' : '评估未通过，查看原因'),
+            children: [
+              DispatchPriceCard(quote: assessment.data.quote),
+              if (evaluation != null) ...[
+                Text('预计飞行：${evaluation.flightMinutes} 分钟'),
+                Text(
+                  '高差：${evaluation.altitudeDifferenceMeters} m · 地形：${evaluation.terrain}',
                 ),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: SizedBox(
-                        height: 46,
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            textStyle: const TextStyle(fontSize: 13),
-                          ),
-                          onPressed: _busy ? null : () => _run(submit: false),
-                          child: Text(_busy ? '处理中…' : '检查并评估运单'),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 3,
-                      child: SizedBox(
-                        height: 46,
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          onPressed:
-                              _busy || !_accepted || assessment?.allowed != true
-                              ? null
-                              : () => _run(submit: true),
-                          child: const Text(
-                            '确认运单，前往支付',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  '空域：${evaluation.airspace == 'PROHIBITED'
+                      ? '禁飞，不能下单'
+                      : evaluation.airspace == 'CAUTION'
+                      ? '需注意'
+                      : '可飞'}',
                 ),
+                Text('有效至 ${assessment.data.expiresAt}'),
+                for (final warning in evaluation.warnings ?? <String>[])
+                  Text(warning),
               ],
+            ],
+          ),
+        if (_message?.contains('\n') == true)
+          Text(
+            _message!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('信息真实、无违禁品'),
+                value: _accepted,
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _accepted = value ?? false),
+              ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: '更多订单操作',
+              enabled: !_busy,
+              onSelected: (action) {
+                if (action == 'orders') context.go('/dispatch/orders');
+                if (action == 'previous') {
+                  context.push(
+                    '/dispatch/orders/${Uri.encodeComponent(previousOrder)}',
+                  );
+                }
+                if (action == 'new') _newAttempt();
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'orders', child: Text('查看我的派单运单')),
+                if (previousOrder.isNotEmpty) ...[
+                  const PopupMenuItem(
+                    value: 'previous',
+                    child: Text('查看这份运单已创建的订单'),
+                  ),
+                  const PopupMenuItem(value: 'new', child: Text('使用相同信息另建一单')),
+                ],
+              ],
+            ),
+          ],
+        ),
+        if (evaluation?.source == 'SIMULATED_DEMO')
+          const Text('模拟评估 · 以下为演示样例，不代表真实可飞', style: note),
+        const Text('定金在结算时抵扣。', style: note),
+        if (widget.draft.fields.entries.any(
+          (e) => e.key.contains('.photo.') && e.value.isNotEmpty,
+        ))
+          const Text('照片将在建单后上传，失败可重试或在已有订单中补充。', style: note),
+      ],
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.review == null)
+          Padding(padding: const EdgeInsets.all(16), child: content)
+        else
+          Expanded(
+            child: SingleChildScrollView(
+              controller: widget.scrollController,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: content,
+            ),
+          ),
+        Material(
+          color: Colors.white,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 4,
+                children: [
+                  Text(
+                    amount == null
+                        ? '应付定金 · 评估后确认'
+                        : '应付定金 ¥${amount.toStringAsFixed(2)}',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  if (blocker != null)
+                    Text(
+                      blocker,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  FilledButton(
+                    onPressed: _busy || (allowed && !_accepted)
+                        ? null
+                        : () => _run(submit: allowed),
+                    child: Text(
+                      _busy
+                          ? '处理中…'
+                          : allowed
+                          ? '支付定金'
+                          : '检查运单',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 

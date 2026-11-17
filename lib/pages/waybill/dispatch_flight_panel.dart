@@ -103,7 +103,7 @@ int? flightEtaSeconds(
   return seconds.isFinite ? seconds.ceil() : null;
 }
 
-class DispatchFlightPanel extends ConsumerStatefulWidget {
+class DispatchFlightPanel extends StatelessWidget {
   const DispatchFlightPanel({
     super.key,
     required this.orderId,
@@ -111,12 +111,64 @@ class DispatchFlightPanel extends ConsumerStatefulWidget {
   });
   final String orderId;
   final LatLng? destination;
+
   @override
-  ConsumerState<DispatchFlightPanel> createState() =>
-      _DispatchFlightPanelState();
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    clipBehavior: Clip.antiAlias,
+    child: ListTile(
+      dense: true,
+      leading: const Icon(Icons.sensors_rounded),
+      title: const Text('实际飞行数据'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (context) => FractionallySizedBox(
+          heightFactor: 0.9,
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text('实际飞行数据'),
+                  trailing: IconButton(
+                    tooltip: '关闭',
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                    child: _FlightDetails(
+                      orderId: orderId,
+                      destination: destination,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
-class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
+class _FlightDetails extends ConsumerStatefulWidget {
+  const _FlightDetails({required this.orderId, required this.destination});
+  final String orderId;
+  final LatLng? destination;
+
+  @override
+  ConsumerState<_FlightDetails> createState() => _FlightDetailsState();
+}
+
+class _FlightDetailsState extends ConsumerState<_FlightDetails> {
   final _map = MissionMapController();
   double? _remaining;
   @override
@@ -130,7 +182,7 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
     child: Semantics(
       label: '$label：${value ?? '未知'}',
       child: Container(
-        height: 92,
+        constraints: const BoxConstraints(minHeight: 70),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
           color: const Color(0xFFF9FAFB),
@@ -171,9 +223,20 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
     final altitude = _reading(_event(aircraft, 'ALTITUDE'), 'altitudeMm', 1000);
     final speed = _reading(_event(aircraft, 'VELOCITY'), 'speedMmps', 1000);
     final battery = _reading(_event(aircraft, 'BATTERY'), 'chargePermille', 10);
+    final received = point?.receivedAt;
+    final receivedAt = received == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(received).toLocal();
     final stale =
         state.error != null ||
         (position == null ? aircraft?.stale : view?.stale) != false;
+    final signal = state.error != null
+        ? '遥测更新失败${aircraft == null ? '' : '（显示最后记录值）'}'
+        : aircraft == null && point == null
+        ? '等待设备回传数据'
+        : stale
+        ? '信号更新延迟（显示最后记录值）'
+        : '正在接收设备数据';
     final eta = flightEtaSeconds(
       view,
       position == null ? null : _remaining,
@@ -187,115 +250,45 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: 12,
           children: [
-            DispatchLivePanel(orderId: widget.orderId, showFlightHeading: true),
-            if (state.error != null) Text(state.error!),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7F8FA),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 5),
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: stale
-                            ? const Color(0xFFFFA940)
-                            : const Color(0xFF999999),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          aircraft == null
-                              ? '尚未收到本单设备数据'
-                              : '${aircraft.modelCode ?? '未识别机型'} · ${shortReference(aircraft.serialNumber ?? '')}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF666666),
-                            height: 1.4,
-                          ),
-                        ),
-                        Text(
-                          stale ? '数据待更新，显示最后收到的数值' : '正在接收设备数据',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF666666),
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            Row(
+              spacing: 12,
+              children: [
+                _flightValue('位置', position == null ? '暂无实际位置' : '已收到实际位置'),
+                _flightValue(
+                  '距卸货点直线距离',
+                  position == null || _remaining == null
+                      ? '未知'
+                      : '${_remaining!.toStringAsFixed(0)} 米',
+                ),
+                _flightValue(
+                  '预计到达',
+                  eta == null ? '暂无法估算' : '约 ${(eta / 60).ceil()} 分钟',
+                ),
+              ],
+            ),
+            Text(
+              receivedAt == null
+                  ? '最近更新：暂无记录'
+                  : '最近更新：${MaterialLocalizations.of(context).formatShortDate(receivedAt)} ${TimeOfDay.fromDateTime(receivedAt).format(context)}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            Text(
+              signal,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: stale
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             Row(
+              spacing: 8,
               children: [
                 _metric('altitude', '相对高度(m)', altitude),
-                const SizedBox(width: 8),
                 _metric('speed', '水平速度(m/s)', speed),
-                const SizedBox(width: 8),
                 _metric('battery', '设备电量(%)', battery),
               ],
             ),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7F8FA),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                spacing: 8,
-                children: [
-                  Row(
-                    spacing: 12,
-                    children: [
-                      _flightValue(
-                        '飞行状态',
-                        flying == null
-                            ? '未知'
-                            : flying
-                            ? '飞行中'
-                            : '未飞行',
-                      ),
-                      _flightValue(
-                        '距卸货点直线距离',
-                        _remaining == null
-                            ? '未知'
-                            : '${_remaining!.toStringAsFixed(0)} 米',
-                      ),
-                    ],
-                  ),
-                  Row(
-                    spacing: 12,
-                    children: [
-                      _flightValue(
-                        '轨迹状态',
-                        position == null ? '暂无实际位置' : '已收到实际位置',
-                        tooltip: position == null
-                            ? null
-                            : '最后位置接收时间：${point?.receivedAt == null ? '未知' : DateTime.fromMillisecondsSinceEpoch(point!.receivedAt!).toLocal()}',
-                      ),
-                      _flightValue(
-                        '预计到达',
-                        eta == null ? '暂无法估算' : '约 ${(eta / 60).ceil()} 分钟',
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            DispatchLivePanel(orderId: widget.orderId),
             if (position != null)
               SizedBox(
                 height: 260,
@@ -314,6 +307,28 @@ class _DispatchFlightPanelState extends ConsumerState<DispatchFlightPanel> {
                   zoom: 15,
                 ),
               ),
+            if (aircraft != null)
+              Text(
+                '${aircraft.modelCode ?? '未识别机型'} · ${shortReference(aircraft.serialNumber ?? '')}'
+                '${flying == null
+                    ? ''
+                    : flying
+                    ? ' · 飞行中'
+                    : ' · 未飞行'}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            Row(
+              children: [
+                _flightValue(
+                  '飞行状态',
+                  flying == null
+                      ? '未知'
+                      : flying
+                      ? '飞行中'
+                      : '未飞行',
+                ),
+              ],
+            ),
             if (view?.flightPeriods?.isNotEmpty == true)
               FlowDetailsLink(
                 title: '本单飞行记录',

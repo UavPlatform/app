@@ -117,6 +117,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byKey(const ValueKey('flight-battery')), findsNothing);
+    await tester.tap(find.text('实际飞行数据'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsOneWidget);
     expect(
       tester.widget<Text>(find.byKey(const ValueKey('flight-battery'))).data,
       '0',
@@ -126,7 +131,11 @@ void main() {
       '未知',
     );
     expect(find.byTooltip('飞行状态：未知'), findsOneWidget);
-    expect(find.byTooltip('轨迹状态：暂无实际位置'), findsOneWidget);
+    expect(find.byTooltip('位置：暂无实际位置'), findsOneWidget);
+    await tester.tap(find.byTooltip('关闭'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byKey(const ValueKey('flight-battery')), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
   test('track sorts late points by capture time and splits aircraft swaps', () {

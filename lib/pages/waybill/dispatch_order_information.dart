@@ -212,22 +212,12 @@ class DispatchOrderInformationPage extends ConsumerWidget {
                     ('申报货值', value('declaredValue')),
                 ],
               ),
-              DispatchDetailGroup(
-                title: '支付记录状态',
-                values: [
-                  ('资金状态', order.data.fundsStatus ?? '未知'),
-                  ('定金', '¥${order.data.depositAmount!.toStringAsFixed(2)}'),
-                  if (order.data.paymentReference != null)
-                    ('支付流水', order.data.paymentReference!),
-                  if (order.data.refundReference != null)
-                    ('退款流水', order.data.refundReference!),
-                  ('更新于', order.data.updatedAt ?? '未知'),
-                ],
-              ),
               DispatchPriceCard(
                 quote: order.data.bill?.quote,
                 bill: order.data.bill,
-                expanded: true,
+                orderId: order.id,
+                order: order,
+                pilot: pilot,
               ),
             ],
           ),

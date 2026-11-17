@@ -144,23 +144,22 @@ void main() {
     'compact checkout preserves declaration and create-retry idempotency',
     (tester) async {
       final result = await setup(tester, compact: true, loseResponse: true);
-      await tap(tester, '检查并评估运单');
+      await tap(tester, '检查运单');
       expect(
         tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, '确认运单，前往支付'),
-            )
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '支付定金'))
             .onPressed,
         isNull,
       );
+      expect(find.text('请先勾选上方安全声明'), findsOneWidget);
       await tap(tester, '信息真实、无违禁品');
-      await tap(tester, '确认运单，前往支付');
+      await tap(tester, '支付定金');
       final key = result.container
           .read(waybillDraftProvider)
           .draft
           .value('submission.requestKey');
       expect(key, isNotEmpty);
-      await tap(tester, '确认运单，前往支付');
+      await tap(tester, '支付定金');
       expect(result.api.keys, [key, key]);
       expect(find.byType(DispatchDepositPage), findsOneWidget);
       expect(result.api.payments, 0);
@@ -184,11 +183,11 @@ void main() {
       await tap(tester, '支付定金');
       await tap(tester, '确认');
       expect(find.byType(DispatchWaitingPage), findsOneWidget);
-      expect(find.text('正在为你寻找飞手'), findsOneWidget);
+      expect(find.text('正在匹配飞手'), findsOneWidget);
       await tap(tester, '取消运单');
       await tap(tester, '确认');
       expect(find.byType(DispatchCancelledPage), findsOneWidget);
-      expect(find.textContaining('定金已全额退回'), findsOneWidget);
+      expect(find.textContaining('定金已退还'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

@@ -27,6 +27,7 @@ class SystemMessagesView extends ConsumerStatefulWidget {
 class _SystemMessagesViewState extends ConsumerState<SystemMessagesView> {
   List<MessageVo> _messages = [];
   bool _loading = true;
+  int _unreadOnOpen = 0;
   String? _error;
 
   ChatApi get _chatApi => ChatApi(ref.read(httpClientProvider));
@@ -65,9 +66,14 @@ class _SystemMessagesViewState extends ConsumerState<SystemMessagesView> {
           return;
         }
         final targetSessionId = system.first.id;
-        await _loadMessages(targetSessionId);
+        await _loadMessages(targetSessionId, unread: system.first.unreadCount);
       } else {
-        await _loadMessages(sessionId);
+        final session = ref
+            .read(sessionListProvider)
+            .sessions
+            .where((item) => item.id == sessionId)
+            .firstOrNull;
+        await _loadMessages(sessionId, unread: session?.unreadCount ?? 0);
       }
     } catch (error) {
       if (!mounted) return;
@@ -78,13 +84,14 @@ class _SystemMessagesViewState extends ConsumerState<SystemMessagesView> {
     }
   }
 
-  Future<void> _loadMessages(int sessionId) async {
+  Future<void> _loadMessages(int sessionId, {required int unread}) async {
     final result = await _chatApi.getMessages(sessionId);
     if (!mounted) return;
     if (result.success && result.data != null) {
       setState(() {
         _messages = result.data!.where(isSystemMessage).toList()
-          ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        _unreadOnOpen = unread;
         _loading = false;
       });
       await ref.read(sessionListProvider.notifier).markSessionRead(sessionId);
@@ -112,8 +119,10 @@ class _SystemMessagesViewState extends ConsumerState<SystemMessagesView> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 itemCount: _messages.length,
-                itemBuilder: (_, index) =>
-                    SystemMessageCard(message: _messages[index]),
+                itemBuilder: (_, index) => SystemMessageCard(
+                  message: _messages[index],
+                  unread: index < _unreadOnOpen,
+                ),
               ),
             ),
     );

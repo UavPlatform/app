@@ -125,7 +125,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.reads, isEmpty); // Listing the inbox is read-only.
       expect(find.text('订单 order1'), findsOneWidget);
-      await tester.tap(find.text('未读 · 飞手已到场'));
+      await tester.tap(find.text('飞手已到场'));
       await tester.pumpAndSettle();
       expect(api.reads, ['n1']);
       expect(find.text('当前阶段：运输中 order1'), findsOneWidget);

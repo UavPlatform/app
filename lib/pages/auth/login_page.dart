@@ -16,31 +16,43 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _userNameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _serverController = TextEditingController();
   bool _obscurePassword = true;
   bool _loading = false;
-  bool _showServer = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // 服务器地址预填：本地已存地址优先，新装首启回落内置默认环境（P1-5）。
-    _serverController.text = ApiConfig.resolveBaseUrl(
-      TokenStorage.normalizeHttpServerUrl(
-        ref.read(tokenStorageProvider).getServerUrl(),
-      ),
-    );
-  }
+  bool _savingNetwork = false;
 
   @override
   void dispose() {
     _userNameController.dispose();
     _passwordController.dispose();
-    _serverController.dispose();
     super.dispose();
   }
 
+  Future<void> _configureNetwork() async {
+    final storage = ref.read(tokenStorageProvider);
+    final url = await showDialog<String>(
+      context: context,
+      builder: (_) => _NetworkSettingsDialog(
+        initialUrl: ApiConfig.resolveBaseUrl(storage.getServerUrl()),
+      ),
+    );
+    if (!mounted || url == null) return;
+    final client = ref.read(httpClientProvider);
+    setState(() => _savingNetwork = true);
+    try {
+      await storage.saveServerUrl(url);
+      client.updateBaseUrl(url);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('网络环境未保存，请重试')));
+    } finally {
+      if (mounted) setState(() => _savingNetwork = false);
+    }
+  }
+
   Future<void> _login() async {
+    if (_loading || _savingNetwork) return;
     if (_userNameController.text.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -78,6 +90,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        toolbarHeight: 44,
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            tooltip: '网络环境调试',
+            onPressed: _loading || _savingNetwork ? null : _configureNetwork,
+            icon: const Icon(Icons.tune_rounded),
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: EdgeInsets.only(
           left: 32,
@@ -87,7 +110,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         child: SafeArea(
           child: Column(
             children: [
-              const SizedBox(height: 60),
+              const SizedBox(height: 24),
               Container(
                 width: 72,
                 height: 72,
@@ -144,50 +167,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: () => setState(() => _showServer = !_showServer),
-                child: Row(
-                  children: [
-                    Icon(
-                      _showServer ? Icons.expand_less : Icons.expand_more,
-                      size: 16,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      '服务器设置',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (_showServer) ...[
-                const SizedBox(height: 8),
-                TextField(
-                  key: const Key('login_server_url'),
-                  controller: _serverController,
-                  textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                    hintText: '公网示例 120.77.x.x:8888；局域网直连 192.168.x.x:8081',
-                    prefixIcon: Icon(Icons.dns_outlined, size: 20),
-                  ),
-                  onChanged: (v) {
-                    final url = TokenStorage.normalizeHttpServerUrl(v) ?? '';
-                    ref.read(tokenStorageProvider).saveServerUrl(url);
-                    ref.read(httpClientProvider).updateBaseUrl(url);
-                  },
-                ),
-              ],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: _loading ? null : _login,
+                  onPressed: _loading || _savingNetwork ? null : _login,
                   child: _loading
                       ? const SizedBox(
                           width: 20,
@@ -231,4 +216,72 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
     );
   }
+}
+
+class _NetworkSettingsDialog extends StatefulWidget {
+  const _NetworkSettingsDialog({required this.initialUrl});
+  final String initialUrl;
+
+  @override
+  State<_NetworkSettingsDialog> createState() => _NetworkSettingsDialogState();
+}
+
+class _NetworkSettingsDialogState extends State<_NetworkSettingsDialog> {
+  late final _controller = TextEditingController(text: widget.initialUrl);
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final url = TokenStorage.normalizeHttpServerUrl(_controller.text) ?? '';
+    final uri = Uri.tryParse(url);
+    if (url.isNotEmpty &&
+        (uri == null ||
+            !uri.hasAuthority ||
+            uri.host.isEmpty ||
+            uri.userInfo.isNotEmpty ||
+            uri.hasQuery ||
+            uri.hasFragment ||
+            !const ['http', 'https'].contains(uri.scheme))) {
+      setState(() => _error = '请输入有效的服务器地址');
+      return;
+    }
+    Navigator.of(context).pop(url);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('网络环境调试'),
+    scrollable: true,
+    content: TextField(
+      key: const Key('login_server_url'),
+      controller: _controller,
+      keyboardType: TextInputType.url,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => _save(),
+      onChanged: (_) {
+        if (_error != null) setState(() => _error = null);
+      },
+      decoration: InputDecoration(
+        labelText: '服务器地址',
+        helperText: '局域网示例：192.168.1.20:8081',
+        errorText: _error,
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(''),
+        child: const Text('恢复默认'),
+      ),
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('取消'),
+      ),
+      FilledButton(onPressed: _save, child: const Text('保存')),
+    ],
+  );
 }

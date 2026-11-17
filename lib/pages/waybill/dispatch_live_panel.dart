@@ -1,4 +1,3 @@
-import '../../utils/failure_message.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,6 +61,7 @@ class _LivePanel extends StatefulWidget {
 class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
   Timer? _timer;
   bool _busy = false, _foreground = true, _rendered = false;
+  bool _starting = false, _hasStream = false, _connectionFailed = false;
   String _message = '正在读取本单直播状态';
   String? _liveId, _failedId;
   int? _previewId;
@@ -123,15 +123,25 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
       if (status.configured != true || status.state != 'RUNNING') {
         await _release();
         if (!mounted) return;
-        setState(
-          () => _message = status.configured != true
+        setState(() {
+          _starting = status.configured == true && status.state == 'STARTING';
+          _connectionFailed = false;
+          _message = status.configured != true
               ? '本单直播服务尚未配置'
-              : status.state == 'STARTING'
-              ? '飞手正在开启直播，等待实际图传首帧'
-              : '飞手尚未开启本单直播，暂无画面',
-        );
+              : _starting
+              ? '飞手正在开播，等待图传首帧'
+              : _hasStream || status.state == 'STOPPED'
+              ? '本单直播已结束'
+              : '飞手尚未开启本单直播';
+        });
       } else if (_liveId != status.liveId && _failedId != status.liveId) {
         await _release();
+        if (!mounted || !_foreground) return;
+        setState(() {
+          _starting = true;
+          _connectionFailed = false;
+          _message = '正在连接本单直播';
+        });
         final credential = await widget.api.watch(
           widget.orderId,
           status.liveId!,
@@ -149,6 +159,7 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
               event.kind == TrtcEventKind.firstVideoFrame) {
             setState(() {
               _rendered = true;
+              _hasStream = true;
               _message = '本单实时图传';
             });
           }
@@ -157,7 +168,11 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
           if (!mounted || _player != player) return;
           _failedId = _liveId;
           unawaited(_release());
-          setState(() => _message = '本单直播已中断，请重试');
+          setState(() {
+            _starting = false;
+            _connectionFailed = true;
+            _message = '直播连接失败，点击重试';
+          });
         });
         await player.enter(
           LiveStreamSession(
@@ -173,14 +188,20 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
           await player.leave();
           return;
         }
-        setState(() => _message = '已连接本单直播，等待实际画面');
+        setState(() {
+          _starting = false;
+          _hasStream = true;
+          if (!_rendered) _message = '已连接本单直播，等待实际画面';
+        });
       }
-    } catch (error) {
+    } catch (_) {
       await _release();
       if (mounted) {
-        setState(
-          () => _message = failureMessage(error, fallback: '暂时无法观看本单直播，请稍后重试'),
-        );
+        setState(() {
+          _starting = false;
+          _connectionFailed = true;
+          _message = '直播连接失败，点击重试';
+        });
       }
     } finally {
       _busy = false;
@@ -267,67 +288,62 @@ class _LivePanelState extends State<_LivePanel> with WidgetsBindingObserver {
       unawaited(_poll());
     }
 
+    final colors = Theme.of(context).colorScheme;
+    if (player == null && !_starting) {
+      return SizedBox(
+        height: 44,
+        child: Material(
+          color: colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: _connectionFailed ? refresh : null,
+            child: Row(
+              children: [
+                const SizedBox(width: 10),
+                Icon(
+                  Icons.videocam_off_outlined,
+                  size: 18,
+                  color: _connectionFailed
+                      ? colors.error
+                      : colors.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _message,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _connectionFailed
+                          ? colors.error
+                          : colors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: _connectionFailed ? '重试连接直播' : '刷新本单直播',
+                  onPressed: refresh,
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final video = ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: ColoredBox(
         color: const Color(0xFF1E222D),
         child: player == null
-            ? SizedBox(
-                height: 130,
-                width: double.infinity,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal:
-                              _failedId == null || widget.showFlightHeading
-                              ? 12
-                              : 46,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          spacing: 6,
-                          children: [
-                            const Icon(
-                              Icons.videocam_off_outlined,
-                              size: 28,
-                              color: Colors.white54,
-                            ),
-                            Text(
-                              _message,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const Text(
-                              '仅观看本单图传，直播由飞手控制。',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.white54,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (_failedId != null && !widget.showFlightHeading)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: IconButton(
-                          tooltip: '重试连接直播',
-                          onPressed: refresh,
-                          icon: const Icon(Icons.replay, color: Colors.white70),
-                        ),
-                      ),
-                  ],
+            ? AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Center(
+                  child: Text(
+                    _message,
+                    style: const TextStyle(color: Colors.white),
+                  ),
                 ),
               )
             : AspectRatio(

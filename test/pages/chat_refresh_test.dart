@@ -67,7 +67,7 @@ void main() {
     );
     await tester.pumpWidget(page());
     await tester.pumpAndSettle();
-    expect(find.text('运单 55689f…8947'), findsOneWidget);
+    expect(find.text('订单沟通 · 运单 55689f…8947'), findsOneWidget);
     expect(find.text('运输中'), findsOneWidget);
     tester.view.viewInsets = const FakeViewPadding(bottom: 260);
     await tester.pumpAndSettle();
@@ -158,7 +158,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(sends, 1);
       expect(input.controller!.text, '货物已准备好');
-      expect(find.text('无权发送此订单的消息'), findsNWidgets(2));
+      expect(find.text('无权发送此订单的消息'), findsOneWidget);
       input.controller!.clear();
       input.focusNode!.unfocus();
       await tester.pump(const Duration(seconds: 4));

@@ -38,13 +38,6 @@ class OrderHistoryPage extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(4, 0, 4, 10),
-                  child: Text(
-                    '最近50笔订单中的已结单与已取消记录',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
-                  ),
-                ),
                 if (history.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 80),
@@ -57,6 +50,13 @@ class OrderHistoryPage extends ConsumerWidget {
                       '/dispatch/orders/${Uri.encodeComponent(order.id)}',
                     ),
                   ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(4, 12, 4, 4),
+                  child: Text(
+                    '仅展示最近 50 笔运单中的已结束记录',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
+                  ),
+                ),
               ],
             );
           },

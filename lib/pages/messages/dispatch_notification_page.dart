@@ -1,3 +1,4 @@
+import '../../widgets/system_message_card.dart' show formatNotificationTime;
 import '../../utils/payment_display_text.dart';
 import '../../widgets/flow_ui.dart';
 import '../../widgets/infinite_list.dart';
@@ -86,12 +87,6 @@ class _DispatchNotificationPageState
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             children: [
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text('手机系统推送尚未接入，请在应用内查看通知。站内通知会保留，点击后打开订单当前进度。'),
-                ),
-              ),
               if (state.loading && state.items.isEmpty)
                 const LinearProgressIndicator(),
               if (state.error != null)
@@ -117,20 +112,31 @@ class _DispatchNotificationPageState
                 for (final item in group.value)
                   Card(
                     child: ListTile(
-                      leading: Icon(
-                        state.isRead(item)
-                            ? Icons.mark_email_read_outlined
-                            : Icons.mark_email_unread_outlined,
-                      ),
-                      title: Text(
-                        '${state.isRead(item) ? '' : '未读 · '}${paymentDisplayText(item.title ?? '订单通知')}',
-                      ),
+                      leading: state.isRead(item)
+                          ? const Icon(Icons.notifications_none)
+                          : Semantics(
+                              label: '未读',
+                              child: Icon(
+                                Icons.circle,
+                                size: 9,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                      title: Text(paymentDisplayText(item.title ?? '订单通知')),
                       subtitle: Text(
-                        '${paymentDisplayText(item.body ?? '')}\n${item.createdAt}',
+                        paymentDisplayText(item.body ?? ''),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      isThreeLine: true,
+                      trailing: switch (DateTime.tryParse(
+                        item.createdAt ?? '',
+                      )) {
+                        final time? => Text(
+                          formatNotificationTime(time),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        null => null,
+                      },
                       onTap: _opening ? null : () => _open(item),
                     ),
                   ),

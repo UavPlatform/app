@@ -68,13 +68,10 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
 
   void _setPoint(LatLng point) {
     _searchFocus.unfocus();
-    _searchController.clear();
+    _clearSearch();
     setState(() {
       _point = point;
       _place = null;
-      _results = const [];
-      _searchError = null;
-      _showResults = false;
     });
   }
 
@@ -122,33 +119,37 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
       });
       return;
     }
+    _searchSeq++;
+    setState(() {
+      _searching = true;
+      _showResults = true;
+      _searchError = null;
+      _results = const [];
+    });
     _debounce = Timer(_searchDebounce, () => _runSearch(keyword));
-    setState(() {});
   }
 
   Future<void> _runSearch(String keyword) async {
-    final AmapConfig config;
-    try {
-      config = await ref.read(amapMapConfigProvider.future);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _searching = false;
-        _showResults = true;
-        _searchError = '地图服务暂不可用，无法搜索';
-      });
-      return;
-    }
-    // 等待配置期间关键词可能已改/已清空：只对当前输入发起检索。
     if (!mounted || _searchController.text.trim() != keyword) return;
     final seq = ++_searchSeq;
     setState(() {
       _searching = true;
       _showResults = true;
       _searchError = null;
-      // 开搜即清旧列表，避免上一关键词结果在加载态残留。
       _results = const [];
     });
+    final AmapConfig config;
+    try {
+      config = await ref.read(amapMapConfigProvider.future);
+    } catch (_) {
+      if (!mounted || seq != _searchSeq) return;
+      setState(() {
+        _searching = false;
+        _searchError = '地图服务暂不可用，无法搜索';
+      });
+      return;
+    }
+    if (!mounted || seq != _searchSeq) return;
     try {
       final results = await ref
           .read(placeSearchProvider)
@@ -162,7 +163,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
       setState(() {
         _results = results;
         _searching = false;
-        _searchError = results.isEmpty ? '没有找到相关地点，换个关键词试试' : null;
+        _searchError = null;
       });
     } on PlaceSearchException catch (error) {
       if (!mounted || seq != _searchSeq) return;
@@ -254,7 +255,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
               onTap: _setPoint,
             ),
           ),
-          if (_showResults && (_results.isNotEmpty || _searchError != null))
+          if (_showResults)
             Positioned(left: 12, right: 12, top: 8, child: _buildResultPanel()),
           // 底部面板：引导态 / 已选态
           Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomPanel()),
@@ -327,13 +328,60 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
 
   Widget _buildResultPanel() {
     final children = <Widget>[
-      if (_searchError != null)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Text(
+      if (_searching)
+        const ListTile(
+          leading: SizedBox.square(
+            dimension: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          title: Text('正在搜索…'),
+        )
+      else if (_searchError != null)
+        ListTile(
+          title: Text(
             _searchError!,
             key: const ValueKey('place-search-message'),
-            style: TextStyle(fontSize: 13, color: AppColors.onSurfaceVariant),
+          ),
+          trailing: TextButton(
+            onPressed: () {
+              if (ref.read(amapMapConfigProvider).hasError) {
+                ref.invalidate(amapMapConfigProvider);
+              }
+              _runSearch(_searchController.text.trim());
+            },
+            child: const Text('重试'),
+          ),
+        )
+      else if (_results.isEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('未找到匹配地点', key: ValueKey('place-search-message')),
+              Wrap(
+                spacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      _searchFocus.requestFocus();
+                      _searchController.selection = TextSelection(
+                        baseOffset: 0,
+                        extentOffset: _searchController.text.length,
+                      );
+                    },
+                    child: const Text('换个关键词'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      _searchFocus.unfocus();
+                      _clearSearch();
+                    },
+                    child: const Text('直接在地图选点'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       for (final result in _results)
@@ -343,7 +391,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
           leading: Icon(Icons.place_outlined, color: AppColors.primary),
           title: Text(
             result.name,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
@@ -351,7 +399,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
               ? null
               : Text(
                   result.description,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12),
                 ),
@@ -366,13 +414,11 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 320),
-        child: children.isEmpty
-            ? const SizedBox.shrink()
-            : ListView(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                children: children,
-              ),
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+          children: children,
+        ),
       ),
     );
   }
@@ -498,7 +544,7 @@ class _MapPickerPageState extends ConsumerState<MapPickerPage> {
             ),
             onPressed: resolving ? null : _confirm,
             icon: const Icon(Icons.check, size: 20),
-            label: const Text('确认'),
+            label: Text(widget.pointLabel == '起吊点' ? '设为起点' : '设为终点'),
           ),
         ),
       ],

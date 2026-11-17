@@ -20,6 +20,7 @@ class WaybillSummary extends StatelessWidget {
     required String label,
     required String value,
     bool isPlaceholder = false,
+    bool invalid = false,
     VoidCallback? onTap,
   }) => InkWell(
     key: key,
@@ -47,12 +48,14 @@ class WaybillSummary extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              maxLines: 1,
+              maxLines: invalid ? 2 : 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: isPlaceholder ? FontWeight.w400 : FontWeight.w500,
-                color: isPlaceholder
+                color: invalid
+                    ? const Color(0xFFB42318)
+                    : isPlaceholder
                     ? const Color(0xFF999999)
                     : const Color(0xFF1F2329),
               ),
@@ -77,7 +80,11 @@ class WaybillSummary extends StatelessWidget {
 
   Widget _groupRow(WaybillEditGroup group) {
     final summary = group.summary(draft);
-    final invalid = group.keys.any(errors.containsKey);
+    final error = group.keys
+        .map((key) => errors[key])
+        .whereType<String>()
+        .firstOrNull;
+    final invalid = error != null;
     final emptyPhotos =
         group.photos != null &&
         !draft.fields.entries.any(
@@ -87,11 +94,8 @@ class WaybillSummary extends StatelessWidget {
     return _buildFormRow(
       key: ValueKey('edit-${group.id}'),
       label: group.title,
-      value: invalid
-          ? group.errors(draft).values.firstOrNull ?? '请检查信息'
-          : summary.isEmpty
-          ? '点击填写'
-          : summary,
+      value: error ?? (summary.isEmpty ? '点击填写' : summary),
+      invalid: invalid,
       isPlaceholder: !invalid && (summary.isEmpty || emptyPhotos),
       onTap: () => onEdit(group),
     );

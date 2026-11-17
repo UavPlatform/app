@@ -15,12 +15,27 @@ bool isSystemMessage(MessageVo message) {
       message.msgType == 2;
 }
 
+String formatNotificationTime(DateTime time) {
+  final local = time.toLocal();
+  final now = DateTime.now();
+  String two(int value) => value.toString().padLeft(2, '0');
+  final clock = '${two(local.hour)}:${two(local.minute)}';
+  return DateUtils.isSameDay(local, now)
+      ? '今天 $clock'
+      : '${two(local.month)}-${two(local.day)} $clock';
+}
+
 /// 系统消息卡片：样式区别于普通文本消息气泡，
 /// 按 payload.name 渲染事件图标与标题，payload.text 兜底展示内容。
 class SystemMessageCard extends StatelessWidget {
   final MessageVo message;
 
-  const SystemMessageCard({super.key, required this.message});
+  const SystemMessageCard({
+    super.key,
+    required this.message,
+    this.unread = false,
+  });
+  final bool unread;
 
   static const Map<String, List<Object>> _eventMeta = {
     'ORDER_PAID': [Icons.payments_outlined, '支付成功'],
@@ -49,10 +64,9 @@ class SystemMessageCard extends StatelessWidget {
 
   String get _formattedTime {
     if (message.timestamp <= 0) return '';
-    final dt = DateTime.fromMillisecondsSinceEpoch(message.timestamp);
-    final minute = dt.minute.toString().padLeft(2, '0');
-    final hour = dt.hour.toString().padLeft(2, '0');
-    return '${dt.month}-${dt.day} $hour:$minute';
+    return formatNotificationTime(
+      DateTime.fromMillisecondsSinceEpoch(message.timestamp),
+    );
   }
 
   @override
@@ -81,12 +95,33 @@ class SystemMessageCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    _eventLabel,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    spacing: 6,
+                    children: [
+                      if (unread)
+                        Semantics(
+                          label: '未读',
+                          child: Icon(
+                            Icons.circle,
+                            size: 8,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      Expanded(
+                        child: Text(
+                          _eventLabel,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (_formattedTime.isNotEmpty)
+                        Text(
+                          _formattedTime,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                    ],
                   ),
                   if (message.content.isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -96,16 +131,6 @@ class SystemMessageCard extends StatelessWidget {
                         fontSize: 13,
                         color: AppColors.onSurface,
                         height: 1.4,
-                      ),
-                    ),
-                  ],
-                  if (_formattedTime.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      _formattedTime,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.onSurfaceVariant,
                       ),
                     ),
                   ],

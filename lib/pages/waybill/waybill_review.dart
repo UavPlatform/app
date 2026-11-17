@@ -161,19 +161,15 @@ class WaybillReview extends ConsumerWidget {
                 const Color(0xFFE8F3FF),
                 const Color(0xFF1D6FE9),
                 [
-                  if (WaybillEditGroup.contactsDiffer(draft)) ...[
+                  ('联系人姓名', draft.value('start.contact')),
+                  ('联系电话', draft.value('start.phone')),
+                  if (draft.value('end.contact') !=
+                          draft.value('start.contact') ||
+                      draft.value('end.phone') != draft.value('start.phone'))
                     (
-                      '起点联系人',
-                      '${draft.value('start.contact')} · ${draft.value('start.phone')}',
-                    ),
-                    (
-                      '终点联系人',
+                      '原终点联系人',
                       '${draft.value('end.contact')} · ${draft.value('end.phone')}',
                     ),
-                  ] else ...[
-                    ('联系人姓名', draft.value('start.contact')),
-                    ('联系电话', draft.value('start.phone')),
-                  ],
                 ],
               ),
               divider,

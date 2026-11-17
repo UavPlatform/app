@@ -9,20 +9,24 @@ import 'site_fields.dart';
 import 'time_fields.dart';
 import 'photo_fields.dart';
 
-Future<bool?> editWaybillGroup(BuildContext context, WaybillEditGroup group) =>
-    showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => Theme(
-        data: waybillFormTheme(Theme.of(context)),
-        child: _EditSheet(group: group),
-      ),
-    );
+Future<bool?> editWaybillGroup(
+  BuildContext context,
+  WaybillEditGroup group, {
+  Map<String, String> initialErrors = const {},
+}) => showModalBottomSheet<bool>(
+  context: context,
+  isScrollControlled: true,
+  useSafeArea: true,
+  builder: (context) => Theme(
+    data: waybillFormTheme(Theme.of(context)),
+    child: _EditSheet(group: group, initialErrors: initialErrors),
+  ),
+);
 
 class _EditSheet extends ConsumerStatefulWidget {
-  const _EditSheet({required this.group});
+  const _EditSheet({required this.group, required this.initialErrors});
   final WaybillEditGroup group;
+  final Map<String, String> initialErrors;
   @override
   ConsumerState<_EditSheet> createState() => _EditSheetState();
 }
@@ -44,17 +48,14 @@ class _EditSheetState extends ConsumerState<_EditSheet> {
   void initState() {
     super.initState();
     final state = ref.read(waybillDraftProvider);
-    _draft = _initial = state.draft;
-    if (widget.group.id == 'contact') {
-      for (final field in ['contact', 'phone']) {
-        final value = _draft.value('start.$field').trim().isNotEmpty
-            ? _draft.value('start.$field')
-            : _draft.value('end.$field');
-        _draft = _draft
-            .change('start.$field', value)
-            .change('end.$field', value);
-      }
-    }
+    _draft = _initial = widget.group == WaybillEditGroup.contact
+        ? WaybillEditGroup.withSharedContact(state.draft)
+        : state.draft;
+    _errors = Map.fromEntries(
+      widget.initialErrors.entries.where(
+        (entry) => widget.group.keys.contains(entry.key),
+      ),
+    );
     _scope = ref.read(waybillDraftScopeProvider);
     _revision = state.formRevision;
   }
@@ -66,10 +67,7 @@ class _EditSheetState extends ConsumerState<_EditSheet> {
     if (!_current) return;
     setState(() {
       _draft = _draft.change(key, value);
-      if (widget.group.id == 'contact' && key.startsWith('start.')) {
-        _draft = _draft.change(key.replaceFirst('start.', 'end.'), value);
-      }
-      _errors = {};
+      _errors = Map.of(_errors)..remove(key);
     });
   }
 
@@ -85,9 +83,13 @@ class _EditSheetState extends ConsumerState<_EditSheet> {
     }
     var latest = ref.read(waybillDraftProvider).draft;
     for (final key in widget.group.keys) {
-      if (_initial.value(key) != _draft.value(key)) {
+      if (widget.group == WaybillEditGroup.contact ||
+          _initial.value(key) != _draft.value(key)) {
         latest = latest.change(key, _draft.value(key));
       }
+    }
+    if (widget.group == WaybillEditGroup.contact) {
+      latest = WaybillEditGroup.withSharedContact(latest);
     }
     ref.read(waybillDraftProvider.notifier).replace(latest);
     _close(true);
@@ -136,12 +138,6 @@ class _EditSheetState extends ConsumerState<_EditSheet> {
               ),
             ),
             const Divider(height: 1),
-            if (group.id == 'contact' &&
-                WaybillEditGroup.contactsDiffer(_initial))
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Text('原草稿两端联系人不同，保存后将统一使用以下联系人。'),
-              ),
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),

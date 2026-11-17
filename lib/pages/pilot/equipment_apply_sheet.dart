@@ -34,6 +34,11 @@ class _EquipmentApplySheetState extends ConsumerState<EquipmentApplySheet> {
       setState(() => _error = '请先选择有在库飞机的机型');
       return;
     }
+    final orderId = _orderId;
+    if (orderId == null) {
+      setState(() => _error = '请选择要关联的订单');
+      return;
+    }
     final scope = ref.read(waybillDraftScopeProvider);
     if (scope == null) return;
 
@@ -45,9 +50,7 @@ class _EquipmentApplySheetState extends ConsumerState<EquipmentApplySheet> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('已有已借出飞机'),
-          content: const Text(
-            '默认一人同时只借一台。建议先归还后再申请；仍可提交，由管理员决定是否特批第二台。',
-          ),
+          content: const Text('默认一人同时只借一台。建议先归还后再申请；仍可提交，由管理员决定是否特批第二台。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -73,11 +76,9 @@ class _EquipmentApplySheetState extends ConsumerState<EquipmentApplySheet> {
       final subject = 'model-$modelId';
       final key = await store.requestKey(scope, subject);
       if (!alive()) return;
-      final result = await ref.read(equipmentApiProvider).apply(
-            aircraftModelId: modelId,
-            requestKey: key,
-            orderId: _orderId,
-          );
+      final result = await ref
+          .read(equipmentApiProvider)
+          .apply(aircraftModelId: modelId, requestKey: key, orderId: orderId);
       if (!alive()) return;
       if (result.status == 'PENDING' || result.status == 'APPROVED') {
         await store.clear(scope, subject, key);
@@ -97,9 +98,7 @@ class _EquipmentApplySheetState extends ConsumerState<EquipmentApplySheet> {
       }
     } catch (error) {
       if (alive()) {
-        setState(
-          () => _error = '$error\n结果未确认时请刷新申请列表；重试会沿用本次申请标识。',
-        );
+        setState(() => _error = '$error\n结果未确认时请刷新申请列表；重试会沿用本次申请标识。');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -123,14 +122,32 @@ class _EquipmentApplySheetState extends ConsumerState<EquipmentApplySheet> {
     );
   }
 
+  String _orderLabel(DispatchOrder order) {
+    final fields = order.data.fields ?? const <String, String>{};
+    String endpoint(String side, String fallback) {
+      final value = fields['$side.site']?.trim();
+      return value == null || value.isEmpty ? fallback : value;
+    }
+
+    final accepted = _acceptedAt(order);
+    final when = accepted == null ? '接单时间待确认' : '接单时间 ${_cnDateTime(accepted)}';
+    final tail = _contactPhoneTail(fields);
+    final contact = tail.isEmpty ? '' : ' · 联系人尾号 $tail';
+    return "${endpoint('start', '起点')} → ${endpoint('end', '终点')} · $when$contact";
+  }
+
   @override
   Widget build(BuildContext context) {
     final stock = ref.watch(equipmentModelStockProvider);
     final orders = ref.watch(dispatchPilotOrdersProvider);
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding:
-          EdgeInsets.only(left: 16, right: 16, top: 16, bottom: bottom + 16),
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: bottom + 16,
+      ),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -164,9 +181,9 @@ class _EquipmentApplySheetState extends ConsumerState<EquipmentApplySheet> {
                         onTap: _busy
                             ? null
                             : () => setState(() {
-                                  _modelId = item.aircraftModelId;
-                                  _error = null;
-                                }),
+                                _modelId = item.aircraftModelId;
+                                _error = null;
+                              }),
                       ),
                   ],
                 );
@@ -179,25 +196,23 @@ class _EquipmentApplySheetState extends ConsumerState<EquipmentApplySheet> {
               loading: () => const SizedBox.shrink(),
               error: (_, _) => const SizedBox.shrink(),
               data: (list) {
-                final active = list
-                    .where((o) => !o.completed)
-                    .toList(growable: false);
+                final active = list.where((o) => !o.completed).toList()
+                  ..sort(_byAcceptedAtDesc);
+                if (active.isEmpty) {
+                  return const Text('暂无可关联的订单，请先接单后再申请借机。');
+                }
                 return Column(
                   children: [
-                    _choice(
-                      title: '不关联订单',
-                      selected: _orderId == null,
-                      onTap: _busy
-                          ? null
-                          : () => setState(() => _orderId = null),
-                    ),
                     for (final DispatchOrder order in active)
                       _choice(
-                        title: order.id,
+                        title: _orderLabel(order),
                         selected: _orderId == order.id,
                         onTap: _busy
                             ? null
-                            : () => setState(() => _orderId = order.id),
+                            : () => setState(() {
+                                _orderId = order.id;
+                                _error = null;
+                              }),
                       ),
                   ],
                 );
@@ -220,4 +235,32 @@ class _EquipmentApplySheetState extends ConsumerState<EquipmentApplySheet> {
       ),
     );
   }
+}
+
+DateTime? _acceptedAt(DispatchOrder order) =>
+    DateTime.tryParse(order.data.acceptedAt ?? '')?.toLocal();
+
+String _contactPhoneTail(Map<String, dynamic> fields) {
+  final start = (fields['start.phone']?.toString() ?? '').trim();
+  final end = (fields['end.phone']?.toString() ?? '').trim();
+  final digits = (start.isNotEmpty ? start : end).replaceAll(
+    RegExp(r'[^0-9]'),
+    '',
+  );
+  return digits.length >= 4 ? digits.substring(digits.length - 4) : '';
+}
+
+int _byAcceptedAtDesc(DispatchOrder a, DispatchOrder b) {
+  final at = _acceptedAt(a)?.millisecondsSinceEpoch;
+  final bt = _acceptedAt(b)?.millisecondsSinceEpoch;
+  if (at == null && bt == null) return b.id.compareTo(a.id);
+  if (at == null) return 1;
+  if (bt == null) return -1;
+  final byTime = bt.compareTo(at);
+  return byTime != 0 ? byTime : b.id.compareTo(a.id);
+}
+
+String _cnDateTime(DateTime time) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${time.year}年${time.month}月${time.day}日 ${two(time.hour)}:${two(time.minute)}';
 }

@@ -5,8 +5,13 @@ import '../../providers/waybill_draft_provider.dart';
 
 /// 已借出飞机的主动归还（归还不需审批）。
 class EquipmentReturnAction extends ConsumerStatefulWidget {
-  const EquipmentReturnAction({super.key, required this.borrowId});
+  const EquipmentReturnAction({
+    super.key,
+    required this.borrowId,
+    this.label = '归还',
+  });
   final String borrowId;
+  final String label;
   @override
   ConsumerState<EquipmentReturnAction> createState() =>
       _EquipmentReturnActionState();
@@ -24,9 +29,7 @@ class _EquipmentReturnActionState extends ConsumerState<EquipmentReturnAction> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('确认归还'),
-        content: const Text(
-          '归还立即生效，不需要管理员再批。请确认已将飞机交还现场。换机请先还再借。',
-        ),
+        content: const Text('归还立即生效，不需要管理员再批。请确认已将飞机交还现场。换机请先还再借。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -62,17 +65,17 @@ class _EquipmentReturnActionState extends ConsumerState<EquipmentReturnAction> {
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          FilledButton(
-            onPressed: _busy ? null : _act,
-            child: Text(_busy ? '归还中…' : '归还'),
-          ),
-          if (_error != null)
-            Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      FilledButton(
+        onPressed: _busy ? null : _act,
+        child: Text(_busy ? '归还中…' : widget.label),
+      ),
+      if (_error != null)
+        Text(
+          _error!,
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        ),
+    ],
+  );
 }

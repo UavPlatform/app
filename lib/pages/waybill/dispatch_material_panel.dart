@@ -1,5 +1,5 @@
+import '../../api/dispatch_material_api.dart';
 import '../../utils/failure_message.dart';
-import '../../widgets/flow_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,6 +11,7 @@ class DispatchMaterialPanel extends ConsumerStatefulWidget {
     super.key,
     required this.orderId,
     this.purpose,
+    this.stage,
     this.onSelected,
     this.expanded = false,
     this.initialSelected = const [],
@@ -19,6 +20,7 @@ class DispatchMaterialPanel extends ConsumerStatefulWidget {
   final bool expanded;
   final List<String> initialSelected;
   final String? purpose;
+  final String? stage;
   final ValueChanged<List<String>>? onSelected;
   @override
   ConsumerState<DispatchMaterialPanel> createState() =>
@@ -127,94 +129,97 @@ class _DispatchMaterialPanelState extends ConsumerState<DispatchMaterialPanel> {
                     ref.invalidate(dispatchMaterialsProvider(widget.orderId)),
                 child: Text('$error\n重试读取凭证'),
               ),
-              data: (files) => Column(
-                spacing: 10,
-                children: [
-                  for (final file in widget.expanded ? files : files.take(3))
-                    ListTile(
-                      leading:
-                          widget.onSelected != null &&
-                              file.data.purpose == widget.purpose
-                          ? Checkbox(
-                              value: _selected.contains(file.id),
-                              onChanged: _busy
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        if (value == true) {
-                                          _selected.add(file.id);
-                                        } else {
-                                          _selected.remove(file.id);
-                                        }
-                                      });
-                                      widget.onSelected!(_selected.toList());
-                                    },
-                            )
-                          : const Icon(Icons.verified_outlined),
-                      title: Text(
-                        file.data.fileName ?? '凭证',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        const {
-                              'CARGO': '货物',
-                              'START_SITE': '起点',
-                              'END_SITE': '终点',
-                              'PILOT_DELIVERY': '飞手送达凭证',
-                              'SHIPPER_RECEIPT': '收货凭证',
-                            }[file.data.purpose] ??
-                            '材料',
-                      ),
-                      trailing: IconButton(
-                        tooltip: '查看凭证',
-                        icon: const Icon(Icons.open_in_new),
-                        onPressed: () => _open(file.data.downloadUrl!),
-                      ),
-                    ),
-                  if (!widget.expanded && files.length > 3)
-                    FlowDetailsLink(
-                      title: '查看全部材料',
-                      summary:
-                          '共 ${files.length} 份 · 已选择 ${_selected.length} 份',
-                      icon: Icons.folder_open_outlined,
-                      builder: (_) {
-                        final scope = ref.read(waybillDraftScopeProvider);
-                        return FlowDetailPage(
-                          title: '现场材料与交付凭证',
-                          scope: scope,
-                          builder: (_) => FlowList(
-                            children: [
-                              DispatchMaterialPanel(
-                                orderId: widget.orderId,
-                                purpose: widget.purpose,
-                                expanded: true,
-                                initialSelected: _selected.toList(),
-                                onSelected: widget.onSelected == null
-                                    ? null
-                                    : (ids) {
-                                        if (!mounted ||
-                                            scope !=
-                                                ref.read(
-                                                  waybillDraftScopeProvider,
-                                                )) {
-                                          return;
-                                        }
-                                        setState(() {
-                                          _selected
-                                            ..clear()
-                                            ..addAll(ids);
-                                        });
-                                        widget.onSelected!(ids);
-                                      },
+              data: (files) {
+                final groups = <String, List<DispatchMaterial>>{
+                  '货物照片': [],
+                  '场地条件': [],
+                  '交付凭证': [],
+                };
+                for (final file in files) {
+                  final group = switch (file.data.purpose) {
+                    'CARGO' => '货物照片',
+                    'START_SITE' || 'END_SITE' => '场地条件',
+                    _ => '交付凭证',
+                  };
+                  groups[group]!.add(file);
+                }
+                final focus = switch (widget.stage) {
+                  'PILOT_PREPARING' || 'PILOT_ARRIVED' => '场地条件',
+                  'IN_TRANSIT' ||
+                  'DELIVERY_CONFIRMATION' ||
+                  'COMPLETED' => '交付凭证',
+                  _ => widget.onSelected == null ? '货物照片' : '交付凭证',
+                };
+                return Column(
+                  children: [
+                    for (final group in groups.entries)
+                      ExpansionTile(
+                        key: ValueKey('${widget.orderId}:$focus:${group.key}'),
+                        initiallyExpanded:
+                            widget.expanded || group.key == focus,
+                        tilePadding: EdgeInsets.zero,
+                        dense: true,
+                        title: Text(group.key),
+                        subtitle: Text(
+                          '${group.value.length} 份${group.key == '交付凭证' && _selected.isNotEmpty ? ' · 已选择 ${_selected.length} 份' : ''}',
+                        ),
+                        children: [
+                          if (group.value.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Text('暂无已核验材料'),
+                            ),
+                          for (final file in group.value)
+                            ListTile(
+                              leading:
+                                  widget.onSelected != null &&
+                                      file.data.purpose == widget.purpose
+                                  ? Checkbox(
+                                      value: _selected.contains(file.id),
+                                      onChanged: _busy
+                                          ? null
+                                          : (value) {
+                                              setState(() {
+                                                if (value == true) {
+                                                  _selected.add(file.id);
+                                                } else {
+                                                  _selected.remove(file.id);
+                                                }
+                                              });
+                                              widget.onSelected!(
+                                                _selected.toList(),
+                                              );
+                                            },
+                                    )
+                                  : const Icon(Icons.verified_outlined),
+                              title: Text(
+                                file.data.fileName ?? '凭证',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                ],
-              ),
+                              subtitle: Text(
+                                const {
+                                      'CARGO': '货物',
+                                      'START_SITE': '起点',
+                                      'END_SITE': '终点',
+                                      'PILOT_DELIVERY': '飞手送达凭证',
+                                      'SHIPPER_RECEIPT': '收货凭证',
+                                    }[file.data.purpose] ??
+                                    '材料',
+                              ),
+                              trailing: IconButton(
+                                tooltip: '查看凭证',
+                                icon: const Icon(Icons.open_in_new),
+                                onPressed: file.data.downloadUrl == null
+                                    ? null
+                                    : () => _open(file.data.downloadUrl!),
+                              ),
+                            ),
+                        ],
+                      ),
+                  ],
+                );
+              },
             ),
             if (widget.purpose != null)
               Row(

@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uav_pilot_app/api/generated/openapi_models.dart';
 import 'package:uav_pilot_app/models/dispatch_order.dart';
+import 'package:uav_pilot_app/pages/chat/dispatch_chat_page.dart';
+import 'package:uav_pilot_app/providers/dispatch_order_provider.dart';
 import 'package:uav_pilot_app/widgets/dispatch_contact_actions.dart';
 import 'package:uav_pilot_app/services/dispatch_navigation.dart';
 import '../dispatch_order_test_support.dart';
@@ -17,6 +19,43 @@ DispatchOrder order(String stage) => DispatchOrder(
   ),
 );
 void main() {
+  testWidgets(
+    'completed order chat directs to the latest order instead of retrying',
+    (tester) async {
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) =>
+                const DispatchChatPage(orderId: 'demo-order', version: 3),
+          ),
+          GoRoute(
+            path: '/dispatch/orders/:id',
+            builder: (_, state) =>
+                Scaffold(body: Text('订单 ${state.pathParameters['id']}')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            dispatchOrderProvider(
+              'demo-order',
+            ).overrideWith((ref) async => order('COMPLETED')),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('本次订单会话已结束'), findsOneWidget);
+      expect(find.text('重试'), findsNothing);
+      await tester.tap(find.text('查看最新订单'));
+      await tester.pumpAndSettle();
+      expect(find.text('订单 demo-order'), findsOneWidget);
+    },
+  );
+
   testWidgets('unassigned and cancelled orders have no contact actions', (
     tester,
   ) async {

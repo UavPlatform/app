@@ -105,36 +105,28 @@ WaybillDraft completeDraft() => WaybillDraft(
 );
 
 void main() {
-  testWidgets(
-    'old endpoint contacts are preserved on cancel and unified only after confirmation',
-    (tester) async {
-      final container = await showDraft(
-        tester,
-        WaybillDraft(
-          fields: {
-            ...completeDraft().fields,
-            'end.contact': '终点旧联系人',
-            'end.phone': '13900139000',
-          },
-        ),
-      );
-      await next(tester);
-      expect(container.read(waybillDraftProvider).draft.step, 0);
-      expect(find.text('原草稿两端联系人不同，保存后将统一使用以下联系人。'), findsOneWidget);
-      await tester.tap(find.byTooltip('关闭'));
-      await tester.pumpAndSettle();
-      expect(
-        container.read(waybillDraftProvider).draft.value('end.contact'),
-        '终点旧联系人',
-      );
-      await edit(tester, 'contact');
-      await saveEditor(tester);
-      final saved = container.read(waybillDraftProvider).draft;
-      expect(saved.value('end.contact'), saved.value('start.contact'));
-      expect(saved.value('end.phone'), saved.value('start.phone'));
-      expect(saved.cloudFields['end.phone'], '13800138000');
-    },
-  );
+  testWidgets('legacy drafts reuse the start contact for both endpoints', (
+    tester,
+  ) async {
+    final container = await showDraft(
+      tester,
+      WaybillDraft(
+        fields: {
+          ...completeDraft().fields,
+          'end.contact': '终点旧联系人',
+          'end.phone': '13900139000',
+        },
+      ),
+    );
+    await next(tester);
+    expect(container.read(waybillDraftProvider).draft.step, 4);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.textContaining('终点旧联系人'), findsNothing);
+    expect(
+      container.read(waybillDraftProvider).draft.cloudFields['end.phone'],
+      '13800138000',
+    );
+  });
 
   testWidgets('cancelled or stale map selections leave the draft unchanged', (
     tester,
@@ -173,7 +165,7 @@ void main() {
       final categoryHeight = tester.getSize(find.byType(BottomSheet)).height;
       await tester.tap(find.byTooltip('关闭'));
       await tester.pumpAndSettle();
-      await edit(tester, 'contact');
+      await edit(tester, 'start.contact');
       expect(
         tester.getSize(find.byType(BottomSheet)).height,
         greaterThan(categoryHeight),
@@ -228,7 +220,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.widgetWithText(FilledButton, '确认运单，前往支付').hitTestable(),
+        find.widgetWithText(FilledButton, '检查运单').hitTestable(),
         findsOneWidget,
       );
       expect(
@@ -264,8 +256,7 @@ void main() {
     await showDraft(tester, completeDraft());
     expect(find.byType(TextFormField), findsNothing);
     expect(find.textContaining('10–20 kg'), findsOneWidget);
-    expect(find.byKey(const ValueKey('edit-contact')), findsOneWidget);
-    expect(find.byKey(const ValueKey('edit-start.contact')), findsNothing);
+    expect(find.byKey(const ValueKey('edit-start.contact')), findsOneWidget);
     expect(find.byKey(const ValueKey('edit-end.contact')), findsNothing);
   });
   testWidgets(
@@ -313,34 +304,43 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('shared contact validates once and saves to both endpoints', (
+    tester,
+  ) async {
+    final container = await showDraft(tester, completeDraft());
+    await edit(tester, 'start.contact');
+    expect(find.byKey(const ValueKey('end.phone')), findsNothing);
+    await tester.enterText(find.byKey(const ValueKey('start.phone')), 'bad');
+    await saveEditor(tester);
+    expect(find.text('请填写有效联系电话'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('start.phone')),
+      '13900139000',
+    );
+    await saveEditor(tester);
+    expect(
+      container.read(waybillDraftProvider).draft.value('end.phone'),
+      '13900139000',
+    );
+  });
   testWidgets(
-    'shared contact validates phone and updates both endpoints only on save',
+    'invalid shared phone opens the single editor with an inline error',
     (tester) async {
-      final container = await showDraft(tester, completeDraft());
-      await edit(tester, 'contact');
-      expect(find.byKey(const ValueKey('end.site')), findsNothing);
-      await tester.enterText(find.byKey(const ValueKey('start.phone')), 'bad');
-      await saveEditor(tester);
-      expect(find.text('请填写有效联系电话'), findsOneWidget);
-      await tester.enterText(
-        find.byKey(const ValueKey('start.phone')),
-        '13900139000',
-      );
+      await showDraft(tester, completeDraft().change('start.phone', 'bad'));
+      await next(tester);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byKey(const ValueKey('start.phone')), findsOneWidget);
+      expect(find.byKey(const ValueKey('end.phone')), findsNothing);
       expect(
-        container.read(waybillDraftProvider).draft.value('start.phone'),
-        '13800138000',
-      );
-      await saveEditor(tester);
-      expect(
-        container.read(waybillDraftProvider).draft.value('end.phone'),
-        '13900139000',
-      );
-      expect(
-        container.read(waybillDraftProvider).draft.value('start.phone'),
-        '13900139000',
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('请填写有效联系电话'),
+        ),
+        findsOneWidget,
       );
     },
   );
+
   testWidgets(
     'route selection opens map directly and immediately stores only the selected endpoint',
     (tester) async {
